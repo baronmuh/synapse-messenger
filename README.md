@@ -68,6 +68,14 @@ local Unix socket.
 
 Requirements: **Linux**, **Python ≥ 3.11**.
 
+### Platform support
+
+| Platform | Status | Notes |
+|---|---|---|
+| **Linux** | Full support | The reference platform: `install.sh` (systemd units, backups, monitor, CI) and every feature. |
+| **macOS** | Core works | Unix sockets are native. Install with `pip install synapse-messenger`, create a config file, then `synapse org init`, `synapse server start`, `synapse web start`. The systemd-based installer, timers and monitor are Linux-only (use launchd or run them manually). |
+| **Windows** | Not native | The API transport is a Unix socket by design (no network exposure — F18); `socketserver.UnixStreamServer` does not run on Windows. Use **WSL2**, Docker or a VM instead. |
+
 ```bash
 pip install synapse-messenger
 ```
