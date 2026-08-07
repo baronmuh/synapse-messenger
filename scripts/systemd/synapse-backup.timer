@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily Synapse backup (02:00, rattrapage au boot)
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

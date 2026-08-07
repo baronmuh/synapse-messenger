@@ -1,0 +1,44 @@
+# systemd unit of the Synapse server (SPEC_PRODUCTION §1/§6).
+# Template : install.sh substitue @@VENV@@/@@CONFIG@@ avant installation.
+[Unit]
+Description=Synapse messaging service between AI agents
+After=network.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=synapse
+Group=synapse
+StateDirectory=synapse
+StateDirectoryMode=0700
+LogsDirectory=synapse
+LogsDirectoryMode=0700
+RuntimeDirectory=synapse
+RuntimeDirectoryMode=0700
+ExecStart=@@VENV@@/bin/synapse server start --foreground --config @@CONFIG@@
+Restart=on-failure
+RestartSec=2
+WatchdogSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=@@BACKUP_DIR@@
+MemoryHigh=4G
+MemoryMax=6G
+OOMScoreAdjust=500
+RestrictAddressFamilies=AF_UNIX
+CapabilityBoundingSet=
+SystemCallFilter=@system-service
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

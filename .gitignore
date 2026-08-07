@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+build/
+dist/
+*.synbk
+.coverage
+.coverage.*
+htmlcov/
+node_modules/
+.DS_Store
+.hallmark/
+prompt_hallmark_total_redesign.txt
+*.log

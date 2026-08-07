@@ -1,0 +1,9 @@
+[Unit]
+Description=Nightly Synapse CI (03:30, rattrapage au boot)
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

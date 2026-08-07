@@ -1,0 +1,45 @@
+# systemd unit of the Synapse web interface (SPEC_PRODUCTION §1/§6).
+# Template : install.sh substitue @@VENV@@/@@CONFIG@@ avant installation.
+[Unit]
+Description=Synapse web supervision interface
+After=synapse.service
+Requires=synapse.service
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=synapse
+Group=synapse
+StateDirectory=synapse
+StateDirectoryMode=0700
+LogsDirectory=synapse
+LogsDirectoryMode=0700
+# The web requires a ready server (socket + local token): wait for the
+# socket up to 60s at startup instead of failing (a boot-time
+# startup too fast would exhaust StartLimitBurst).
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 60); do [ -S "@@SOCKET@@" ] && exit 0; sleep 1; done; exit 1'
+ExecStart=@@VENV@@/bin/synapse web start --foreground --port 8080 --config @@CONFIG@@
+Restart=on-failure
+RestartSec=2
+WatchdogSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+MemoryMax=512M
+OOMScoreAdjust=500
+RestrictAddressFamilies=AF_UNIX AF_INET
+CapabilityBoundingSet=
+SystemCallFilter=@system-service
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

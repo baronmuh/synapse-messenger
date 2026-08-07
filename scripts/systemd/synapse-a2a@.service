@@ -1,0 +1,47 @@
+# systemd unit (template) of the A2A bridge (SPEC_PRODUCTION §1/§6).
+# One instance per exposed agent: synapse-a2a@<agent>.service (%i = agent).
+# Le pont ne tourne que si les secrets de l'agent existent
+# (ConditionPathExists) — provisionner /etc/synapse/secrets/a2a-<agent>.*
+# puis : systemctl enable --now synapse-a2a@<agent>.service
+[Unit]
+Description=Synapse A2A bridge for agent %i
+After=synapse.service
+Requires=synapse.service
+ConditionPathExists=@@SECRETS_DIR@@/a2a-%i.password
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=synapse
+Group=synapse
+StateDirectory=synapse
+StateDirectoryMode=0700
+LogsDirectory=synapse
+LogsDirectoryMode=0700
+# The bridge requires a ready server: bounded socket wait at startup.
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 60); do [ -S "@@SOCKET@@" ] && exit 0; sleep 1; done; exit 1'
+ExecStart=@@WRAPPER@@ %i 8090
+Restart=on-failure
+RestartSec=2
+WatchdogSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+MemoryMax=512M
+OOMScoreAdjust=500
+RestrictAddressFamilies=AF_UNIX AF_INET
+CapabilityBoundingSet=
+SystemCallFilter=@system-service
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

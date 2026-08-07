@@ -1,0 +1,8 @@
+{
+  "storage_dir": "/var/lib/synapse",
+  "socket_path": "/var/run/synapse/synapse.sock",
+  "log_dir": "/var/log/synapse",
+  "backup_dir": "/var/backups/synapse",
+  "alert_command": "",
+  "update_command": ""
+}

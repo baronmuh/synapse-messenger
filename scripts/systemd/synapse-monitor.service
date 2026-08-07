@@ -1,0 +1,25 @@
+# Periodic Synapse monitor (SPEC_PRODUCTION §4): service state,
+# backup age, database freshness, disk, error bursts,
+# backup key copy. Writes <storage_dir>/monitor.json and exits with a
+# non-zero code on anomaly (→ journald + optional alert_command).
+[Unit]
+Description=Synapse periodic health monitor
+
+[Service]
+Type=oneshot
+User=synapse
+Group=synapse
+StateDirectory=synapse
+StateDirectoryMode=0700
+LogsDirectory=synapse
+LogsDirectoryMode=0700
+ExecStart=@@VENV@@/bin/python @@SCRIPTS_DIR@@/synapse-monitor.py --config @@CONFIG@@
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=@@BACKUP_DIR@@
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

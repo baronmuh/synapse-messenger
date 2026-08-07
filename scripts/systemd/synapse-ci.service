@@ -1,0 +1,12 @@
+# Nightly local CI (SPEC_PRODUCTION §2): full suite in a dedicated venv,
+# regression net even without pushes. Output to journald.
+[Unit]
+Description=Synapse continuous integration (nightly full test suite)
+
+[Service]
+Type=oneshot
+ExecStart=@@REPO@@/scripts/ci.sh
+WorkingDirectory=@@REPO@@
+
+[Install]
+WantedBy=multi-user.target

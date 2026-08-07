@@ -1,0 +1,24 @@
+# Weekly backup verification (restore proof,
+# SPEC_PRODUCTION §3): decrypts and validates the most recent archive
+# in isolated storage — production is never modified.
+[Unit]
+Description=Synapse backup restore proof (weekly)
+
+[Service]
+Type=oneshot
+User=synapse
+Group=synapse
+StateDirectory=synapse
+StateDirectoryMode=0700
+LogsDirectory=synapse
+LogsDirectoryMode=0700
+ExecStart=@@VENV@@/bin/synapse backup verify --latest --config @@CONFIG@@
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=@@BACKUP_DIR@@
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

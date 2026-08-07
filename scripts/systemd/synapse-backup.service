@@ -1,0 +1,24 @@
+# Daily encrypted backup (SPEC_PRODUCTION §3).
+# Template : install.sh substitue @@VENV@@/@@CONFIG@@/@@BACKUP_DIR@@.
+[Unit]
+Description=Synapse encrypted backup (daily)
+
+[Service]
+Type=oneshot
+User=synapse
+Group=synapse
+StateDirectory=synapse
+StateDirectoryMode=0700
+LogsDirectory=synapse
+LogsDirectoryMode=0700
+ExecStart=@@VENV@@/bin/synapse backup create --dir @@BACKUP_DIR@@ --config @@CONFIG@@
+ExecStartPost=@@VENV@@/bin/synapse backup prune --keep 14 --dir @@BACKUP_DIR@@ --config @@CONFIG@@
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=@@BACKUP_DIR@@
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
