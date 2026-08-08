@@ -68,6 +68,40 @@ local Unix socket.
 
 Requirements: **Python ≥ 3.11**. Linux, macOS and Windows are supported.
 
+### For non-technical users — install with an AI agent (recommended)
+
+You do NOT need to type commands or edit files. A Hermes agent does the
+whole installation for you. Follow these steps:
+
+1. **Create your Hermes profile** (one time):
+   ```bash
+   hermes profile create synapse --description "My Synapse agent"
+   hermes -p synapse setup   # configure the providers (LLM access)
+   ```
+   Use only the default skills that Hermes provides. Do NOT add skills
+   from another profile or an external configuration at this stage.
+   The profile must stay clean — it will become your **Architect**.
+
+2. **Open a session with that agent** and tell it:
+   > **« Installe Synapse Messenger »** — voici le lien du projet :
+   > `https://github.com/baronmuh/synapse-messenger`
+
+   (English: "Install Synapse Messenger, here is the GitHub link:
+   https://github.com/baronmuh/synapse-messenger")
+
+3. The agent reads the repository, follows the installation guide
+   (`INSTALL-agent.md`), installs and configures Synapse, verifies that
+   everything works, installs the **Architect skill family** on its own
+   profile, and opens the interactive onboarding guide in your browser.
+
+4. Follow the onboarding guide: it explains how Synapse works, how to
+   ask the Architect to create your first organization, and how to use
+   the web interface afterwards.
+
+> The installation procedure for agents lives in
+> [`INSTALL-agent.md`](INSTALL-agent.md) — deterministic, verified
+> step-by-step, never PyPI, no sudo, secrets in 0600 files only.
+
 ### Platform support
 
 | Platform | Status | Notes |

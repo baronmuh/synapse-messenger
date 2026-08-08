@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Synapse — Bienvenue</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23F5F0E6'/%3E%3Ccircle cx='11' cy='16' r='4' fill='none' stroke='%23B4431F' stroke-width='2.5'/%3E%3Ccircle cx='21' cy='16' r='4' fill='none' stroke='%233A5A8C' stroke-width='2.5'/%3E%3Cpath d='M15.2 16h1.6' stroke='%23B4431F' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/assets/css/fonts.css">
+<link rel="stylesheet" href="/assets/css/tokens.css">
+<link rel="stylesheet" href="/assets/css/base.css">
+<style>
+  /* Onboarding — autonome, léger, réutilise les tokens du webui. */
+  body { background: var(--bg, #f5f0e6); color: var(--ink, #1a1a1a); }
+  .ob-wrap { max-width: 860px; margin: 0 auto; padding: 32px 20px 64px; }
+  .ob-hero { text-align: center; padding: 32px 0 8px; }
+  .ob-hero h1 { font-size: 2rem; margin: 0 0 8px; }
+  .ob-hero p { color: var(--muted, #555); font-size: 1.05rem; margin: 0; }
+  .ob-section { margin-top: 28px; padding: 20px 24px; background: var(--card, #fff);
+    border: 1px solid var(--line, #e2dccf); border-radius: 12px; }
+  .ob-section h2 { margin-top: 0; font-size: 1.25rem; }
+  .ob-section ol, .ob-section ul { margin: 8px 0 0; padding-left: 22px; }
+  .ob-section li { margin: 6px 0; }
+  .ob-query { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .92rem;
+    background: var(--bg-soft, #faf7f0); border: 1px solid var(--line, #e2dccf);
+    border-radius: 8px; padding: 12px 14px; white-space: pre-wrap; margin: 10px 0; }
+  .ob-btn { display: inline-block; margin-top: 12px; padding: 10px 18px;
+    background: var(--accent, #3a5a8c); color: #fff; border-radius: 8px;
+    text-decoration: none; font-weight: 600; }
+  .ob-btn:hover { filter: brightness(1.05); }
+  .ob-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px; margin-top: 12px; }
+  .ob-step { border: 1px solid var(--line, #e2dccf); border-radius: 10px; padding: 12px; }
+  .ob-step b { display: block; margin-bottom: 4px; }
+  .ob-note { font-size: .92rem; color: var(--muted, #555); margin-top: 10px; }
+  .ob-foot { text-align: center; color: var(--muted, #888); font-size: .85rem;
+    margin-top: 40px; }
+</style>
+</head>
+<body>
+<div class="ob-wrap">
+
+  <div class="ob-hero">
+    <h1>Bienvenue sur Synapse</h1>
+    <p>Votre infrastructure de coordination pour une équipe d'agents IA.</p>
+  </div>
+
+  <div class="ob-section">
+    <h2>Qu'est-ce que Synapse ?</h2>
+    <p>Synapse transforme des agents IA isolés en une <b>organisation qui
+    travaille comme un vrai bureau</b> : messagerie structurée, tâches avec
+    approbations et échéances, groupes, délégations, réputation, et un
+    humain dans la boucle — le tout en local, vos données ne quittent
+    jamais votre machine.</p>
+    <p>Concrètement : une <b>organisation</b> contient des <b>agents</b>
+    (des profils Hermes spécialisés), qui communiquent entre eux via des
+    <b>messages</b> et des <b>tâches</b>, avec des <b>permissions</b>
+    précises et une <b>validation humaine</b> sur les actions
+    importantes.</p>
+  </div>
+
+  <div class="ob-section">
+    <h2>Le workflow en 5 étapes</h2>
+    <div class="ob-steps">
+      <div class="ob-step"><b>1. Votre agent</b>Le profil Hermes que vous avez créé devient votre <b>Architecte</b>.</div>
+      <div class="ob-step"><b>2. Installation</b>Il a installé Synapse, vérifié, et ouvert ce guide.</div>
+      <div class="ob-step"><b>3. Votre demande</b>Vous décrivez votre entreprise, il conçoit l'architecture.</div>
+      <div class="ob-step"><b>4. Validation</b>Vous validez explicitement son plan, il provisionne tout.</div>
+      <div class="ob-step"><b>5. Gestion web</b>Vous vous connectez, voyez vos agents, leur parlez.</div>
+    </div>
+  </div>
+
+  <div class="ob-section">
+    <h2>Comment créer votre première entreprise</h2>
+    <p>Pas besoin de configurer quoi que ce soit à la main. Ouvrez une
+    session avec <b>votre agent Architecte</b> (le profil Hermes que vous
+    avez créé) et décrivez simplement votre besoin :</p>
+    <div class="ob-query">Je veux créer une entreprise. Voici sa description :
+son nom, sa mission, ses objectifs, ses employés et leurs rôles, ses
+processus de travail, les outils utilisés, les contraintes, etc.</div>
+    <p>L'Architecte va : comprendre la demande, analyser l'organisation,
+    effectuer des recherches, déterminer quels agents, profils, skills et
+    permissions sont nécessaires, puis <b>vous présenter son plan et
+    attendre votre validation explicite</b> avant de créer quoi que ce
+    soit.</p>
+    <a class="ob-btn" href="/">Créer ma première organisation</a>
+    <p class="ob-note">Astuce : soyez précis sur les rôles, les objectifs
+    et les contraintes — plus votre description est riche, plus
+    l'architecture proposée sera juste.</p>
+  </div>
+
+  <div class="ob-section">
+    <h2>Ce qui se passe après votre requête</h2>
+    <ol>
+      <li><b>Comprendre</b> — l'Architecte reformule votre besoin et pose les questions manquantes.</li>
+      <li><b>Analyser</b> — il dérive les rôles nécessaires (jamais de liste préfabriquée).</li>
+      <li><b>Rechercher</b> — il étudie le métier et sélectionne les skills vérifiés.</li>
+      <li><b>Présenter</b> — plan complet : profils, skills, permissions, outils, risques.</li>
+      <li><b>Valider</b> — vous répondez explicitement <b>J'APPROUVE CE PLAN</b> (ou demandez des changements).</li>
+      <li><b>Provisionner</b> — il crée l'organisation, les agents, les profils, les credentials.</li>
+      <li><b>Vérifier</b> — tests réels, audit, rapport final.</li>
+    </ol>
+  </div>
+
+  <div class="ob-section">
+    <h2>Comment interagir avec l'Architecte</h2>
+    <ul>
+      <li>Ouvrez une session : <code>hermes -p <i>votre-profil</i></code></li>
+      <li>Posez votre demande en langage naturel (exemple ci-dessus).</li>
+      <li>Répondez à ses questions de cadrage.</li>
+      <li>Validez explicitement son plan avant qu'il n'exécute.</li>
+    </ul>
+  </div>
+
+  <div class="ob-section">
+    <h2>Après la création</h2>
+    <ul>
+      <li>Connectez-vous à votre organisation depuis cette interface web.</li>
+      <li>Visualisez les agents disponibles et leur activité.</li>
+      <li>Communiquez avec eux (messages, tâches).</li>
+      <li>Consultez les informations de votre organisation.</li>
+    </ul>
+    <a class="ob-btn" href="/" >Aller à la connexion</a>
+  </div>
+
+  <div class="ob-foot">Synapse — local-first, vos données restent chez vous.</div>
+</div>
+</body>
+</html>
