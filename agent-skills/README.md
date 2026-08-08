@@ -52,7 +52,7 @@ Each skill respects the Hermes conventions:
    variable nor as a command argument (the project's
    security rule). Also indicate the socket path if different from the default
    (`/var/run/synapse/synapse.sock`): the configuration is passed via
-   `--config <chemin>` or `$SYNAPSE_CONFIG`.
+   `--config <path>` or `$SYNAPSE_CONFIG`.
 3. The agent loads `synapse` (the skill triggers on "Synapse project"),
    verifies its connection (`synapse api get_my_organization --my-name <account>
    --password-stdin`), then uses the commands according to the rights of its

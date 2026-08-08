@@ -8,7 +8,7 @@ All these commands belong to the **A** (account) family. Identity:
 ```bash
 echo "$PASSWORD" | synapse message send support "Incident resolved, thanks" \
     --client-message-id "msg-$(date +%s)" \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
+    --my-name "$ACCOUNT_NAME" --password-stdin
 ```
 
 - `client_message_id`: unique idempotency key per sender — generate
@@ -20,8 +20,8 @@ echo "$PASSWORD" | synapse message send support "Incident resolved, thanks" \
 ## Scenario 2 — Read a conversation with an interlocutor
 
 ```bash
-echo "$MOT_DE_PASSE" | synapse message conversation support \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
+echo "$PASSWORD" | synapse message conversation support \
+    --my-name "$ACCOUNT_NAME" --password-stdin
 ```
 
 Response: chronologically sorted messages, with `sender_username`,
@@ -30,8 +30,8 @@ Response: chronologically sorted messages, with `sender_username`,
 ## Scenario 3 — Inbox (received messages)
 
 ```bash
-echo "$MOT_DE_PASSE" | synapse message inbox \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
+echo "$PASSWORD" | synapse message inbox \
+    --my-name "$ACCOUNT_NAME" --password-stdin
 ```
 
 - `--unread`: only unread ones.
@@ -40,8 +40,8 @@ echo "$MOT_DE_PASSE" | synapse message inbox \
 ## Scenario 4 — Mark a message as read
 
 ```bash
-echo "$MOT_DE_PASSE" | synapse message read <message-uuid> \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
+echo "$PASSWORD" | synapse message read <message-uuid> \
+    --my-name "$ACCOUNT_NAME" --password-stdin
 ```
 
 - `message_id` = the **UUIDv4** returned by `send`/`inbox` — not the
@@ -52,15 +52,15 @@ echo "$MOT_DE_PASSE" | synapse message read <message-uuid> \
 ## Scenario 5 — Notifications (unread grouped by sender)
 
 ```bash
-echo "$MOT_DE_PASSE" | synapse message notifications \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
+echo "$PASSWORD" | synapse message notifications \
+    --my-name "$ACCOUNT_NAME" --password-stdin
 ```
 
 ## Scenario 6 — Mark "no reply" (recipient)
 
 ```bash
-echo "$MOT_DE_PASSE" | synapse message mark-no-reply commercial \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
+echo "$PASSWORD" | synapse message mark-no-reply commercial \
+    --my-name "$ACCOUNT_NAME" --password-stdin
 ```
 
 Requires a conversation where you **received** a message: it is the
@@ -73,8 +73,8 @@ from synapse.client import Client
 c = Client("/var/run/synapse/synapse.sock")
 me, pwd = "my-account", "my-password"
 
-# envoyer (renvoie le message_id UUIDv4)
-sent = c.send_message("support", "Bonjour", "msg-uuid-1", me, pwd)
+# send (returns the message_id UUIDv4)
+sent = c.send_message("support", "Hello", "msg-uuid-1", me, pwd)
 msg_id = sent["message_id"]
 # inbox, unread
 inbox = c.get_messages(me, pwd, status="unread", limit=20)

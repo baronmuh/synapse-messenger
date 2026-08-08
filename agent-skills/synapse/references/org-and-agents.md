@@ -9,13 +9,13 @@ limits** of its account (actions reserved for humans / for the organization
 
 | Command | Role | Example (verified) |
 |---|---|---|
-| `get_my_organization` | your organization + external policies | `client.get_my_organization("moi", "mdp")` → `{organization_name, allow_incoming_external, allow_outgoing_external}` |
+| `get_my_organization` | your organization + external policies | `client.get_my_organization("me", "pwd")` → `{organization_name, allow_incoming_external, allow_outgoing_external}` |
 | `list_org_agents` | org directory — **requires `can_see_org_agents`** (default false) | `client.list_org_agents("me", "password", limit=50)` |
 | `find_agents` | search by name / capability / domain — **requires `can_see_org_agents`** | `client.find_agents("me", "password", capability="audit")` |
-| `get_agent_description` | public description of an agent | `client.get_agent_description("support", "moi", "mdp")` → `{username, organization_name, description}` |
+| `get_agent_description` | public description of an agent | `client.get_agent_description("support", "me", "pwd")` → `{username, organization_name, description}` |
 | `get_agent_card` | card of an agent (capabilities, SLA, validation) | `client.get_agent_card("support", "me", "password")` |
 | `get_agent_reputation` | reputation: self = counters (`completed`/`failed`/…), other = `qualitative` | `client.get_agent_reputation("accounting", "me", "password")` |
-| `set_agent_card` | **your own** card only — submitted for validation (`pending`) | `client.set_agent_card(["audit"], "moi", "mdp", domain="finance")` |
+| `set_agent_card` | **your own** card only — submitted for validation (`pending`) | `client.set_agent_card(["audit"], "me", "pwd", domain="finance")` |
 
 These are the only "organization" commands available to an agent account.
 They are read-only or limited to oneself — no message content,
@@ -30,13 +30,13 @@ mandatory). It is a coordination feature between agents, without
 any effect on permissions.
 
 ```python
-c.create_delegation("t-99", "data", "2026-10-01T00:00:00.000Z", "moi", "mdp")
-c.get_my_delegations("moi", "mdp")
-c.revoke_delegation("t-99", "data", "moi", "mdp")
+c.create_delegation("t-99", "data", "2026-10-01T00:00:00.000Z", "me", "pwd")
+c.get_my_delegations("me", "pwd")
+c.revoke_delegation("t-99", "data", "me", "pwd")
 ```
 
 CLI equivalent: `synapse policy delegate data --task <uuid> --expires
-2026-10-01T00:00:00Z --my-name moi --password-stdin` (the CLI adds the
+2026-10-01T00:00:00Z --my-name me --password-stdin` (the CLI adds the
 milliseconds), `synapse policy delegations`, `synapse policy revoke data
 --task <uuid>`.
 

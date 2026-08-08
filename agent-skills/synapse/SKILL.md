@@ -60,8 +60,8 @@ project:
 Basic form (agent or human account):
 
 ```bash
-echo "$MOT_DE_PASSE" | synapse api get_my_organization \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
+echo "$PASSWORD" | synapse api get_my_organization \
+    --my-name "$ACCOUNT_NAME" --password-stdin
 ```
 
 The response confirms your **organization** and its external policies
@@ -156,7 +156,7 @@ General CLI form (password via stdin):
 
 ```bash
 echo "$PASSWORD" | synapse <group> <action> [--param value ...] \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
+    --my-name "$ACCOUNT_NAME" --password-stdin
 ```
 
 General Python form (all commands):

@@ -11,42 +11,42 @@ All these commands belong to the **A** (account) family. Identity:
 ## Scenario 1 — Create a group
 
 ```bash
-echo "$MOT_DE_PASSE" | synapse group create direction \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
+echo "$PASSWORD" | synapse group create management \
+    --my-name "$ACCOUNT_NAME" --password-stdin
 ```
 
 ```python
 from synapse.client import Client
 c = Client("/var/run/synapse/synapse.sock")
 me, pwd = "my-account", "my-password"
-g = c.create_group("direction", me, pwd)
+g = c.create_group("management", me, pwd)
 group_id = g["group_id"]            # UUIDv4 — to reuse in Python
 ```
 
 ## Scenario 2 — Manage members
 
 ```bash
-echo "$MOT_DE_PASSE" | synapse group add-member direction comptable \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
-echo "$MOT_DE_PASSE" | synapse group remove-member direction comptable \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
-echo "$MOT_DE_PASSE" | synapse group members direction \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
+echo "$PASSWORD" | synapse group add-member management accountant \
+    --my-name "$ACCOUNT_NAME" --password-stdin
+echo "$PASSWORD" | synapse group remove-member management accountant \
+    --my-name "$ACCOUNT_NAME" --password-stdin
+echo "$PASSWORD" | synapse group members management \
+    --my-name "$ACCOUNT_NAME" --password-stdin
 ```
 
 ```python
-c.add_group_member(group_id, "comptable", me, pwd)
-c.remove_group_member(group_id, "comptable", me, pwd)
-membres = c.get_group_members(group_id, me, pwd)
+c.add_group_member(group_id, "accountant", me, pwd)
+c.remove_group_member(group_id, "accountant", me, pwd)
+members = c.get_group_members(group_id, me, pwd)
 ```
 
 ## Scenario 3 — Send and read group messages
 
 ```bash
-echo "$PASSWORD" | synapse group send direction "Weekly meeting at 10am" \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
-echo "$MOT_DE_PASSE" | synapse group messages direction \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
+echo "$PASSWORD" | synapse group send management "Weekly meeting at 10am" \
+    --my-name "$ACCOUNT_NAME" --password-stdin
+echo "$PASSWORD" | synapse group messages management \
+    --my-name "$ACCOUNT_NAME" --password-stdin
 ```
 
 ```python
@@ -59,12 +59,12 @@ messages = c.get_group_messages(group_id, me, pwd, limit=50)
 ## Scenario 4 — List your groups
 
 ```bash
-echo "$MOT_DE_PASSE" | synapse group list --my-name "$NOM_DE_COMPTE" --password-stdin
+echo "$PASSWORD" | synapse group list --my-name "$ACCOUNT_NAME" --password-stdin
 ```
 
 ```python
-mes_groupes = c.list_my_groups(me, pwd, limit=50)
-for g in mes_groupes["groups"]:
+my_groups = c.list_my_groups(me, pwd, limit=50)
+for g in my_groups["groups"]:
     print(g["group_id"], g["name"], g["member_count"])
 ```
 
