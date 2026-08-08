@@ -188,7 +188,7 @@ def test_webui_onboarding_redirect_and_dom():
     """The onboarding gate: without any organization, `/` redirects to
     /onboarding (interactive guide); with the DOM harness, the page
     renders the 6 sections, the 5-step workflow, the request example and
-    the explicit validation mention (J'APPROUVE CE PLAN)."""
+    the explicit validation mention (I APPROVE THIS PLAN)."""
     if shutil.which("node") is None:
         pytest.skip("node absent")
     with tempfile.TemporaryDirectory(prefix="synapse-ob-") as tmp:
