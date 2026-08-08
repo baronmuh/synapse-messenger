@@ -54,7 +54,7 @@
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ---- Badges & pastilles ---------------------------------------------------- */
+/* ---- Badges & pills ---------------------------------------------------- */
 /* Solid badges: color carries the state, tinted ink carries the
    text (AA contrast verified). Never tinted text on soft backgrounds. */
 .badge {
@@ -123,7 +123,7 @@
 }
 .avatar-wrap { position: relative; display: inline-flex; }
 
-/* ---- Cartes ------------------------------------------------------------------- */
+/* ---- Cards ------------------------------------------------------------------- */
 .card {
   background: var(--color-paper-4);
   border: 1px solid var(--color-rule);
@@ -211,7 +211,7 @@
 }
 .kpi-sub { font-size: var(--text-small); color: var(--color-ink-2); }
 
-/* ---- Tableaux -------------------------------------------------------------------- */
+/* ---- Tables -------------------------------------------------------------------- */
 .table-wrap { overflow-x: auto; border-radius: var(--radius-lg); border: 1px solid var(--color-rule); background: var(--color-paper-4); box-shadow: var(--shadow-whisper); }
 table.data {
   width: 100%;
@@ -272,7 +272,7 @@ table.data .cell-num { font-variant-numeric: tabular-nums; text-align: right; }
 .cell-num { font-variant-numeric: tabular-nums; text-align: right; }
 .table-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2xs); padding: var(--space-sm) var(--space-md); border-top: 1px solid var(--color-rule); font-size: var(--text-caption); color: var(--color-ink-3); background: var(--color-paper-2); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
 
-/* ---- Formulaires ------------------------------------------------------------------ */
+/* ---- Forms ------------------------------------------------------------------ */
 .field { display: flex; flex-direction: column; gap: var(--space-2xs); }
 .field label, .field-label { font-size: var(--text-small); font-weight: 600; color: var(--color-ink-2); }
 /* CONSTANT 1 px border on all states (no-layout-shift); focus is a
@@ -310,7 +310,7 @@ table.data .cell-num { font-variant-numeric: tabular-nums; text-align: right; }
 .search-field .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--color-ink-3); pointer-events: none; }
 .search-field .input { padding-left: 32px; width: 100%; }
 
-/* ---- Segments / filtres chips ------------------------------------------------------ */
+/* ---- Segments / filter chips ------------------------------------------------------ */
 .seg { display: inline-flex; background: var(--color-paper-2); border: 1px solid var(--color-rule); border-radius: var(--radius-md); padding: 2px; gap: 2px; }
 .seg button {
   border: none;
@@ -328,7 +328,7 @@ table.data .cell-num { font-variant-numeric: tabular-nums; text-align: right; }
 .seg button:active { background: var(--color-paper-3); }
 .seg button[aria-pressed="true"] { background: var(--color-accent-soft); color: var(--color-ink); font-weight: 600; }
 
-/* ---- Bandeaux ------------------------------------------------------------------------ */
+/* ---- Banners ------------------------------------------------------------------------ */
 /* Neutral surface + tinted border + colored icon: readable (ink text)
    and AA without relying on a colored background. */
 .banner {
@@ -402,7 +402,7 @@ table.data .cell-num { font-variant-numeric: tabular-nums; text-align: right; }
 .skel-card { height: 96px; border-radius: var(--radius-lg); }
 .skel-row { height: var(--table-row-h); border-radius: var(--radius-sm); margin-bottom: 4px; }
 
-/* ---- Modales --------------------------------------------------------------------------- */
+/* ---- Modals --------------------------------------------------------------------------- */
 .blanket {
   position: fixed;
   inset: 0;
@@ -510,7 +510,7 @@ table.data .cell-num { font-variant-numeric: tabular-nums; text-align: right; }
 .tip-wrap:focus-within .tip { opacity: 1; transform: translateX(-50%) translateY(0); transition-delay: 0s; }
 .tip.tip-below { bottom: auto; top: calc(100% + 8px); }
 
-/* ---- Palette de commandes ---------------------------------------------------------------- */
+/* ---- Command palette ---------------------------------------------------------------- */
 .palette {
   position: fixed;
   inset: 0;
@@ -569,7 +569,7 @@ table.data .cell-num { font-variant-numeric: tabular-nums; text-align: right; }
 .palette-item[aria-selected="true"] .palette-meta { color: var(--color-ink-2); }
 .palette-empty { padding: var(--space-lg); text-align: center; color: var(--color-ink-3); font-size: var(--text-small); }
 
-/* ---- Divers ------------------------------------------------------------------------------ */
+/* ---- Misc ------------------------------------------------------------------------------ */
 .divider { height: 1px; background: var(--color-rule); border: none; margin: var(--space-md) 0; }
 
 .list-plain { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
