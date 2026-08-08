@@ -103,9 +103,9 @@ def test_capabilities_required(fx):
 def test_capabilities_deduplicated_and_normalized(fx):
     # case-insensitive deduplication (first occurrence kept) + strip
     card = fx.client.set_agent_card(
-        ["Reporting", "reporting", "  Comptabilité  "], ALICE, ALICE_PASSWORD
+        ["Reporting", "reporting", "  Accounting  "], ALICE, ALICE_PASSWORD
     )
-    assert card["capabilities"] == ["Reporting", "Comptabilité"]
+    assert card["capabilities"] == ["Reporting", "Accounting"]
 
 
 def test_capability_too_long_invalid(fx):

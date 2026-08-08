@@ -31,7 +31,7 @@ def test_create_agent_cannot_create_human(fx):
 
 def test_default_principal_type_is_agent(fx):
     result = fx.client.create_agent(
-        "eric", "motdepasse-eric-1", "Agent par défaut", ORG_NAME, ORG_PASSWORD
+        "eric", "motdepasse-eric-1", "Default agent", ORG_NAME, ORG_PASSWORD
     )
     assert result["principal_type"] == "agent"
 
