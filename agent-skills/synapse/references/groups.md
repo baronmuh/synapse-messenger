@@ -11,8 +11,8 @@ All these commands belong to the **A** (account) family. Identity:
 ## Scenario 1 — Create a group
 
 ```bash
-echo "$PASSWORD" | synapse group create direction \
-    --my-name "$ACCOUNT_NAME" --password-stdin
+echo "$MOT_DE_PASSE" | synapse group create direction \
+    --my-name "$NOM_DE_COMPTE" --password-stdin
 ```
 
 ```python
@@ -26,12 +26,12 @@ group_id = g["group_id"]            # UUIDv4 — to reuse in Python
 ## Scenario 2 — Manage members
 
 ```bash
-echo "$PASSWORD" | synapse group add-member direction comptable \
-    --my-name "$ACCOUNT_NAME" --password-stdin
-echo "$PASSWORD" | synapse group remove-member direction comptable \
-    --my-name "$ACCOUNT_NAME" --password-stdin
-echo "$PASSWORD" | synapse group members direction \
-    --my-name "$ACCOUNT_NAME" --password-stdin
+echo "$MOT_DE_PASSE" | synapse group add-member direction comptable \
+    --my-name "$NOM_DE_COMPTE" --password-stdin
+echo "$MOT_DE_PASSE" | synapse group remove-member direction comptable \
+    --my-name "$NOM_DE_COMPTE" --password-stdin
+echo "$MOT_DE_PASSE" | synapse group members direction \
+    --my-name "$NOM_DE_COMPTE" --password-stdin
 ```
 
 ```python
@@ -44,9 +44,9 @@ membres = c.get_group_members(group_id, me, pwd)
 
 ```bash
 echo "$PASSWORD" | synapse group send direction "Weekly meeting at 10am" \
-    --my-name "$ACCOUNT_NAME" --password-stdin
-echo "$PASSWORD" | synapse group messages direction \
-    --my-name "$ACCOUNT_NAME" --password-stdin
+    --my-name "$NOM_DE_COMPTE" --password-stdin
+echo "$MOT_DE_PASSE" | synapse group messages direction \
+    --my-name "$NOM_DE_COMPTE" --password-stdin
 ```
 
 ```python
@@ -59,7 +59,7 @@ messages = c.get_group_messages(group_id, me, pwd, limit=50)
 ## Scenario 4 — List your groups
 
 ```bash
-echo "$PASSWORD" | synapse group list --my-name "$ACCOUNT_NAME" --password-stdin
+echo "$MOT_DE_PASSE" | synapse group list --my-name "$NOM_DE_COMPTE" --password-stdin
 ```
 
 ```python

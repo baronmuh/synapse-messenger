@@ -8,11 +8,11 @@ de Synapse (docs/PERFORMANCE.md §13) : pages de messages, notifications,
 * outputs are equivalent for Synapse types (dicts, lists,
   str, int, bool, None — no NaN/Infinity); ``orjson.dumps`` returns
   directly compact UTF-8 bytes (ideal for the socket);
-* le **parsing** (``loads``) reste sur la stdlib : il applique le hook
+* the **parsing** (``loads``) stays on the stdlib: it applies the hook
   ``_reject_duplicate_keys`` (duplicate rejection, security requirement) that
-  orjson ne supporte pas (orjson accepte les doublons, dernier gagnant) ;
+  orjson does not support (orjson accepts duplicates, last one wins);
   parsing costs ~9 µs vs ~90 µs for page serialization —
-  le gain est bien sur ``dumps``.
+  the gain is indeed on ``dumps``.
 
 The stdlib is the transparent fallback if orjson is not installed.
 """
@@ -22,7 +22,7 @@ from __future__ import annotations
 import json as _stdlib_json
 from typing import Any
 
-try:  # pragma: no cover - branche selon l'environnement
+try:  # pragma: no cover - branch depending on the environment
     import orjson as _orjson
 except ImportError:  # pragma: no cover - fallback without the dependency
     _orjson = None

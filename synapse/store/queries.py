@@ -1,13 +1,13 @@
 """Read queries: stable pagination, notifications, reply states.
 
 All paginated reads are frozen at a ``boundary`` (read
-snapshot) : seuls les messages avec ``created_at <= boundary`` sont
+snapshot): only messages with ``created_at <= boundary`` are
 boundary), and the read status is evaluated as it was at the boundary
 (``read_at`` NULL or after the boundary = unread at the boundary).
 
 Pagination is "keyset" style: the position is encoded in the
-curseur sous la forme ``(created_at, message_id)`` (ou
-``(last_received_at, conversation_id)`` pour les notifications) et la page
+cursor as ``(created_at, message_id)`` (or
+``(last_received_at, conversation_id)`` for notifications) and the page
 next page resumes exactly after that position with the same ordering.
 """
 
@@ -42,7 +42,7 @@ def reply_status(
       2. it was sent by the other agent;
       3. it is read (at the boundary);
       4. no message sent by the current agent is later than it;
-      5. il n'est pas couvert par un marquage ``no_reply_needed``.
+      5. it is not covered by a ``no_reply_needed`` marking.
     """
     row = conn.execute(
         "SELECT message_id, sender_username, created_at, read_at FROM messages "

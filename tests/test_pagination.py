@@ -100,7 +100,7 @@ def test_get_conversation_pagination(fx):
 
 
 def test_get_notifications_pagination(fx):
-    fx.client.create_agent("carol",  "motdepasse-carol-1", "Test agent",  ORG_NAME, ORG_PASSWORD)
+    fx.client.create_agent("carol",  "motdepasse-carol-1", "Agent de test",  ORG_NAME, ORG_PASSWORD)
     ids = []
     for i in range(5):
         m = fx.send(ALICE, ALICE_PASSWORD, BOB, f"a{i}", f"cmid-pgn-a{i}")

@@ -37,8 +37,8 @@ INTERNAL_ERROR = "INTERNAL_ERROR"
 
 
 def test_notifications_pagination_no_loss_with_unread_interleaved(fx):
-    fx.client.create_agent("carol",  "motdepasse-carol-1", "Test agent",  ORG_NAME, ORG_PASSWORD)
-    fx.client.create_agent("dave",  "motdepasse-dave-1", "Test agent",  ORG_NAME, ORG_PASSWORD)
+    fx.client.create_agent("carol",  "motdepasse-carol-1", "Agent de test",  ORG_NAME, ORG_PASSWORD)
+    fx.client.create_agent("dave",  "motdepasse-dave-1", "Agent de test",  ORG_NAME, ORG_PASSWORD)
     # carol -> bob: read; dave -> bob: read; then alice -> bob: UNREAD and
     # more recent (it ranks before carol/dave in the page order and
     # would consume an SQL slot in the old implementation)
@@ -110,8 +110,8 @@ def test_restore_allowed_with_stale_lock(config):
     from .conftest import make_server
     server = make_server(config, org=True)
     try:
-        server.client.create_agent(ALICE,  ALICE_PASSWORD, "Test agent",  ORG_NAME, ORG_PASSWORD)
-        server.client.create_agent(BOB,  BOB_PASSWORD, "Test agent",  ORG_NAME, ORG_PASSWORD)
+        server.client.create_agent(ALICE,  ALICE_PASSWORD, "Agent de test",  ORG_NAME, ORG_PASSWORD)
+        server.client.create_agent(BOB,  BOB_PASSWORD, "Agent de test",  ORG_NAME, ORG_PASSWORD)
         server.client.send_message(BOB, "contenu", "cmid-fix-lk-1", ALICE, ALICE_PASSWORD)
         path = backup(config)
     finally:
@@ -213,7 +213,7 @@ def test_stale_lock_with_dead_pid_is_recovered(config):
         fh.write("99999999")  # PID almost certainly dead
     server = make_server(config, org=True)
     try:
-        assert server.client.create_agent(ALICE,  ALICE_PASSWORD, "Test agent",  ORG_NAME, ORG_PASSWORD)
+        assert server.client.create_agent(ALICE,  ALICE_PASSWORD, "Agent de test",  ORG_NAME, ORG_PASSWORD)
     finally:
         server.stop()
 

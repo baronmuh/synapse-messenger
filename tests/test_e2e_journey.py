@@ -34,11 +34,11 @@ def test_full_journey(config):
     c = server.client
     try:
         # ---- 2. Accounts and permissions ----
-        c.create_agent(ALICE,  ALICE_PASSWORD, "Test agent",  ORG_NAME, ORG_PASSWORD)
-        c.create_agent(BOB,  BOB_PASSWORD, "Test agent",  ORG_NAME, ORG_PASSWORD)
-        c.create_agent("carol",  "motdepasse-carol-1", "Test agent",  ORG_NAME, ORG_PASSWORD)
+        c.create_agent(ALICE,  ALICE_PASSWORD, "Agent de test",  ORG_NAME, ORG_PASSWORD)
+        c.create_agent(BOB,  BOB_PASSWORD, "Agent de test",  ORG_NAME, ORG_PASSWORD)
+        c.create_agent("carol",  "motdepasse-carol-1", "Agent de test",  ORG_NAME, ORG_PASSWORD)
         with pytest.raises(ApiClientError) as exc:
-            c.create_agent("dave",  "motdepasse-dave-1", "Test agent",  ALICE, ALICE_PASSWORD)
+            c.create_agent("dave",  "motdepasse-dave-1", "Agent de test",  ALICE, ALICE_PASSWORD)
         assert exc.value.code == "ACCESS_DENIED"
         with pytest.raises(ApiClientError) as exc:
             c.get_messages("ghost", "nimporte-quel-motdepasse")

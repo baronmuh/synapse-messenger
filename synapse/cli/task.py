@@ -43,8 +43,8 @@ def _priority(value: str) -> str:
 
 _EXAMPLES = """\
 Examples:
-  synapse task list --state en_attente --json
-  synapse task create "Rapport mensuel" --assignee analyste --priority haute
+  synapse task list --state submitted --json
+  synapse task create "Monthly report" --assignee analyst --priority high
   synapse task status t-42 --json
   synapse task update t-42 completed
   synapse task approve t-42 / synapse task reject t-42

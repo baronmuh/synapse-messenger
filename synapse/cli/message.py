@@ -228,7 +228,7 @@ def _cmd_notifications(args: argparse.Namespace) -> int:
         ]
         print(table(rows, ["interlocutor", "unread"]))
     if not data.get("needs_reply") and not data.get("unread"):
-        print("aucune notification")
+        print("no notifications")
     return EXIT_OK
 
 

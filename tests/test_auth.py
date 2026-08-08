@@ -80,7 +80,7 @@ def test_disabled_account_data_preserved(fx):
 
 def test_org_authentication_required(fx):
     with pytest.raises(ApiClientError) as exc:
-        fx.client.create_agent("carol",  "motdepasse-carol-1", "Test agent",  ORG_NAME, "mauvais-motdepasse")
+        fx.client.create_agent("carol",  "motdepasse-carol-1", "Agent de test",  ORG_NAME, "mauvais-motdepasse")
     assert exc.value.code == AUTH_FAILED
 
 

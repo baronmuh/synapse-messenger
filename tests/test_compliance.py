@@ -62,7 +62,7 @@ def test_constraint_3_isolation_between_organizations(fx):
     exist."""
     # an agent cannot call an organization command
     with pytest.raises(ApiClientError) as exc:
-        fx.client.create_agent("x_agent", "motdepasse-x-1", "Test agent", ALICE, ALICE_PASSWORD)
+        fx.client.create_agent("x_agent", "motdepasse-x-1", "Agent de test", ALICE, ALICE_PASSWORD)
     assert exc.value.code == "ACCESS_DENIED"
     # the root_org org does not see another organization's agents
     create_organization(fx.config, ORG2_NAME, ORG2_PASSWORD, ORG2_PASSWORD)
@@ -157,7 +157,7 @@ def test_constraint_10_no_reply_linked_to_message_cancelled_by_new(fx):
 
 
 def test_constraint_11_single_conversation_per_pair(fx):
-    fx.client.create_agent("carol", "motdepasse-carol-1", "Test agent", ORG_NAME, ORG_PASSWORD)
+    fx.client.create_agent("carol", "motdepasse-carol-1", "Agent de test", ORG_NAME, ORG_PASSWORD)
     ids = {
         fx.send(ALICE, ALICE_PASSWORD, BOB, "a", "cmid-c-11a")["conversation_id"],
         fx.send(BOB, BOB_PASSWORD, ALICE, "b", "cmid-c-11b")["conversation_id"],

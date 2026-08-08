@@ -7,9 +7,9 @@ All these commands belong to the **A** (account) family. Identity:
 ## Scenario 1 — Create a task
 
 ```bash
-echo "$PASSWORD" | synapse task create "Monthly management report" \
-    --assignee analyst --priority low --due 2026-09-01T10:00:00Z \
-    --my-name "$ACCOUNT_NAME" --password-stdin
+echo "$MOT_DE_PASSE" | synapse task create "Monthly management report" \
+    --assignee analyste --priority low --due 2026-09-01T10:00:00Z \
+    --my-name "$NOM_DE_COMPTE" --password-stdin
 ```
 
 - `--priority`: `low` | `normal` | `high` (the CLI also accepts the French
@@ -23,7 +23,7 @@ c = Client("/var/run/synapse/synapse.sock")
 me, pwd = "my-account", "my-password"
 task = c.create_task(
     "Monthly management report",
-    assignee_username="analyst",
+    assignee_username="analyste",
     my_name_auth=me, my_password_auth=pwd,
     priority="low",                    # low | normal | high
     due_at="2026-09-01T10:00:00.000Z", # .sssZ MANDATORY client-side
@@ -34,8 +34,8 @@ task_id = task["task_id"]
 ## Scenario 2 — List tasks (with filters)
 
 ```bash
-echo "$PASSWORD" | synapse task list --state in_progress \
-    --my-name "$ACCOUNT_NAME" --password-stdin
+echo "$MOT_DE_PASSE" | synapse task list --state in_progress \
+    --my-name "$NOM_DE_COMPTE" --password-stdin
 ```
 
 ```python
@@ -50,9 +50,9 @@ the CLI): `submitted`, `in_progress`, `pending_approval`, `completed`,
 ## Scenario 3 — Detail and state update
 
 ```bash
-echo "$PASSWORD" | synapse task status <task-uuid> --my-name "$ACCOUNT_NAME" --password-stdin
-echo "$PASSWORD" | synapse task update <task-uuid> in_progress \
-    --my-name "$ACCOUNT_NAME" --password-stdin
+echo "$MOT_DE_PASSE" | synapse task status <task-uuid> --my-name "$NOM_DE_COMPTE" --password-stdin
+echo "$MOT_DE_PASSE" | synapse task update <task-uuid> in_progress \
+    --my-name "$NOM_DE_COMPTE" --password-stdin
 ```
 
 ```python
@@ -64,26 +64,26 @@ c.update_task_state(task_id, "completed", me, pwd, result="Analysis complete")
 
 ```bash
 # the creator requests the manager's approval
-echo "$PASSWORD" | synapse task request-approval <task-uuid> \
-    --approver director --my-name "$ACCOUNT_NAME" --password-stdin
-# the approver approves or rejects
-echo "$APPROVER_PASSWORD" | synapse task approve <task-uuid> --my-name director --password-stdin
+echo "$MOT_DE_PASSE" | synapse task request-approval <task-uuid> \
+    --approver directeur --my-name "$NOM_DE_COMPTE" --password-stdin
+# l'approbateur approuve ou refuse
+echo "$MDP_APPROBATEUR" | synapse task approve <task-uuid> --my-name directeur --password-stdin
 echo "$APPROVER_PASSWORD" | synapse task reject <task-uuid> --reason "incomplete information" \
-    --my-name director --password-stdin
+    --my-name directeur --password-stdin
 ```
 
 ```python
-c.request_approval(task_id, approver_username="director",
+c.request_approval(task_id, approver_username="directeur",
                    my_name_auth=me, my_password_auth=pwd)
-c.approve_task(task_id, "director", "mdp-director")
+c.approve_task(task_id, "directeur", "mdp-directeur")
 c.reject_task(task_id, "manager", "manager-password", reason="incomplete information")
 ```
 
 ## Scenario 5 — Transfer a task
 
 ```bash
-echo "$PASSWORD" | synapse task transfer <task-uuid> support \
-    --my-name "$ACCOUNT_NAME" --password-stdin
+echo "$MOT_DE_PASSE" | synapse task transfer <task-uuid> support \
+    --my-name "$NOM_DE_COMPTE" --password-stdin
 ```
 
 ```python
@@ -95,7 +95,7 @@ Refused if the task is completed (`TASK_STATE_INVALID`).
 ## Scenario 6 — Work queue
 
 ```bash
-echo "$PASSWORD" | synapse task my-work --my-name "$ACCOUNT_NAME" --password-stdin
+echo "$MOT_DE_PASSE" | synapse task my-work --my-name "$NOM_DE_COMPTE" --password-stdin
 ```
 
 ```python

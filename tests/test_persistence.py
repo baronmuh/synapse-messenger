@@ -20,7 +20,7 @@ def test_data_survives_restart(fx):
     try:
         c2 = server2.client
         # accounts preserved (with their role)
-        assert c2.create_agent("carol",  "motdepasse-carol-1", "Test agent",  ORG_NAME, ORG_PASSWORD)["username"] == "carol"
+        assert c2.create_agent("carol",  "motdepasse-carol-1", "Agent de test",  ORG_NAME, ORG_PASSWORD)["username"] == "carol"
         # messages and statuses preserved
         inbox = c2.get_messages(BOB, BOB_PASSWORD)
         assert len(inbox["messages"]) == 1

@@ -747,8 +747,8 @@ def _human_list_orgs(service: Service, conn: sqlite3.Connection,
 
     For the local web identity, only ACTIVE organizations are
     listed (no state revelation: only what is usable is offered).
-    joignable). Un compte humain peut demander ``include_disabled=true``
-    (administration locale, SPEC_CLI ``org list --all``) : les
+    reachable). A human account may request ``include_disabled=true``
+    (local administration, SPEC_CLI ``org list --all``): the
     deactivated organizations are then listed in a separate
     ``disabled`` field — never mixed with the active ones.
     """
@@ -793,7 +793,7 @@ def _human_create_org(service: Service, conn: sqlite3.Connection, p: dict, me: s
             "active",
             f"Human account of the organization {org_name} (web access)",
             org_name,
-            can_see_org_agents=True,  # superviseur : annuaire et recherche
+            can_see_org_agents=True,  # supervisor: directory and search
             principal_type="human",
         )
     return {"organization_name": org_name, "human_username": human_name}
@@ -812,7 +812,7 @@ def _human_disable_org(service: Service, conn: sqlite3.Connection, p: dict, me: 
     with db.begin_immediate(conn):
         row = organizations.get(conn, target)
         if row is None:
-            raise ApiError(INVALID_ARGUMENT, "Organisation unknowne")
+            raise ApiError(INVALID_ARGUMENT, "Unknown organization")
         if not bool(row["enabled"]):
             raise ApiError(INVALID_ARGUMENT, "The organization is already deactivated")
         conn.execute(
@@ -827,7 +827,7 @@ def _human_list_org_conversations(
     """Paginated list of the organization's conversations (SPEC-WEB §2/§7.3).
 
     Metadata only (participants, volume, last exchange, unread
-    pour l'appelant) ; le contenu est servi par ``get_org_conversation``.
+    for the caller); the content is served by ``get_org_conversation``.
     A conversation appears as soon as at least one participant belongs to
     the organization (external exchanges are therefore visible, R2.1)."""
     org_name = _org_of(conn, me)
@@ -961,7 +961,7 @@ def _org_approve_agent_card(
 
 
 # ===========================================================================
-# Commandes des agents
+# Agent commands
 # ===========================================================================
 
 
@@ -1007,11 +1007,11 @@ def _list_org_agents(service: Service, conn: sqlite3.Connection, p: dict, me: st
         row = accounts.get(conn, me)
         assert row is not None  # authenticated agent, therefore existing
         if not row["can_see_org_agents"]:
-            raise ApiError(ACCESS_DENIED, "Permission can_see_org_agents requise")
+            raise ApiError(ACCESS_DENIED, "Permission can_see_org_agents required")
         rows = accounts.list_by_org(
             conn, row["organization_name"], limit + 1, last[0] if last else None, boundary,
             active_only=True,
-            include_humans=False,  # l'annuaire des agents exclut le compte humain
+            include_humans=False,  # the agent directory excludes the human account
         )
     has_more = len(rows) > limit
     rows = rows[:limit]
@@ -1030,7 +1030,7 @@ def _help(service: Service, conn: sqlite3.Connection, p: dict, me: str) -> dict:
 
     Read-only, without storage access: ``command_name`` has already been
     validated (``None`` for the full documentation, otherwise the exact name
-    d'une commande existante).
+    of an existing command).
     """
     return {"documentation": helpdoc.build_documentation(p["command_name"])}
 
@@ -1099,9 +1099,9 @@ def _agent_find_agents(service: Service, conn: sqlite3.Connection, p: dict, me: 
     """Searches agents by capability in one's own organization (F3).
 
     Reserved for authorized agents (``can_see_org_agents``, consistent with
-    ``list_org_agents`` et la contrainte 22 de SPEC.txt) : la recherche ne doit
+    ``list_org_agents`` and constraint 22 of SPEC.txt): the search must
     cannot bypass the username visibility control. Scope limited to
-    la propre organisation (aucune fuite inter-organisations).
+    the own organization (no inter-organization leaks).
     """
     limit = p["limit"]
     filters = {
@@ -1114,7 +1114,7 @@ def _agent_find_agents(service: Service, conn: sqlite3.Connection, p: dict, me: 
         row = accounts.get(conn, me)
         assert row is not None  # authenticated agent, therefore existing
         if not row["can_see_org_agents"]:
-            raise ApiError(ACCESS_DENIED, "Permission can_see_org_agents requise")
+            raise ApiError(ACCESS_DENIED, "Permission can_see_org_agents required")
         rows = cards.search(
             conn,
             org_name=row["organization_name"],
@@ -1447,7 +1447,7 @@ def _check_escalations(
     escalate_to = policy["escalate_to_username"]
     target = accounts.get(conn, escalate_to)
     if target is None or target["status"] != "active":
-        return  # cible indisponible : pas d'escalade (aucune erreur silencieuse)
+        return  # target unavailable: no escalation (no silent error)
     due_before = now_utc_offset(policy["due_after_seconds"])
     failed_before = now_utc_offset(policy["failed_after_seconds"])
     for row in tasks.due_tasks_to_escalate(
@@ -2213,7 +2213,7 @@ def _agent_remove_group_member(service: Service, conn: sqlite3.Connection, p: di
         group = _group_require_member(conn, p["group_id"], me)
         # Only the group creator removes another member; a member can
         # always leave by themselves (SPEC.txt F15: "a participant leaves
-        # le groupe »). Sans cette restriction, tout membre pourrait exclure
+        # the group"). Without this restriction, any member could exclude
         # the others — including the creator — from their own channel.
         if me != group["created_by"] and me != p["username"]:
             raise ApiError(ACCESS_DENIED, "Only the group creator removes a member")
@@ -2248,15 +2248,15 @@ def _agent_send_group_message(
                     "content": row["content"],
                     "created_at": row["created_at"],
                 }
-        # Budget de messages (F9) : s'applique aussi aux messages de groupe
+        # Message budget (F9): also applies to group messages
         # (the quota covers sent messages, across all channels). The
         # idempotent retrieval above stays priority: an already-validated
         # message is returned even if the budget is reached.
         _check_message_budget(conn, me)
-        # Politiques de communication externe : un message de groupe ne doit
+        # External communication policies: a group message must
         # cannot bypass the policies — checked for each member of a
-        # autre organisation, au moment de l'envoi (les messages existants
-        # restent accessibles, section 6.3 de SPEC.txt).
+        # other organization, at send time (existing messages
+        # remain accessible, section 6.3 of SPEC.txt).
         for member_row in conn.execute(
             "SELECT username FROM group_members WHERE group_id = ?", (p["group_id"],)
         ).fetchall():
@@ -2404,7 +2404,7 @@ def _reputation_summary(
     conn: sqlite3.Connection, username: str, viewer: str
 ) -> dict:
     """Reputation of an agent (F16): detail for oneself, qualitative
-    qualitative pour les autres."""
+    for the others."""
     detail = _reputation_counts_many(conn, [username])[username]
     if username == viewer:
         return {"username": username, **detail}
@@ -2510,8 +2510,8 @@ def _org_create_observer_account(
 ) -> dict:
     """Creates an observer account (SPEC.txt F18): read-only, intended for
     the web interface. Write commands are refused to it (dispatch).
-    C'is a READ-ONLY account (principal_type 'agent') : jamais un compte
-    human — except explicit marking, auth does not delegate to the org."""
+    This is a READ-ONLY account (principal_type 'agent'): never a human
+    account — except explicit marking, auth does not delegate to the org."""
     with db.begin_immediate(conn):
         existing = accounts.get(conn, p["observer_name"])
         if existing is not None:
@@ -2571,12 +2571,12 @@ def _agent_get_org_snapshot(
     """Aggregated view of the organization for an observer or human account
     (SPEC.txt F18, SPEC-WEB §1): directory, tasks by state, structure,
     recent audit and metrics — never message content. Reserved
-    aux comptes observers et humains de l'organisation."""
+    to observer and human accounts of the organization."""
     with db.begin_read(conn):
         row = accounts.get(conn, me)
         assert row is not None
         if not (bool(row["is_observer"]) or row["principal_type"] == "human"):
-            raise ApiError(ACCESS_DENIED, "Compte observer ou humain requis")
+            raise ApiError(ACCESS_DENIED, "Observer or human account required")
         org = row["organization_name"]
         agents = conn.execute(
             "SELECT username, description, status, principal_type, is_observer "
@@ -2678,8 +2678,8 @@ _ORG_HANDLERS: dict[str, Callable[..., dict]] = {
     "set_event_retention_days": _org_set_event_retention_days,
 }
 
-# Commands reserved for human accounts (SPEC-WEB): management des
-# organisations et lecture de contenu de l'organisation.
+# Commands reserved for human accounts (SPEC-WEB): management of
+# organizations and reading of the organization's content.
 _HUMAN_HANDLERS: dict[str, Callable[..., dict]] = {
     "create_org": _human_create_org,
     "disable_org": _human_disable_org,

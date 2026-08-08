@@ -84,7 +84,7 @@ def test_needs_reply_cleared_by_own_reply(fx):
 
 def test_needs_reply_sorted_by_last_received_desc(fx):
     """Sorting: descending date of the last received message."""
-    fx.client.create_agent("carol",  "motdepasse-carol-1", "Test agent",  ORG_NAME, ORG_PASSWORD)
+    fx.client.create_agent("carol",  "motdepasse-carol-1", "Agent de test",  ORG_NAME, ORG_PASSWORD)
     m_carol = fx.client.send_message(BOB, "de carol", "cmid-nt-12", "carol", "motdepasse-carol-1")
     m_alice = fx.send(ALICE, ALICE_PASSWORD, BOB, "d'alice", "cmid-nt-13")
     fx.client.read_message(m_alice["message_id"], BOB, BOB_PASSWORD)
@@ -201,7 +201,7 @@ def test_mark_no_reply_does_not_affect_other_agent(fx):
 def test_mark_no_reply_does_not_reveal_other_conversations(fx):
     """Marking another pair's conversation: INVALID_ARGUMENT, without
     revealing its existence."""
-    fx.client.create_agent("carol",  "motdepasse-carol-1", "Test agent",  ORG_NAME, ORG_PASSWORD)
+    fx.client.create_agent("carol",  "motdepasse-carol-1", "Agent de test",  ORG_NAME, ORG_PASSWORD)
     m1 = fx.client.send_message(BOB, "secret", "cmid-nr-11", "carol", "motdepasse-carol-1")
     conv_id = m1["conversation_id"]
     with pytest.raises(ApiClientError) as exc:

@@ -55,13 +55,13 @@ function reputationSection(rep) {
   const qual = rep?.qualitative || null;
   const qualBadge = score === null ? badge('unknown', 'neutral')
     : qual === 'excellent' ? badge('excellent', 'ok', { dot: true })
-      : qual === 'bon' ? badge('good', 'ok', { dot: true })
-        : qual === 'moyen' ? badge('average', 'warn', { dot: true })
+      : qual === 'good' ? badge('good', 'ok', { dot: true })
+        : qual === 'average' ? badge('average', 'warn', { dot: true })
           : badge('low', 'danger', { dot: true });
   const pct = score === null ? 0 : Math.round(score * 100);
   const barTone = score === null ? 'neutral'
-    : qual === 'excellent' || qual === 'bon' ? 'accent'
-      : qual === 'moyen' ? 'warn' : 'danger';
+    : qual === 'excellent' || qual === 'good' ? 'accent'
+      : qual === 'average' ? 'warn' : 'danger';
   const barColor = { accent: 'var(--color-accent)', warn: 'var(--color-warning)',
     danger: 'var(--color-danger)', neutral: 'var(--color-rule-2)' }[barTone];
   return card({

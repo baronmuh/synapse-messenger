@@ -122,7 +122,7 @@ def test_restore_lock_release_tolerates_missing(config, monkeypatch):
     from .conftest import make_server as ms
     srv = ms(config, org=True)
     try:
-        srv.client.create_agent(ALICE,  ALICE_PASSWORD, "Test agent",  ORG_NAME, ORG_PASSWORD)
+        srv.client.create_agent(ALICE,  ALICE_PASSWORD, "Agent de test",  ORG_NAME, ORG_PASSWORD)
         path = backup(config)
     finally:
         srv.stop()

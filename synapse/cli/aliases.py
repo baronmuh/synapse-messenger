@@ -3,11 +3,10 @@
 The 6 original entry points (``synapse-server``, ``synapse-web``,
 ``synapse-init-org``, ``synapse-backup``, ``synapse-restore``,
 ``synapse-a2a-bridge``) delegate to the unified CLI and print a
-deprecation warning. They will be removed in the next major version
-majeure.
+deprecation warning. They will be removed in the next major version.
 
 Each alias translates its arguments to the equivalent unified command
-et conserve le comportement observable : les servers/web/pont restent au
+and preserves the observable behavior: the servers/web/bridge stay in the
 foreground (systemd/supervisor compatibility).
 """
 

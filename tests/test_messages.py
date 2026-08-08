@@ -55,7 +55,7 @@ def test_get_messages_status_filter(fx):
 
 
 def test_get_messages_sender_filter(fx):
-    fx.client.create_agent("carol",  "motdepasse-carol-1", "Test agent",  ORG_NAME, ORG_PASSWORD)
+    fx.client.create_agent("carol",  "motdepasse-carol-1", "Agent de test",  ORG_NAME, ORG_PASSWORD)
     fx.send(ALICE, ALICE_PASSWORD, BOB, "de alice", "cmid-sf-1")
     fx.client.send_message(BOB, "de carol", "cmid-sf-2", "carol", "motdepasse-carol-1")
     inbox = fx.client.get_messages(BOB, BOB_PASSWORD, sender_username="alice")
@@ -145,7 +145,7 @@ def test_read_message_inaccessible_hides_existence(fx):
     """An agent cannot read a message it neither sent nor received:
     MESSAGE_NOT_FOUND, without revealing the message's existence."""
     m1, *_ = _seed(fx)
-    fx.client.create_agent("carol",  "motdepasse-carol-1", "Test agent",  ORG_NAME, ORG_PASSWORD)
+    fx.client.create_agent("carol",  "motdepasse-carol-1", "Agent de test",  ORG_NAME, ORG_PASSWORD)
     with pytest.raises(ApiClientError) as exc:
         fx.client.read_message(m1["message_id"], "carol", "motdepasse-carol-1")
     assert exc.value.code == MESSAGE_NOT_FOUND

@@ -49,7 +49,7 @@ CAROL_PASSWORD = "motdepasse-carol-1"
 
 
 def _create_carol(fx) -> None:
-    fx.client.create_agent(CAROL,  CAROL_PASSWORD, "Test agent",  ORG_NAME, ORG_PASSWORD)
+    fx.client.create_agent(CAROL,  CAROL_PASSWORD, "Agent de test",  ORG_NAME, ORG_PASSWORD)
 
 
 def _conv(fx, me: str, password: str, other: str) -> dict:
@@ -579,9 +579,9 @@ def test_create_agent_spaces_only_password_valid(fx):
     """A password made only of spaces (12 printable characters, spaces are
     allowed by the specification) is valid: the account is created and
     authenticates."""
-    data = fx.client.create_agent("dave",  " " * 12, "Test agent",  ORG_NAME, ORG_PASSWORD)
+    data = fx.client.create_agent("dave",  " " * 12, "Agent de test",  ORG_NAME, ORG_PASSWORD)
     assert data == {"username": "dave", "status": "active",
-                    "description": "Test agent",
+                    "description": "Agent de test",
                     "organization_name": ORG_NAME,
                     "can_see_org_agents": False,
                     "principal_type": "agent"}
@@ -592,11 +592,11 @@ def test_create_agent_tab_password_rejected(fx):
     """A password containing a tab (control character): INVALID_ARGUMENT,
     even if the length is sufficient."""
     _assert_code(
-        lambda: fx.client.create_agent("erin",  "abcdefghijkl\t", "Test agent",  ORG_NAME, ORG_PASSWORD),
+        lambda: fx.client.create_agent("erin",  "abcdefghijkl\t", "Agent de test",  ORG_NAME, ORG_PASSWORD),
         INVALID_ARGUMENT,
     )
     _assert_code(
-        lambda: fx.client.create_agent("frank",  "\t" * 12, "Test agent",  ORG_NAME, ORG_PASSWORD),
+        lambda: fx.client.create_agent("frank",  "\t" * 12, "Agent de test",  ORG_NAME, ORG_PASSWORD),
         INVALID_ARGUMENT,
     )
 

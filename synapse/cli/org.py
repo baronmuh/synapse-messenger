@@ -180,7 +180,7 @@ def _cmd_list(args: argparse.Namespace) -> int:
         try:
             my_name, password = resolve_human_auth(config, args)
         except CliError as exc:
-            if "aucune organisation active" in exc.message:
+            if "no active organization" in exc.message:
                 return emit_error(
                     "no active organization to derive the human account from: "
                     "specify --organization-name (human account of an "

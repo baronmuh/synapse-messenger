@@ -129,7 +129,7 @@ def test_send_conversation_key_independent_of_direction(fx):
 
 
 def test_separate_conversations_per_pair(fx):
-    fx.client.create_agent("carol",  "motdepasse-carol-1", "Test agent",  ORG_NAME, ORG_PASSWORD)
+    fx.client.create_agent("carol",  "motdepasse-carol-1", "Agent de test",  ORG_NAME, ORG_PASSWORD)
     m1 = fx.send(ALICE, ALICE_PASSWORD, BOB, "to bob", "cmid-pair-1")
     m2 = fx.send(ALICE, ALICE_PASSWORD, "carol", "to carol", "cmid-pair-2")
     assert m1["conversation_id"] != m2["conversation_id"]
@@ -155,7 +155,7 @@ def test_idempotent_reuse_same_recipient_different_content(fx):
 
 
 def test_idempotent_reuse_different_recipient(fx):
-    fx.client.create_agent("carol",  "motdepasse-carol-1", "Test agent",  ORG_NAME, ORG_PASSWORD)
+    fx.client.create_agent("carol",  "motdepasse-carol-1", "Agent de test",  ORG_NAME, ORG_PASSWORD)
     fx.send(ALICE, ALICE_PASSWORD, BOB, "Bonjour", "cmid-ido-3")
     with pytest.raises(ApiClientError) as exc:
         fx.client.send_message("carol", "Bonjour", "cmid-ido-3", ALICE, ALICE_PASSWORD)

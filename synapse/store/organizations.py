@@ -1,7 +1,7 @@
 """Access to the organization storage.
 
-Une organisation est un principal administratif permanent : nom unique,
-hash Argon2id de son mot de passe, politiques de communication externe.
+An organization is a permanent administrative principal: unique name,
+Argon2id hash of its password, external communication policies.
 It is never deactivated, deleted nor renamed (section 3.1 of the
 specification).
 """

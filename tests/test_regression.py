@@ -67,7 +67,7 @@ def test_read_at_propagates_to_sender(fx):
 
 
 def test_multiple_conversations_and_filters(fx):
-    fx.client.create_agent("carol",  "motdepasse-carol-1", "Test agent",  ORG_NAME, ORG_PASSWORD)
+    fx.client.create_agent("carol",  "motdepasse-carol-1", "Agent de test",  ORG_NAME, ORG_PASSWORD)
     m_a = fx.send(ALICE, ALICE_PASSWORD, BOB, "de alice", "cmid-rg-7")
     m_c = fx.client.send_message(BOB, "de carol", "cmid-rg-8", "carol", "motdepasse-carol-1")
     fx.client.read_message(m_c["message_id"], BOB, BOB_PASSWORD)

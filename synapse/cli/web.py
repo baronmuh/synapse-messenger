@@ -267,7 +267,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
     rows = [
         [f"interface web {state_label} (PID {pid})"],
         [f"  port          {payload['port']}"],
-        [f"  version       {payload.get('version') or 'unknowne'}"],
+        [f"  version       {payload.get('version') or 'unknown'}"],
         [f"  started       {payload.get('started_at') or 'unknown'}"],
         [f"  http /api/orgs {'200' if payload['http_ok'] else 'unreachable'}"],
         [f"  sessions      {payload.get('sessions_active', 'n/a')}"],

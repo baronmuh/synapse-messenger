@@ -4,7 +4,7 @@ Documented API deviations (docs/SPEC_CLI_ECARTS.md):
 
 * ``delegate``: the ``create_delegation`` API delegates a TASK to an agent
   with a due date (not "capabilities") — the command therefore takes
-  ``--task <id>`` et ``--expires <horodatage>`` (tous deux requis) ;
+  ``--task <id>`` and ``--expires <timestamp>`` (both required);
 * ``revoke``: the API revokes by (task, delegatee) — ``revoke <agent>
   --task <id>``.
 """
@@ -50,7 +50,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
     actions = p.add_subparsers(dest="action", required=True)
 
     a = actions.add_parser("show", parents=[common],
-                           help="policys actuelles de l'organisation")
+                           help="current policies of the organization")
     a.add_argument("org", help="organization name")
     a.add_argument("--json", action="store_true")
     a.set_defaults(run=_cmd_show)
@@ -135,7 +135,7 @@ def _cmd_show(args: argparse.Namespace) -> int:
     if getattr(args, "json", False):
         return emit(args, data)
     rows = [[k, str(v)] for k, v in sorted(data.items())]
-    print(table(rows, ["policy", "valeur"]))
+    print(table(rows, ["policy", "value"]))
     return EXIT_OK
 
 
@@ -161,8 +161,8 @@ def _cmd_set(args: argparse.Namespace) -> int:
         return _api_error(exc)
     return emit(
         args, data,
-        f"Politiques de '{args.org}' : entrant externe "
-        f"{'allowed' if incoming else 'denied'}, sortant externe "
+        f"Policies of '{args.org}': incoming external "
+        f"{'allowed' if incoming else 'denied'}, outgoing external "
         f"{'allowed' if outgoing else 'denied'}.",
     )
 
@@ -179,7 +179,7 @@ def _cmd_escalation(args: argparse.Namespace) -> int:
         if getattr(args, "json", False):
             return emit(args, data)
         rows = [[k, str(v)] for k, v in sorted(data.items())]
-        print(table(rows, ["escalation policy", "valeur"]))
+        print(table(rows, ["escalation policy", "value"]))
         return EXIT_OK
     # Write: defaults = current policy (read first).
     try:
@@ -191,7 +191,7 @@ def _cmd_escalation(args: argparse.Namespace) -> int:
         targets = args.targets or current.get("escalate_to_username")
         if not targets:
             return emit_error(
-                "--targets <agent> requis (aucune cible actuelle)"
+                "--targets <agent> required (no current targets)"
             )
         data = client.set_escalation_policy(
             enabled, due_after_seconds, failed_after_seconds, targets, org, password

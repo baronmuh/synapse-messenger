@@ -83,7 +83,7 @@ def test_get_conversation_status_is_per_recipient(fx):
 
 def test_get_conversation_requires_participation(fx):
     """A third-party agent cannot see other agents' conversation."""
-    fx.client.create_agent("carol",  "motdepasse-carol-1", "Test agent",  ORG_NAME, ORG_PASSWORD)
+    fx.client.create_agent("carol",  "motdepasse-carol-1", "Agent de test",  ORG_NAME, ORG_PASSWORD)
     fx.send(ALICE, ALICE_PASSWORD, BOB, "un", "cmid-cv-8")
     with pytest.raises(ApiClientError) as exc:
         fx.client.get_conversation(BOB, "carol", "motdepasse-carol-1")

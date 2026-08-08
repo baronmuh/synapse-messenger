@@ -94,10 +94,10 @@ def test_optional_client_id_none():
 
 
 def test_task_text_and_state_errors():
-    # _normalize_task_text : non-string, control character
+    # _normalize_task_text: non-string, control character
     _raises(v._normalize_task_text, 42, "field", 1, 64)
     _raises(v._normalize_task_text, "a\x00b", "field", 1, 64)
-    # validate_task_state : valeur inconnue
+    # validate_task_state: unknown value
     _raises(v.validate_task_state, 123)
     _raises(v.validate_task_state, "done")
 

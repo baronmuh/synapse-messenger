@@ -139,7 +139,7 @@ def test_backup_fresh_storage_roundtrip(config):
     server = make_server(config, org=True)
     try:
         assert server.client.create_agent(
-            ALICE, ALICE_PASSWORD, "Test agent", ORG_NAME, ORG_PASSWORD
+            ALICE, ALICE_PASSWORD, "Agent de test", ORG_NAME, ORG_PASSWORD
         )["username"] == ALICE
     finally:
         server.stop()

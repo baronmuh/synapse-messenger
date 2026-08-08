@@ -139,7 +139,7 @@ class _Handler(BaseHTTPRequestHandler):
             body = json.loads(raw)
         except Exception:
             self._send(400, "application/json; charset=utf-8",
-                       jsonutil.dumps({"error": "JSON invalide"}))
+                       jsonutil.dumps({"error": "Invalid JSON"}))
             return None
         if not isinstance(body, dict):
             self._send(400, "application/json; charset=utf-8",
@@ -665,7 +665,7 @@ class SynapseWebUI:
         recipient = body.get("recipient_username")
         message = body.get("message")
         if not isinstance(recipient, str) or not isinstance(message, str):
-            raise ApiClientError("INVALID_ARGUMENT", "champs requis manquants")
+            raise ApiClientError("INVALID_ARGUMENT", "missing required fields")
         client_message_id = body.get("client_message_id")
         if not isinstance(client_message_id, str) or not client_message_id:
             client_message_id = str(uuid.uuid4())
@@ -679,7 +679,7 @@ class SynapseWebUI:
         description = body.get("description")
         if not isinstance(username, str) or not isinstance(password, str) \
                 or not isinstance(description, str):
-            raise ApiClientError("INVALID_ARGUMENT", "champs requis manquants")
+            raise ApiClientError("INVALID_ARGUMENT", "missing required fields")
         return self._client().create_agent(
             username, password, description, session.org_name, session.org_password)
 
@@ -695,7 +695,7 @@ class SynapseWebUI:
                                  body: dict) -> dict:
         description = body.get("description")
         if not isinstance(description, str):
-            raise ApiClientError("INVALID_ARGUMENT", "description requise")
+            raise ApiClientError("INVALID_ARGUMENT", "description required")
         return self._client().change_agent_description(
             username, description, session.org_name, session.org_password)
 
@@ -709,7 +709,7 @@ class SynapseWebUI:
         org_name = body.get("organization_name")
         org_password = body.get("organization_password")
         if not isinstance(org_name, str) or not isinstance(org_password, str):
-            raise ApiClientError("INVALID_ARGUMENT", "champs requis manquants")
+            raise ApiClientError("INVALID_ARGUMENT", "missing required fields")
         if self._web_token is None:
             raise ApiClientError("AUTH_FAILED", "local service not ready (web token missing)")
         return self._client().create_org(
@@ -718,7 +718,7 @@ class SynapseWebUI:
     def disable_org(self, session: _Session, body: dict) -> dict:
         org_name = body.get("organization_name")
         if not isinstance(org_name, str):
-            raise ApiClientError("INVALID_ARGUMENT", "organization_name requis")
+            raise ApiClientError("INVALID_ARGUMENT", "organization_name required")
         return self._client().disable_org(
             org_name, session.human_username, session.org_password)
 
@@ -739,7 +739,7 @@ class SynapseWebUI:
                 self._web_token = fh.read().strip() or None
         except OSError:
             self._web_token = None
-            logger.warning("jeton web absent (%s) : connexions impossibles tant "
+            logger.warning("web token absent (%s): connections impossible while "
                            "that the service is not started", token_path)
         self._server = ThreadingHTTPServer(("127.0.0.1", self._port), _Handler)
         self._port = self._server.server_address[1]
@@ -766,7 +766,7 @@ class SynapseWebUI:
 
 
 def web_main() -> None:  # pragma: no cover
-    """CLI ``synapse-web`` : interface web humaine sur 127.0.0.1.
+    """CLI ``synapse-web``: human web interface on 127.0.0.1.
 
     The server starts without any secret; login (organization +
     password) creates a session per user (SPEC-WEB §6).

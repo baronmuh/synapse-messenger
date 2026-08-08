@@ -121,7 +121,7 @@ def test_logs_never_contain_passwords_or_content(fx, config):
     # cache — SPEC.txt §19.1 amendment)
     with pytest.raises(Exception):
         fx.client.get_messages("utilisateur-inconnu", "mauvais-mot-de-passe-x")
-    fx.client.create_agent("carol",  "motdepasse-carol-1", "Test agent",  ORG_NAME, ORG_PASSWORD)
+    fx.client.create_agent("carol",  "motdepasse-carol-1", "Agent de test",  ORG_NAME, ORG_PASSWORD)
 
     log_path = os.path.join(config.log_dir, "synapse.log")
     assert os.path.exists(log_path)

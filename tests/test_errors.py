@@ -99,11 +99,11 @@ def test_all_error_codes_reachable(fx, config):
     })["error"]["code"])  # AUTH_FAILED
 
     with pytest.raises(ApiClientError) as exc:
-        fx.client.create_agent("carol",  "motdepasse-carol-1", "Test agent",  ALICE, ALICE_PASSWORD)
+        fx.client.create_agent("carol",  "motdepasse-carol-1", "Agent de test",  ALICE, ALICE_PASSWORD)
     seen.add(exc.value.code)  # ACCESS_DENIED
 
     with pytest.raises(ApiClientError) as exc:
-        fx.client.create_agent(ALICE,  "motdepasse-carol-1", "Test agent",  ORG_NAME, ORG_PASSWORD)
+        fx.client.create_agent(ALICE,  "motdepasse-carol-1", "Agent de test",  ORG_NAME, ORG_PASSWORD)
     seen.add(exc.value.code)  # USERNAME_ALREADY_EXISTS
 
     with pytest.raises(ApiClientError) as exc:

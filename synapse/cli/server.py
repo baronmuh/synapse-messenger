@@ -279,13 +279,13 @@ def _cmd_status(args: argparse.Namespace) -> int:
     else:
         lines = [
             [f"server running (PID {state['pid']})"],
-            [f"  version       {payload.get('version') or 'unknowne'}"],
+            [f"  version       {payload.get('version') or 'unknown'}"],
             [f"  started       {payload.get('started_at') or 'unknown'}"],
             [f"  base          {config.db_path}"],
             [f"  requests      {payload.get('requests_total', 'n/a')}"],
             [f"  uptime (s)    {payload.get('uptime_seconds', 'n/a')}"],
             [f"  socket        {'responding' if state['socket_ok'] else 'silent'}"],
-            [f"  jeton web     {'present' if payload['web_token_present'] else 'missing'}"],
+            [f"  web token    {'present' if payload['web_token_present'] else 'missing'}"],
         ]
         print(table(lines))
         if payload.get("live_error"):

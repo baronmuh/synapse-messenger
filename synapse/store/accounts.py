@@ -83,8 +83,8 @@ def list_by_org(
     deterministic). ``boundary`` freezes the snapshot (accounts created
     after the first page do not appear); ``active_only`` restricts
     the list to active accounts (agent visibility permission);
-    ``include_humains=False`` exclut le compte humain (l'annuaire des
-    agents — SPEC-WEB §5.4).
+    ``include_humans=False`` excludes the human account (the
+    agents directory — SPEC-WEB §5.4).
     """
     clauses = ["organization_name = ?"]
     params: list[Any] = [organization_name]

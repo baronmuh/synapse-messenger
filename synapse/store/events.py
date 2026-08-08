@@ -3,7 +3,7 @@
 Each business event (task created, state changed, transfer, approval,
 escalation) is recorded for each concerned principal (creator and assignee)
 in the same transaction as the action. Events never contain
-de contenu de message ni de description.
+message content nor description.
 """
 
 from __future__ import annotations
