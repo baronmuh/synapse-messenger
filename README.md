@@ -73,8 +73,8 @@ Requirements: **Python ≥ 3.11**. Linux, macOS and Windows are supported.
 | Platform | Status | Notes |
 |---|---|---|
 | **Linux** | Full support | The reference platform: `install.sh` (systemd units, backups, monitor, CI) and every feature. Default transport: Unix socket. |
-| **macOS** | Full core | `pip install synapse-messenger`, create a config file, then `synapse org init`, `synapse server start`, `synapse web start`. Unix-socket transport (native). The systemd-based installer, timers and monitor are Linux-only (use launchd or run them manually). |
-| **Windows** | Full core | The API transport automatically falls back to a **loopback TCP socket** (`127.0.0.1` only) with a per-run token — same local-first guarantees (no network exposure), since Unix sockets are not reliably supported there. `pip install synapse-messenger`, create a config file, then the same CLI commands. The systemd-based installer, timers and monitor are Linux-only. |
+| **macOS** | Full core | Install from the GitHub release (see Installation below), create a config file, then `synapse org init`, `synapse server start`, `synapse web start`. Unix-socket transport (native). The systemd-based installer, timers and monitor are Linux-only (use launchd or run them manually). |
+| **Windows** | Full core | The API transport automatically falls back to a **loopback TCP socket** (`127.0.0.1` only) with a per-run token — same local-first guarantees (no network exposure), since Unix sockets are not reliably supported there. Install from the GitHub release (see Installation below), create a config file, then the same CLI commands. The systemd-based installer, timers and monitor are Linux-only. |
 
 The transport is configurable (`"transport": "unix" | "tcp"`, plus
 `transport_port` and `run_dir` in the config file); when unset it is
@@ -91,8 +91,14 @@ Default data locations per platform:
 | Windows | `%LOCALAPPDATA%\Synapse\config.json` | `%LOCALAPPDATA%\Synapse\{data,run,logs,backups}` |
 
 ```bash
-pip install synapse-messenger
+# Install from the GitHub release (wheel) — works on Linux, macOS and Windows
+pip install https://github.com/baronmuh/synapse-messenger/releases/download/v3.1.2/synapse_messenger-3.1.2-py3-none-any.whl
+
+# Or install directly from the source repository
+pip install git+https://github.com/baronmuh/synapse-messenger.git
 ```
+
+> PyPI publishing is pending; install from the GitHub release above.
 
 Or install from source:
 
@@ -212,7 +218,7 @@ Copy `config.example.json` and adjust:
 
 Set `SYNAPSE_CONFIG` (or pass `--config`) to point the CLI at your config
 file. `update_command` is the shell command executed by `synapse update
-apply` (e.g. `pip install --upgrade synapse-messenger`).
+apply` (e.g. `pip install --upgrade <wheel-url-from-the-GitHub-release>`).
 
 ## Documentation
 
