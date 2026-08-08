@@ -49,7 +49,7 @@ EXIT_RUNNING = 4
 # Version du projet pour les fichiers PID et ``update check``. La source
 # of truth is the installed package; in development (not installed), we
 # fall back to the version declared in pyproject.toml.
-_FALLBACK_VERSION = "3.1.1"
+_FALLBACK_VERSION = "3.1.2"
 
 
 class CliError(Exception):
@@ -108,8 +108,10 @@ def resolve_config(args: argparse.Namespace | None = None) -> Config:
 
 
 def run_dir(config: Config) -> str:
-    """Runtime directory: derived from the socket path (SPEC_CLI §2.2)."""
-    return os.path.dirname(config.socket_path)
+    """Runtime directory: socket parent (unix) or platform default (tcp)."""
+    from ..transport import run_dir as _run_dir
+
+    return _run_dir(config)
 
 
 def now_iso() -> str:
@@ -146,17 +148,11 @@ def read_web_token(config: Config) -> str | None:
         return None
 
 
-def socket_responds(socket_path: str) -> bool:
-    """True if the Unix socket accepts a connection."""
-    probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    try:
-        probe.settimeout(1.0)
-        probe.connect(socket_path)
-        return True
-    except (OSError, ConnectionError):
-        return False
-    finally:
-        probe.close()
+def socket_responds(config: Config) -> bool:
+    """True if the local transport endpoint accepts a connection."""
+    from ..transport import transport_responds
+
+    return transport_responds(config)
 
 
 # ---------------------------------------------------------------------------
@@ -193,7 +189,7 @@ def read_password(args: argparse.Namespace, prompt: str) -> str:
 def require_service(config: Config) -> None:
     """Toute commande servie par l'API exige un service joignable : code 3
     (service unavailable, SPEC_CLI §2) if the socket does not respond."""
-    if not socket_responds(config.socket_path):
+    if not socket_responds(config):
         raise CliError(
             f"service unavailable: the socket {config.socket_path} does not respond "
             "(server stopped?)",
@@ -218,10 +214,10 @@ def unique_org_name(config: Config) -> str:
             "(or --my-name for an account identity)"
         )
     try:
-        data = Client(config.socket_path).list_orgs(_WEB_LOCAL, token)
+        data = Client.from_config(config).list_orgs(_WEB_LOCAL, token)
     except ClientTransportError as exc:
         raise CliError(
-            f"service indisponible : {exc}", code=EXIT_UNAVAILABLE
+            f"service unavailable: {exc}", code=EXIT_UNAVAILABLE
         ) from exc
     except ApiClientError as exc:
         raise CliError(f"cannot list the organizations: {exc.message}") from exc
@@ -339,38 +335,24 @@ def remove_pid_file(config: Config, name: str) -> None:
 
 
 def pid_alive(pid: int | None) -> bool:
-    if not pid or pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)
-        return True
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True  # processus existant mais non visible : vivant
-    except OSError:
-        return False
+    """True if the process exists (portable: handle probe on Windows)."""
+    from ..platform import process_alive
+
+    return process_alive(pid)
 
 
 def send_sigterm(pid: int) -> bool:
-    """SIGTERM; True if the signal was delivered (process alive)."""
-    try:
-        os.kill(pid, signal.SIGTERM)
-        return True
-    except ProcessLookupError:
-        return False
-    except OSError:
-        return False
+    """Graceful stop request (SIGTERM, or CTRL_BREAK_EVENT on Windows)."""
+    from ..platform import send_stop_signal
+
+    return send_stop_signal(pid)
 
 
 def send_sigkill(pid: int) -> bool:
-    try:
-        os.kill(pid, signal.SIGKILL)
-        return True
-    except ProcessLookupError:
-        return False
-    except OSError:
-        return False
+    """Unconditional termination (SIGKILL, or TerminateProcess on Windows)."""
+    from ..platform import send_kill_signal
+
+    return send_kill_signal(pid)
 
 
 def wait_process_exit(pid: int, timeout: float = 15.0) -> bool:
@@ -388,18 +370,16 @@ def wait_process_exit(pid: int, timeout: float = 15.0) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def service_state(config: Config, name: str = "synapse",
-                  socket_path: str | None = None) -> dict:
-    """État d'un service : ``running`` / ``degraded`` / ``stopped``.
+def service_state(config: Config, name: str = "synapse") -> dict:
+    """Service state: ``running`` / ``degraded`` / ``stopped``.
 
     A live PID without a responding socket = "degraded" state (SPEC_CLI
     §2.2); a responding socket without a PID file = running
     (unknown PID, service started outside the CLI).
     """
     info = read_pid_file(config, name)
-    sock = socket_path if socket_path is not None else config.socket_path
     alive = pid_alive(info["pid"]) if info else False
-    ok = socket_responds(sock)
+    ok = socket_responds(config)
     if info is None:
         return {"state": "running" if ok else "stopped", "pid": None,
                 "degraded": False, "pid_file": None, "socket_ok": ok}
@@ -410,14 +390,13 @@ def service_state(config: Config, name: str = "synapse",
             "pid_file": info, "socket_ok": ok}
 
 
-def stop_service(config: Config, name: str, *, force: bool = False,
-                 socket_path: str | None = None) -> tuple[int, str]:
+def stop_service(config: Config, name: str, *, force: bool = False) -> tuple[int, str]:
     """Clean service stop: SIGTERM, wait ≤ 15s, SIGKILL if --force.
 
     Returns ``(exit_code, message)``. The PID file is removed once
     the process has ended.
     """
-    state = service_state(config, name, socket_path)
+    state = service_state(config, name)
     if state["state"] == "stopped":
         return EXIT_OK, f"the service '{name}' is already stopped"
     info = state["pid_file"] or {}

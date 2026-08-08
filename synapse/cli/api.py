@@ -249,7 +249,7 @@ def run_api(config, *, command: str, raw_tokens: list[str], json_out: bool,
             )
 
     try:
-        data = Client(config.socket_path).request(command, params)
+        data = Client.from_config(config).request(command, params)
     except ApiClientError as exc:
         return emit_error(exc.message, api_code=exc.code)
     except ClientTransportError as exc:
@@ -301,7 +301,7 @@ def _coerce(value: str):
 def _unique_org(config, token: str) -> str:  # noqa: ANN001
     from ..service import _WEB_LOCAL
 
-    data = Client(config.socket_path).list_orgs(_WEB_LOCAL, token)
+    data = Client.from_config(config).list_orgs(_WEB_LOCAL, token)
     orgs = [o["organization_name"] for o in data.get("organizations", [])]
     if len(orgs) == 1:
         return orgs[0]

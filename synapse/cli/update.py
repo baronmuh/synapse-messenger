@@ -162,7 +162,7 @@ def _a2a_cli_restart(config, agent_name: str, port: int) -> bool:
     """Restarts the bridge via the CLI when the file secrets exist
     (mode hors systemd). Retourne False si les secrets sont absents — dans ce
     case, the operator must restart the bridge manually."""
-    secrets_dir = os.environ.get("SYNAPSE_SECRETS_DIR") or "/etc/synapse/secrets"
+    secrets_dir = os.environ.get("SYNAPSE_SECRETS_DIR") or _default_paths()["secrets"]
     password_file = os.path.join(secrets_dir, f"a2a-{agent_name}.password")
     token_file = os.path.join(secrets_dir, f"a2a-{agent_name}.token")
     if not (os.path.isfile(password_file) and os.path.isfile(token_file)):

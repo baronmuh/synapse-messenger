@@ -84,7 +84,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
 
         try:
             org, password = resolve_org_auth(config, args)
-            payload["server_status"] = Client(config.socket_path).get_server_status(
+            payload["server_status"] = Client.from_config(config).get_server_status(
                 org, password
             )
         except (ApiClientError, CliError, ClientTransportError) as exc:
@@ -211,11 +211,9 @@ def _check_dirs(config: Config) -> dict:
 
 
 def _check_socket(config: Config) -> dict:
-    if not os.path.exists(config.socket_path):
-        return _check("socket", "WARNING", "absent (server stopped?)")
-    if socket_responds(config.socket_path):
-        return _check("socket", "OK", "present and responding")
-    return _check("socket", "FAIL", "present but not responding")
+    if not socket_responds(config):
+        return _check("socket", "FAIL", "transport endpoint not responding (server stopped?)")
+    return _check("socket", "OK", "present and responding")
 
 
 def _check_web_token(config: Config) -> dict:

@@ -9,6 +9,7 @@ import sys
 
 from ..config import Config
 from ..client import ApiClientError, Client, ClientTransportError
+from ..platform import spawn_kwargs
 from .common import (
     EXIT_OK,
     CliError,
@@ -185,14 +186,17 @@ def _start_detached(config: Config, args: argparse.Namespace) -> int:
         cmd += ["--log-level", args.log_level]
     try:
         proc = subprocess.Popen(
-            cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL, start_new_session=True,
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            **spawn_kwargs(),
         )
     except OSError as exc:
         return emit_error(f"cannot start the server: {exc}")
 
     ready = wait_ready(
-        lambda: socket_responds(config.socket_path)
+        lambda: socket_responds(config)
         and read_pid_file(config, "synapse") is not None,
         timeout=15.0,
     )
@@ -256,7 +260,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
 
         try:
             org, password = resolve_org_auth(config, args)
-            status = Client(config.socket_path).get_server_status(org, password)
+            status = Client.from_config(config).get_server_status(org, password)
             payload.update({
                 "api_version": status.get("api_version"),
                 "commands_count": status.get("commands_count"),

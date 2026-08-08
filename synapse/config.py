@@ -33,10 +33,15 @@ DEFAULT_WEB_MAX_SESSIONS = 3  # simultaneous sessions per organization
 
 @dataclass(frozen=True)
 class Config:
-    storage_dir: str = "/var/lib/synapse"
-    socket_path: str = "/var/run/synapse/synapse.sock"
-    log_dir: str = "/var/log/synapse"
-    backup_dir: str = "/var/backups/synapse"
+    storage_dir: str = ""
+    socket_path: str = ""
+    log_dir: str = ""
+    backup_dir: str = ""
+    # Local transport: "unix" (POSIX default), "tcp" (loopback + token,
+    # Windows default) or "" (platform default — see platform.default_transport).
+    transport: str = ""
+    transport_port: int = 0  # TCP loopback port (0 = DEFAULT_TRANSPORT_PORT)
+    run_dir: str = ""  # PID files, web token, transport token ("" = derived)
     max_request_bytes: int = DEFAULT_MAX_REQUEST_BYTES
     auth_max_failures: int = DEFAULT_AUTH_MAX_FAILURES
     auth_window_seconds: int = DEFAULT_AUTH_WINDOW_SECONDS
@@ -50,6 +55,22 @@ class Config:
     web_login_lockout_seconds: int = DEFAULT_WEB_LOGIN_LOCKOUT_SECONDS
     web_max_sessions: int = DEFAULT_WEB_MAX_SESSIONS
     _extra: dict = field(default_factory=dict, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        """Applies the platform defaults to empty path fields (Config() and
+        Config.from_dict both resolve them the same way)."""
+        from . import platform as _platform
+
+        defaults = _platform.default_paths()
+        replacements = {
+            "storage_dir": defaults["storage"],
+            "socket_path": str(Path(defaults["run"]) / "synapse.sock"),
+            "log_dir": defaults["log"],
+            "backup_dir": defaults["backup"],
+        }
+        for name, value in replacements.items():
+            if not getattr(self, name):
+                object.__setattr__(self, name, value)
 
     # --- Derived paths -------------------------------------------------
     @property
@@ -71,13 +92,17 @@ class Config:
     # --- Chargement ------------------------------------------------------
     @classmethod
     def load(cls, path: str | os.PathLike | None = None) -> "Config":
-        """Charge la configuration depuis un fichier JSON.
+        """Loads the configuration from a JSON file.
 
-        Le fichier peut omettre n'importe quel champ : les valeurs par
-        defaults apply. Any unknown field is silently ignored
-        (la configuration n'is not the contract of theAPI).
+        The file may omit any field: platform defaults apply (Linux keeps
+        the systemd-oriented /var|/etc locations; macOS and Windows use
+        per-user directories). Any unknown field is silently ignored.
         """
-        config_path = Path(path or os.environ.get("Synapse_CONFIG") or DEFAULT_CONFIG_PATH)
+        from . import platform as _platform
+
+        config_path = Path(
+            path or os.environ.get("Synapse_CONFIG") or _platform.default_paths()["config"]
+        )
         data: dict = {}
         if config_path.exists():
             try:
@@ -98,6 +123,8 @@ class Config:
                 values[key] = value
             else:
                 extra[key] = value
+        # Empty path fields are resolved by __post_init__ to the platform
+        # defaults (same behavior as Config()).
         return cls(**values, _extra=extra)
 
     def to_dict(self) -> dict:

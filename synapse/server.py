@@ -12,17 +12,19 @@ the socket is created with ``0600`` permissions in a
 
 from __future__ import annotations
 
+import hmac
 import logging
 import os
 import queue
 import secrets
-import signal
 import socket
 import socketserver
 import sys
 import threading
 from pathlib import Path
 
+from . import platform
+from . import transport
 from .config import Config
 from .db import StorageError, ensure_storage
 from .errors import INVALID_ARGUMENT, INTERNAL_ERROR
@@ -65,6 +67,23 @@ class _ConnectionHandler(socketserver.StreamRequestHandler):
 
     def handle(self) -> None:  # noqa: D102
         self._buffer = bytearray()
+        # TCP transport: the client opens with a single token line (the
+        # listener is loopback-only; the token replaces filesystem
+        # permissions). Constant-time comparison; mismatch closes.
+        auth_token = getattr(self.server, "auth_token", None)
+        if auth_token:
+            try:
+                line = self._read_line()
+            except (OSError, ConnectionError):
+                return
+            if line is None or not line:
+                return
+            try:
+                candidate = line.decode("ascii", "replace").strip()
+            except (ValueError, UnicodeError):
+                return
+            if not hmac.compare_digest(candidate, auth_token):
+                return  # wrong or missing token: drop the connection
         while True:
             try:
                 line = self._read_line()
@@ -207,18 +226,20 @@ class _ConnectionPool:
             self._queue.put(None)
 
 
-class _ThreadingUnixServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+class _PoolMixin:
+    """Shared pool/semaphore logic for the local listeners (unix + tcp)."""
+
     daemon_threads = True
     allow_reuse_address = True
 
-    def __init__(self, socket_path: str, handler_class) -> None:  # noqa: ANN001
+    def __init__(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         # The pool starts BEFORE the bind: the socket only becomes connectable
         # once the workers are ready, avoiding the window where the
-        # socket accepte des connexions alors que le serveur n'est pas
-        # still assigned (race detected by the stop tests).
+        # socket accepts connections while the server is not yet assigned
+        # (race detected by the stop tests).
         self._pool = _ConnectionPool(MAX_CONCURRENT_CONNECTIONS)
         try:
-            super().__init__(socket_path, handler_class)
+            super().__init__(*args, **kwargs)
         except BaseException:
             self._pool.close()
             raise
@@ -250,6 +271,27 @@ class _ThreadingUnixServer(socketserver.ThreadingMixIn, socketserver.UnixStreamS
             self._pool.close()
 
 
+class _ThreadingUnixServer(_PoolMixin, socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+    pass
+
+
+class _ThreadingTcpServer(_PoolMixin, socketserver.ThreadingMixIn, socketserver.TCPServer):
+    """Loopback TCP listener (Windows transport): binds 127.0.0.1 only."""
+
+    def __init__(self, bind: tuple[str, int], handler_class) -> None:  # noqa: ANN001
+        super().__init__(bind, handler_class)
+        self.auth_token: str | None = None  # set by SynapseServer.start()
+
+
+def _build_listener(config: Config, handler_class) -> socketserver.BaseServer:  # noqa: ANN001
+    """Builds the local listener for the effective transport."""
+    if transport.resolve_transport(config) == transport.TRANSPORT_TCP:
+        return _ThreadingTcpServer(
+            (transport.TCP_BIND_HOST, transport.transport_port(config)), handler_class
+        )
+    return _ThreadingUnixServer(config.socket_path, handler_class)
+
+
 def lock_is_stale(lock_path: str | os.PathLike) -> bool:
     """A lock is stale if its content is the PID of a dead process.
 
@@ -266,15 +308,9 @@ def lock_is_stale(lock_path: str | os.PathLike) -> bool:
         return False  # contenu unknown (ex. "restore") : verrou actif
     if pid <= 0:
         return False
-    try:
-        os.kill(pid, 0)
-        return False  # processus vivant
-    except ProcessLookupError:
-        return True
-    except PermissionError:
-        return False  # processus existant mais non visible : prudent
-    except OSError:
-        return False  # undeterminable: conservative (lock active)
+    if platform.process_alive(pid):
+        return False  # live process: the lock is active
+    return True
 
 
 class SynapseServer:
@@ -283,7 +319,7 @@ class SynapseServer:
     def __init__(self, config: Config) -> None:
         self.config = config
         self.service = Service(config)
-        self._server: _ThreadingUnixServer | None = None
+        self._server: socketserver.BaseServer | None = None
         self._lock_acquired = False
         self._stop_lock = threading.Lock()
 
@@ -296,18 +332,27 @@ class SynapseServer:
             print(f"synapse-server: {exc}", file=sys.stderr)
             sys.exit(1)
         # The cursor signing key is created at startup:
-        # elle fait partie du stockage (incluse dans les sauvegardes).
+        # it is part of the storage (included in backups).
         load_or_create_key(self.config.cursor_key_path)
         self._acquire_lock()
-        self._prepare_socket_path()
+        effective = transport.resolve_transport(self.config)
+        if effective == transport.TRANSPORT_UNIX:
+            self._prepare_socket_path()
+        else:
+            transport.ensure_token(self.config)
         self._write_web_token()
-        server = _ThreadingUnixServer(self.config.socket_path, _ConnectionHandler)
+        server = _build_listener(self.config, _ConnectionHandler)
         server.service = self.service  # type: ignore[attr-defined]
         self._server = server
-        os.chmod(self.config.socket_path, 0o600)
+        if effective == transport.TRANSPORT_TCP:
+            server.auth_token = transport.read_token(self.config)  # type: ignore[attr-defined]
+            target = f"127.0.0.1:{transport.transport_port(self.config)}"
+        else:
+            os.chmod(self.config.socket_path, 0o600)
+            target = os.path.basename(self.config.socket_path)
         logger.info(
             "server_started",
-            extra={"result": "ok", "target_id": os.path.basename(self.config.socket_path)},
+            extra={"result": "ok", "target_id": target},
         )
         try:
             server.serve_forever(poll_interval=0.5)
@@ -397,10 +442,12 @@ class SynapseServer:
             return False
 
     def _remove_socket_file(self) -> None:
-        try:
-            os.unlink(self.config.socket_path)
-        except FileNotFoundError:
-            pass
+        if transport.resolve_transport(self.config) == transport.TRANSPORT_UNIX:
+            try:
+                os.unlink(self.config.socket_path)
+            except FileNotFoundError:
+                pass
+        transport.remove_token(self.config)
         self._remove_web_token()
 
     # ------------------------------------------------------------------
@@ -413,7 +460,8 @@ class SynapseServer:
         selection login)."""
         token = secrets.token_urlsafe(32)
         self.service.set_web_token(token)
-        path = os.path.join(os.path.dirname(self.config.socket_path), "web_token")
+        path = os.path.join(transport.run_dir(self.config), "web_token")
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         try:
             os.write(fd, token.encode("ascii"))
@@ -423,7 +471,7 @@ class SynapseServer:
 
     def _remove_web_token(self) -> None:
         try:
-            os.unlink(os.path.join(os.path.dirname(self.config.socket_path), "web_token"))
+            os.unlink(os.path.join(transport.run_dir(self.config), "web_token"))
         except FileNotFoundError:
             pass
 
@@ -436,7 +484,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(prog="synapse-server", description="Synapse messaging server")
     parser.add_argument("--config", default=None, help="JSON configuration file path")
-    parser.add_argument("--verbose", action="store_true", help="Journalisation console")
+    parser.add_argument("--verbose", action="store_true", help="Console logging")
     args = parser.parse_args()
 
     try:
@@ -451,6 +499,5 @@ def main() -> None:
     def _shutdown(_signum, _frame) -> None:  # noqa: ANN001
         threading.Thread(target=server.stop, daemon=True).start()
 
-    signal.signal(signal.SIGTERM, _shutdown)
-    signal.signal(signal.SIGINT, _shutdown)
+    platform.install_stop_handlers(_shutdown)
     server.start()

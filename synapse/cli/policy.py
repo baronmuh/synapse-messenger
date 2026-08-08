@@ -122,7 +122,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
 
 
 def _client(config) -> Client:  # noqa: ANN001
-    return Client(config.socket_path)
+    return Client.from_config(config)
 
 
 def _cmd_show(args: argparse.Namespace) -> int:

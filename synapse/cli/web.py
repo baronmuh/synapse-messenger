@@ -7,6 +7,8 @@ import os
 import subprocess
 import sys
 
+from ..platform import spawn_kwargs
+
 from .common import (
     EXIT_OK,
     EXIT_UNAVAILABLE,
@@ -96,7 +98,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
 
 def _require_server(config) -> None:  # noqa: ANN001
     """The web requires a started local server (SPEC_CLI §4.3): exit code 3 otherwise."""
-    if not socket_responds(config.socket_path) or read_web_token(config) is None:
+    if not socket_responds(config) or read_web_token(config) is None:
         raise SystemExit(emit_error(
             "local service not ready: the server must be started "
             "(synapse server start) avant l'interface web",
@@ -125,7 +127,7 @@ def _cmd_start(args: argparse.Namespace) -> int:
     port = _resolve_web_port(args)
     if args.foreground:
         return _run_web_foreground(config, port, args.log_level)
-    state = service_state(config, "web", socket_path="")
+    state = service_state(config, "web")
     info = read_pid_file(config, "web")
     if info and info.get("pid") and _pid_alive(info["pid"]):
         print(f"web interface already running (PID {info['pid']})")
@@ -138,7 +140,7 @@ def _cmd_start(args: argparse.Namespace) -> int:
     try:
         proc = subprocess.Popen(
             cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL, start_new_session=True,
+            stderr=subprocess.DEVNULL, **spawn_kwargs(),
         )
     except OSError as exc:
         return emit_error(f"cannot start the web interface: {exc}")

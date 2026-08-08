@@ -119,7 +119,7 @@ class A2ABridge:
         self._thread: threading.Thread | None = None
 
     def _client(self) -> Client:
-        return Client(self._config.socket_path)
+        return Client.from_config(self._config)
 
     def agent_card(self) -> dict:
         client = self._client()

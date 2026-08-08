@@ -31,6 +31,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from .client import ApiClientError, Client
 from . import jsonutil
+from . import transport
 from .service import WEB_TOKEN_FILENAME, _WEB_LOCAL
 from .validation import human_username_for
 
@@ -564,7 +565,7 @@ class SynapseWebUI:
         return value
 
     def _client(self) -> Client:
-        return Client(self._config.socket_path)
+        return Client.from_config(self._config)
 
     # ------------------------------------------------------------------
     # API (session identity)
@@ -716,7 +717,7 @@ class SynapseWebUI:
         # service without a password (selection login, SPEC-WEB D5
         # amended). If missing, the web stays reachable but logins
         # fail cleanly (service not started).
-        token_path = os.path.join(os.path.dirname(self._config.socket_path),
+        token_path = os.path.join(transport.run_dir(self._config),
                                   WEB_TOKEN_FILENAME)
         try:
             with open(token_path, encoding="ascii") as fh:

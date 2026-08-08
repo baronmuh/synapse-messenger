@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import argparse
 import logging
-import signal
+from .. import platform
 import sys
 import threading
 
@@ -40,21 +40,19 @@ def _install_shutdown_handlers(stop_fn) -> None:  # noqa: ANN001
     def _shutdown(_signum, _frame) -> None:  # noqa: ANN001
         threading.Thread(target=stop_fn, daemon=True).start()
 
-    signal.signal(signal.SIGTERM, _shutdown)
-    signal.signal(signal.SIGINT, _shutdown)
+    platform.install_stop_handlers(_shutdown)
 
 
 def _install_stop_event() -> threading.Event:
-    """Installs SIGTERM/SIGINT → stop event (the main thread
-    waits on the event instead of sleeping: the process truly exits
-    on the requested stop, then cleans up its PID file)."""
+    """Installs SIGTERM/SIGINT (and SIGBREAK on Windows) → stop event
+    (the main thread waits on the event instead of sleeping: the process
+    truly exits on the requested stop, then cleans up its PID file)."""
     stop_event = threading.Event()
 
     def _shutdown(_signum, _frame) -> None:  # noqa: ANN001
         stop_event.set()
 
-    signal.signal(signal.SIGTERM, _shutdown)
-    signal.signal(signal.SIGINT, _shutdown)
+    platform.install_stop_handlers(_shutdown)
     return stop_event
 
 
@@ -78,8 +76,7 @@ def run_server_daemon(config_path: str | None, log_level: str | None) -> None:
         shutdown_thread = threading.Thread(target=server.stop, daemon=False)
         shutdown_thread.start()
 
-    signal.signal(signal.SIGTERM, _shutdown)
-    signal.signal(signal.SIGINT, _shutdown)
+    platform.install_stop_handlers(_shutdown)
     try:
         # READY + battements WATCHDOG sous systemd ; no-op hors systemd.
         with watchdog_context():

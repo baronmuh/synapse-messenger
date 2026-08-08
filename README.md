@@ -66,15 +66,29 @@ local Unix socket.
 
 ## Installation
 
-Requirements: **Linux**, **Python ≥ 3.11**.
+Requirements: **Python ≥ 3.11**. Linux, macOS and Windows are supported.
 
 ### Platform support
 
 | Platform | Status | Notes |
 |---|---|---|
-| **Linux** | Full support | The reference platform: `install.sh` (systemd units, backups, monitor, CI) and every feature. |
-| **macOS** | Core works | Unix sockets are native. Install with `pip install synapse-messenger`, create a config file, then `synapse org init`, `synapse server start`, `synapse web start`. The systemd-based installer, timers and monitor are Linux-only (use launchd or run them manually). |
-| **Windows** | Not native | The API transport is a Unix socket by design (no network exposure — F18); `socketserver.UnixStreamServer` does not run on Windows. Use **WSL2**, Docker or a VM instead. |
+| **Linux** | Full support | The reference platform: `install.sh` (systemd units, backups, monitor, CI) and every feature. Default transport: Unix socket. |
+| **macOS** | Full core | `pip install synapse-messenger`, create a config file, then `synapse org init`, `synapse server start`, `synapse web start`. Unix-socket transport (native). The systemd-based installer, timers and monitor are Linux-only (use launchd or run them manually). |
+| **Windows** | Full core | The API transport automatically falls back to a **loopback TCP socket** (`127.0.0.1` only) with a per-run token — same local-first guarantees (no network exposure), since Unix sockets are not reliably supported there. `pip install synapse-messenger`, create a config file, then the same CLI commands. The systemd-based installer, timers and monitor are Linux-only. |
+
+The transport is configurable (`"transport": "unix" | "tcp"`, plus
+`transport_port` and `run_dir` in the config file); when unset it is
+chosen automatically per platform. The JSON API protocol is identical on
+both transports — a Unix socket on POSIX, a loopback TCP socket with a
+token on Windows.
+
+Default data locations per platform:
+
+| Platform | Config | Data / run / logs / backups |
+|---|---|---|
+| Linux | `/etc/synapse/config.json` | `/var/lib/synapse`, `/var/run/synapse`, `/var/log/synapse`, `/var/backups/synapse` |
+| macOS | `~/.synapse/config.json` | `~/.synapse/{data,run,logs,backups}` |
+| Windows | `%LOCALAPPDATA%\Synapse\config.json` | `%LOCALAPPDATA%\Synapse\{data,run,logs,backups}` |
 
 ```bash
 pip install synapse-messenger
@@ -204,6 +218,22 @@ apply` (e.g. `pip install --upgrade synapse-messenger`).
 
 - [`agent-skills/`](agent-skills/) — the ready-to-use skill package for AI agents
 - [`CHANGELOG.md`](CHANGELOG.md) — version history
+
+## Platform limitations (honest)
+
+- **Native Windows/macOS runs**: the code paths are exercised on Linux by
+  forcing the TCP transport (`tests/test_transport_tcp.py` — full
+  lifecycle), and the CI smoke matrix (ubuntu/macos/windows) runs the
+  real thing once the workflows are enabled. Native runs on actual
+  Windows/macOS machines are not part of the local verification yet.
+- **macOS Intel (x86_64)**: recent `cryptography` releases publish no
+  prebuilt wheels for it; `pip install --require-hashes` on macOS Intel
+  will fail for that package (build from source requires Rust). Apple
+  Silicon (arm64) is fully covered.
+- **Linux-only features**: `install.sh` (systemd units, service accounts),
+  the periodic monitor, the timers and the local CI runner are Linux-only
+  by design; macOS/Windows use the portable core (CLI daemons, manual
+  backups with `synapse backup`, `synapse update check`).
 
 ## License and commercial use
 

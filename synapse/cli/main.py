@@ -160,6 +160,9 @@ def _cmd_version(_args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     """Entry point of the unified CLI. Returns the exit code (0 by default)."""
+    from ..platform import ensure_utf8_stdio
+
+    ensure_utf8_stdio()
     if argv is None:
         argv = sys.argv[1:]
 

@@ -4,6 +4,42 @@ All notable changes to the Synapse project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project follows [SemVer](https://semver.org/).
 
+## [3.1.2] — 2026-08-08 (cross-platform support)
+
+### Added
+
+- **Cross-platform support (Linux, macOS, Windows)**: the API transport is
+  now an abstraction — a Unix socket on POSIX (unchanged default) and a
+  **loopback TCP socket** (`127.0.0.1` only) with a per-run token
+  (`<run_dir>/transport.token`, 0600) on Windows, where
+  `socketserver.UnixStreamServer` is not reliable. The JSON API protocol,
+  CLI and web UI are identical on both transports.
+- **Platform-aware defaults**: config/data/run/log/backup directories per
+  OS (Linux keeps `/var|/etc`; macOS uses `~/.synapse`; Windows uses
+  `%LOCALAPPDATA%\Synapse`). New config fields: `transport`,
+  `transport_port`, `run_dir` (all optional).
+- **Portable process control**: `os.kill(pid, 0)` probes replaced by a
+  handle-based check on Windows; graceful stop uses SIGTERM on POSIX and
+  CTRL_BREAK_EVENT (SIGBREAK handler) on Windows; detached daemons spawn
+  with `CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS` on Windows.
+- **UTF-8 console output** on every platform (`ensure_utf8_stdio`).
+- **Multi-platform dependency lock**: `pip-compile --generate-hashes`
+  already records every distribution hash published on the index, so
+  `pip install --require-hashes` works on Linux, macOS and Windows from
+  the same `requirements.lock` (verified for win_amd64 and
+  macosx_12_0_arm64 wheels).
+- **CI matrix workflow** (`.github/workflows/ci-smoke.yml`): smoke tests on
+  ubuntu-latest, macos-latest and windows-latest.
+
+### Tested
+
+- New `tests/test_transport_tcp.py` forces the TCP transport on Linux and
+  exercises the full lifecycle (org init, server, CLI, Python client, web
+  proxy, wrong-token rejection, clean shutdown) — the Windows code path is
+  genuinely covered without a Windows machine.
+- Full suite: 977 tests green (Linux). Native Windows/macOS runs are
+  exercised by the CI matrix when the workflows are enabled.
+
 ## [Unreleased] — 2026-08-07 (documentation + test performance)
 
 ### Documented

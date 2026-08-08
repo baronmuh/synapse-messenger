@@ -7,6 +7,8 @@ import os
 import subprocess
 import sys
 
+from ..platform import spawn_kwargs
+
 from .common import (
     getpass_get,
     EXIT_OK,
@@ -93,7 +95,7 @@ def _resolve_a2a_port(args: argparse.Namespace) -> int:
 
 def _cmd_start(args: argparse.Namespace) -> int:
     config = resolve_config(args)
-    if not socket_responds(config.socket_path):
+    if not socket_responds(config):
         raise SystemExit(emit_error(
             "local service not ready: the server must be started "
             "(synapse server start) before the A2A bridge",
@@ -126,7 +128,7 @@ def _cmd_start(args: argparse.Namespace) -> int:
     try:
         proc = subprocess.Popen(
             cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL, start_new_session=True,
+            stderr=subprocess.DEVNULL, **spawn_kwargs(),
         )
         if proc.stdin is not None:
             proc.stdin.write((password + "\n").encode("utf-8"))

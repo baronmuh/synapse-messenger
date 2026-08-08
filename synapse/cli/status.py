@@ -95,7 +95,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
         from ..service import _WEB_LOCAL
 
         try:
-            data = Client(config.socket_path).list_orgs(_WEB_LOCAL, token)
+            data = Client.from_config(config).list_orgs(_WEB_LOCAL, token)
             payload["organizations"] = data.get("organizations", [])
         except (ApiClientError, ClientTransportError):
             payload["organizations"] = {"error": "service injoignable"}

@@ -3,6 +3,9 @@
   "socket_path": "/var/run/synapse/synapse.sock",
   "log_dir": "/var/log/synapse",
   "backup_dir": "/var/backups/synapse",
+  "transport": "unix",
+  "transport_port": 7910,
+  "run_dir": "",
   "alert_command": "",
   "update_command": ""
 }

@@ -34,14 +34,44 @@ class ClientTransportError(Exception):
 
 
 class Client:
-    """Client de l'API v1 sur socket Unix.
+    """Client of the local API (Unix socket on POSIX, loopback TCP on Windows).
 
     Args:
-        socket_path: chemin du socket Unix du service.
+        socket_path: path of the service socket (Unix transport).
+        transport: "unix" or "tcp"; None = platform default.
+        transport_port: loopback TCP port (TCP transport only).
+        run_dir: runtime directory holding the transport token (TCP).
     """
 
-    def __init__(self, socket_path: str) -> None:
+    def __init__(
+        self,
+        socket_path: str,
+        *,
+        transport: str | None = None,
+        transport_port: int | None = None,
+        run_dir: str | None = None,
+    ) -> None:
+        from . import platform as _platform
+        from . import transport as _transport
+
         self.socket_path = socket_path
+        self._transport = transport or _platform.default_transport()
+        self._port = transport_port
+        self._run_dir = run_dir
+        if self._transport == _transport.TRANSPORT_TCP and self._port is None:
+            self._port = _transport.DEFAULT_TRANSPORT_PORT
+
+    @classmethod
+    def from_config(cls, config) -> "Client":
+        """Builds a client bound to a service configuration (both transports)."""
+        from . import transport as _transport
+
+        return cls(
+            config.socket_path,
+            transport=_transport.resolve_transport(config),
+            transport_port=_transport.transport_port(config),
+            run_dir=_transport.run_dir(config),
+        )
 
     # ------------------------------------------------------------------
     # Bas niveau
@@ -61,6 +91,40 @@ class Client:
         return response.get("data") or {}
 
     def _transact(self, payload: bytes) -> dict:
+        from . import platform as _platform
+        from . import transport as _transport
+
+        if self._transport == _transport.TRANSPORT_TCP:
+            sock = socket.create_connection(
+                (_transport.TCP_BIND_HOST, self._port), timeout=10.0
+            )
+            try:
+                token = _transport.read_token_from(self._run_dir)
+                if not token:
+                    raise ClientTransportError(
+                        "the service is not reachable: transport token missing "
+                        f"(server not started? run dir: {self._run_dir})"
+                    )
+                sock.sendall(token.encode("ascii") + b"\n")
+                sock.sendall(payload)
+                sock.shutdown(socket.SHUT_WR)
+                chunks: list[bytes] = []
+                size = 0
+                while True:
+                    chunk = sock.recv(65536)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                    size += len(chunk)
+                    if size > _MAX_RESPONSE_BYTES:
+                        raise ClientTransportError("Response too large")
+                raw = b"".join(chunks)
+            except (OSError, ConnectionError) as exc:
+                raise ClientTransportError(f"Cannot reach the service: {exc}") from exc
+            finally:
+                sock.close()
+            return self._parse_response(raw)
+
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
             sock.connect(self.socket_path)
@@ -81,6 +145,9 @@ class Client:
             raise ClientTransportError(f"Cannot reach the service: {exc}") from exc
         finally:
             sock.close()
+        return self._parse_response(raw)
+
+    def _parse_response(self, raw: bytes) -> dict:
         if not raw:
             raise ClientTransportError("The service closed the connection without a response")
         try:
