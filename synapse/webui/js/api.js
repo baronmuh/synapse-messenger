@@ -1,10 +1,10 @@
 /* ==========================================================================
    Synapse — API layer: web session, snapshot, polling, connection state.
    Login (organization + password) creates a server-side session
-   (cookie HttpOnly SameSite=Strict) ; plus aucun jeton statique n'est
+   (cookie HttpOnly SameSite=Strict) ; no static token is
    requested by the browser (SPEC-WEB §5-§6). All calls go through the
    local HTTP server which goes through the Synapse socket with the identity of the
-   compte humain de la session.
+   human account of the session.
    ========================================================================== */
 
 import { ACTIVE_STATES } from './format.js';
@@ -15,12 +15,12 @@ const POLL_INTERVAL = 5000;
 class Api {
   constructor() {
     this.snapshot = null;      // last decoded snapshot
-    this.org = null;           // informations d'organisation
+    this.org = null;           // organization info
     this.session = null;       // {organization_name, human_username, expires_at}
     this.status = 'connecting'; // connecting | live | stale | off | signed-out
-    this.error = null;         // message d'erreur de connexion
+    this.error = null;         // connection error message
     this.lastUpdate = null;    // Date of the last successful update
-    this.latency = null;       // ms du dernier aller-retour
+    this.latency = null;       // ms of the last round trip
     this._etag = null;
     this._timer = null;
     this._listeners = new Set();
@@ -39,7 +39,7 @@ class Api {
 
   /** Organization selection login (SPEC-WEB D5 amended): no more
    *  typed password — the web server authenticates itself to the
-   *  service (jeton de confiance local) et pose le cookie de session. */
+   *  service (local trust token) and sets the session cookie. */
   async login(organization_name) {
     const res = await fetch('/api/login', {
       method: 'POST',
@@ -48,12 +48,12 @@ class Api {
       cache: 'no-cache',
     });
     let body = {};
-    try { body = await res.json(); } catch { /* corps vide */ }
+    try { body = await res.json(); } catch { /* empty body */ }
     if (res.status === 429) {
       throw new Error('Too many attempts. Try again in a few minutes.');
     }
     if (!res.ok) {
-      throw new Error(body.error || 'Organisation indisponible');
+      throw new Error(body.error || 'Organization unavailable');
     }
     this.session = body;
     this.status = 'live';
@@ -71,7 +71,7 @@ class Api {
   }
 
   async logout() {
-    try { await fetch('/api/logout', { method: 'POST', cache: 'no-cache' }); } catch { /* hors-ligne */ }
+    try { await fetch('/api/logout', { method: 'POST', cache: 'no-cache' }); } catch { /* offline */ }
     this._resetSession();
   }
 
@@ -101,13 +101,13 @@ class Api {
     } catch {
       this._resetSession();
       this.status = 'off';
-      this.error = 'Serveur injoignable';
+      this.error = 'Server unreachable';
       this._emitSession();
       return false;
     }
   }
 
-  /* ---- Souscription ---------------------------------------------------- */
+  /* ---- Subscription ---------------------------------------------------- */
   onUpdate(fn) { this._listeners.add(fn); return () => this._listeners.delete(fn); }
   _emit() { for (const fn of this._listeners) { try { fn(this.snapshot); } catch (e) { console.error(e); } } }
 
@@ -132,7 +132,7 @@ class Api {
     if (res.status === 304) return { notModified: true };
     if (!res.ok) {
       let detail = '';
-      try { detail = (await res.json()).error || ''; } catch { /* corps non JSON */ }
+      try { detail = (await res.json()).error || ''; } catch { /* non-JSON body */ }
       throw new Error(detail || `HTTP ${res.status}`);
     }
     const et = res.headers.get('ETag');
@@ -187,7 +187,7 @@ class Api {
     try {
       const { data } = await this.fetchJSON('/api/org');
       this.org = data;
-    } catch { /* l'org n'est pas bloquant */ }
+    } catch { /* the org is not blocking */ }
     this._emit();
   }
 
@@ -218,7 +218,7 @@ class Api {
     return data;
   }
 
-  /* ---- Gestion des agents (SPEC-WEB §4) --------------------------------- */
+  /* ---- Agent management (SPEC-WEB §4) --------------------------------- */
   async createAgent(username, password, description) {
     const { data } = await this.fetchJSON('/api/agents', {
       post: { username, password, description },
@@ -242,7 +242,7 @@ class Api {
       { post: { description } })).data;
   }
 
-  /* ---- Gestion des organisations (SPEC-WEB §4) --------------------------- */
+  /* ---- Organization management (SPEC-WEB §4) --------------------------- */
   async createOrg(organization_name, organization_password) {
     return (await this.fetchJSON('/api/orgs', {
       post: { organization_name, organization_password },

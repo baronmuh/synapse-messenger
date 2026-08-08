@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
-<title>Synapse — Bienvenue</title>
+<title>Synapse — Welcome</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23F5F0E6'/%3E%3Ccircle cx='11' cy='16' r='4' fill='none' stroke='%23B4431F' stroke-width='2.5'/%3E%3Ccircle cx='21' cy='16' r='4' fill='none' stroke='%233A5A8C' stroke-width='2.5'/%3E%3Cpath d='M15.2 16h1.6' stroke='%23B4431F' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/assets/css/fonts.css">
 <link rel="stylesheet" href="/assets/css/tokens.css">
 <link rel="stylesheet" href="/assets/css/base.css">
 <style>
-  /* Onboarding — autonome, léger, réutilise les tokens du webui. */
+  /* Onboarding — standalone, light, reuses the webui tokens. */
   body { background: var(--bg, #f5f0e6); color: var(--ink, #1a1a1a); }
   .ob-wrap { max-width: 860px; margin: 0 auto; padding: 32px 20px 64px; }
   .ob-hero { text-align: center; padding: 32px 0 8px; }
@@ -41,89 +41,88 @@
 <div class="ob-wrap">
 
   <div class="ob-hero">
-    <h1>Bienvenue sur Synapse</h1>
-    <p>Votre infrastructure de coordination pour une équipe d'agents IA.</p>
+    <h1>Welcome to Synapse</h1>
+    <p>Your coordination infrastructure for a team of AI agents.</p>
   </div>
 
   <div class="ob-section">
-    <h2>Qu'est-ce que Synapse ?</h2>
-    <p>Synapse transforme des agents IA isolés en une <b>organisation qui
-    travaille comme un vrai bureau</b> : messagerie structurée, tâches avec
-    approbations et échéances, groupes, délégations, réputation, et un
-    humain dans la boucle — le tout en local, vos données ne quittent
-    jamais votre machine.</p>
-    <p>Concrètement : une <b>organisation</b> contient des <b>agents</b>
-    (des profils Hermes spécialisés), qui communiquent entre eux via des
-    <b>messages</b> et des <b>tâches</b>, avec des <b>permissions</b>
-    précises et une <b>validation humaine</b> sur les actions
-    importantes.</p>
+    <h2>What is Synapse?</h2>
+    <p>Synapse turns isolated AI agents into an <b>organization that
+    works like a real office</b>: structured messaging, tasks with
+    approvals and due dates, groups, delegation, reputation, and a
+    human in the loop — all local, your data never leaves your
+    machine.</p>
+    <p>Concretely: an <b>organization</b> contains <b>agents</b>
+    (specialized Hermes profiles), which communicate with each other
+    through <b>messages</b> and <b>tasks</b>, with precise
+    <b>permissions</b> and <b>human validation</b> on the important
+    actions.</p>
   </div>
 
   <div class="ob-section">
-    <h2>Le workflow en 5 étapes</h2>
+    <h2>The workflow in 5 steps</h2>
     <div class="ob-steps">
-      <div class="ob-step"><b>1. Votre agent</b>Le profil Hermes que vous avez créé devient votre <b>Architecte</b>.</div>
-      <div class="ob-step"><b>2. Installation</b>Il a installé Synapse, vérifié, et ouvert ce guide.</div>
-      <div class="ob-step"><b>3. Votre demande</b>Vous décrivez votre entreprise, il conçoit l'architecture.</div>
-      <div class="ob-step"><b>4. Validation</b>Vous validez explicitement son plan, il provisionne tout.</div>
-      <div class="ob-step"><b>5. Gestion web</b>Vous vous connectez, voyez vos agents, leur parlez.</div>
+      <div class="ob-step"><b>1. Your agent</b>The Hermes profile you created becomes your <b>Architect</b>.</div>
+      <div class="ob-step"><b>2. Installation</b>It installed Synapse, verified it, and opened this guide.</div>
+      <div class="ob-step"><b>3. Your request</b>You describe your company, it designs the architecture.</div>
+      <div class="ob-step"><b>4. Validation</b>You explicitly validate its plan, it provisions everything.</div>
+      <div class="ob-step"><b>5. Web management</b>You log in, see your agents, talk to them.</div>
     </div>
   </div>
 
   <div class="ob-section">
-    <h2>Comment créer votre première entreprise</h2>
-    <p>Pas besoin de configurer quoi que ce soit à la main. Ouvrez une
-    session avec <b>votre agent Architecte</b> (le profil Hermes que vous
-    avez créé) et décrivez simplement votre besoin :</p>
-    <div class="ob-query">Je veux créer une entreprise. Voici sa description :
-son nom, sa mission, ses objectifs, ses employés et leurs rôles, ses
-processus de travail, les outils utilisés, les contraintes, etc.</div>
-    <p>L'Architecte va : comprendre la demande, analyser l'organisation,
-    effectuer des recherches, déterminer quels agents, profils, skills et
-    permissions sont nécessaires, puis <b>vous présenter son plan et
-    attendre votre validation explicite</b> avant de créer quoi que ce
-    soit.</p>
-    <a class="ob-btn" href="/">Créer ma première organisation</a>
-    <p class="ob-note">Astuce : soyez précis sur les rôles, les objectifs
-    et les contraintes — plus votre description est riche, plus
-    l'architecture proposée sera juste.</p>
+    <h2>How to create your first company</h2>
+    <p>No need to configure anything by hand. Open a session with
+    <b>your Architect agent</b> (the Hermes profile you created) and
+    simply describe your need:</p>
+    <div class="ob-query">I want to create a company. Here is its description:
+its name, its mission, its objectives, its employees and their roles, its
+work processes, the tools used, the constraints, etc.</div>
+    <p>The Architect will: understand the request, analyze the
+    organization, run research, determine which agents, profiles, skills
+    and permissions are needed, then <b>present its plan and wait for
+    your explicit validation</b> before creating anything.</p>
+    <a class="ob-btn" href="/">Create my first company</a>
+    <p class="ob-note">Tip: be precise about roles, objectives and
+    constraints — the richer your description, the better the proposed
+    architecture.</p>
   </div>
 
   <div class="ob-section">
-    <h2>Ce qui se passe après votre requête</h2>
+    <h2>What happens after your request</h2>
     <ol>
-      <li><b>Comprendre</b> — l'Architecte reformule votre besoin et pose les questions manquantes.</li>
-      <li><b>Analyser</b> — il dérive les rôles nécessaires (jamais de liste préfabriquée).</li>
-      <li><b>Rechercher</b> — il étudie le métier et sélectionne les skills vérifiés.</li>
-      <li><b>Présenter</b> — plan complet : profils, skills, permissions, outils, risques.</li>
-      <li><b>Valider</b> — vous répondez explicitement <b>J'APPROUVE CE PLAN</b> (ou demandez des changements).</li>
-      <li><b>Provisionner</b> — il crée l'organisation, les agents, les profils, les credentials.</li>
-      <li><b>Vérifier</b> — tests réels, audit, rapport final.</li>
+      <li><b>Understand</b> — the Architect restates your need and asks the missing questions.</li>
+      <li><b>Analyze</b> — it derives the required roles (never a prefabricated list).</li>
+      <li><b>Research</b> — it studies the business and selects verified skills.</li>
+      <li><b>Present</b> — complete plan: profiles, skills, permissions, tools, risks.</li>
+      <li><b>Validate</b> — you reply explicitly <b>I APPROVE THIS PLAN</b> (or request changes).</li>
+      <li><b>Provision</b> — it creates the organization, the agents, the profiles, the credentials.</li>
+      <li><b>Verify</b> — real tests, audit, final report.</li>
     </ol>
   </div>
 
   <div class="ob-section">
-    <h2>Comment interagir avec l'Architecte</h2>
+    <h2>How to interact with the Architect</h2>
     <ul>
-      <li>Ouvrez une session : <code>hermes -p <i>votre-profil</i></code></li>
-      <li>Posez votre demande en langage naturel (exemple ci-dessus).</li>
-      <li>Répondez à ses questions de cadrage.</li>
-      <li>Validez explicitement son plan avant qu'il n'exécute.</li>
+      <li>Open a session: <code>hermes -p <i>your-profile</i></code></li>
+      <li>Ask your request in natural language (example above).</li>
+      <li>Answer its framing questions.</li>
+      <li>Explicitly validate its plan before it executes.</li>
     </ul>
   </div>
 
   <div class="ob-section">
-    <h2>Après la création</h2>
+    <h2>After the creation</h2>
     <ul>
-      <li>Connectez-vous à votre organisation depuis cette interface web.</li>
-      <li>Visualisez les agents disponibles et leur activité.</li>
-      <li>Communiquez avec eux (messages, tâches).</li>
-      <li>Consultez les informations de votre organisation.</li>
+      <li>Log in to your organization from this web interface.</li>
+      <li>See the available agents and their activity.</li>
+      <li>Communicate with them (messages, tasks).</li>
+      <li>Consult the information of your organization.</li>
     </ul>
-    <a class="ob-btn" href="/" >Aller à la connexion</a>
+    <a class="ob-btn" href="/" >Go to the login</a>
   </div>
 
-  <div class="ob-foot">Synapse — local-first, vos données restent chez vous.</div>
+  <div class="ob-foot">Synapse — local-first, your data stays with you.</div>
 </div>
 </body>
 </html>

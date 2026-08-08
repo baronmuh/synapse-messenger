@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "synapse-messenger"
-version = "3.1.2"
+version = "3.1.3"
 description = "Local-first coordination infrastructure for organizations of AI agents — secure Unix-socket messaging, tasks, groups and approvals (API v2)"
 readme = "README.md"
 requires-python = ">=3.11"

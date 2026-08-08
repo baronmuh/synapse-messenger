@@ -30,7 +30,7 @@ from .common import (
 GROUP = "diag"
 
 _EXAMPLES = """\
-Exemples :
+Examples:
   synapse diag status --json     detailed global state
   synapse diag doctor            environment diagnostics (7 checks)
 """
@@ -101,13 +101,13 @@ def _cmd_status(args: argparse.Namespace) -> int:
           + (f" (PID {web['pid']})" if web["pid"] else ""))
     print(f"  base      {config.db_path}")
     print(f"  web token {'present' if payload['web_token_present'] else 'missing'}")
-    print(f"  stockage  {config.storage_dir}")
+    print(f"  storage   {config.storage_dir}")
     print(f"  logs      {config.log_dir}")
     print(f"  backups   {config.backup_dir}")
     if payload.get("server_status") and "error" not in payload["server_status"]:
         st = payload["server_status"]
         print(f"  requests  {st.get('requests_total')} | uptime "
-              f"{st.get('uptime_seconds')} s | {st.get('commands_count')} commandes")
+              f"{st.get('uptime_seconds')} s | {st.get('commands_count')} commands")
     return EXIT_OK
 
 
@@ -138,7 +138,7 @@ def _state_label(state: str) -> str:
     if state == "running":
         return colorize("running", "green")
     if state == "degraded":
-        return colorize("DÉGRADÉ", "yellow")
+        return colorize("DEGRADED", "yellow")
     return colorize("stopped", "red")
 
 
@@ -185,14 +185,14 @@ def _check_config(config: Config) -> dict:
     try:
         loaded = resolve_config()
         assert loaded is not None
-        return _check("configuration", "OK", "lisible et valide")
+        return _check("configuration", "OK", "readable and valid")
     except Exception as exc:  # noqa: BLE001
-        return _check("configuration", "FAIL", f"illisible : {exc}")
+        return _check("configuration", "FAIL", f"unreadable: {exc}")
 
 
 def _check_dirs(config: Config) -> dict:
     problems = []
-    for label, path in (("stockage", config.storage_dir), ("run", run_dir(config)),
+    for label, path in (("storage", config.storage_dir), ("run", run_dir(config)),
                         ("logs", config.log_dir), ("backups", config.backup_dir)):
         p = Path(path)
         if p.exists() and not p.is_dir():
@@ -231,10 +231,10 @@ def _check_web_token(config: Config) -> dict:
 def _check_versions() -> dict:
     problems = []
     if sys.version_info < (3, 11):
-        problems.append(f"Python {sys.version.split()[0]} (>= 3.11 requis)")
+        problems.append(f"Python {sys.version.split()[0]} (>= 3.11 required)")
     sqlite_version = sqlite3.sqlite_version_info
     if sqlite_version < (3, 35, 0):
-        problems.append(f"SQLite {sqlite3.sqlite_version} (>= 3.35 requis)")
+        problems.append(f"SQLite {sqlite3.sqlite_version} (>= 3.35 required)")
     if problems:
         return _check("versions", "FAIL", "; ".join(problems))
     return _check("versions", "OK",
@@ -259,7 +259,7 @@ def _check_database(config: Config) -> dict:
             missing = expected - tables
             if missing:
                 return _check("base", "FAIL",
-                              f"tables manquantes : {', '.join(sorted(missing))}")
+                              f"missing tables: {', '.join(sorted(missing))}")
             detail = f"integrity ok, journal {journal[0] if journal else '?'}"
             return _check("base", "OK", detail)
         finally:
@@ -275,6 +275,6 @@ def _check_clock() -> dict:
     mono_b, wall_b = time.monotonic(), time.time()
     drift = abs((mono_b - mono_a) - (wall_b - wall_a))
     if drift > 0.5:
-        return _check("horloge", "FAIL",
+        return _check("clock", "FAIL",
                       f"monotonic/clock drift of {drift:.2f} s (clock adjusted?)")
-    return _check("horloge", "OK", "monotonic and clock synchronized")
+    return _check("clock", "OK", "monotonic and clock synchronized")

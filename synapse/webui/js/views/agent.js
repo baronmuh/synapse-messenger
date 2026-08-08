@@ -20,21 +20,21 @@ async function loadDetail(username) {
 function cardSection(cardData) {
   if (!cardData) {
     return card({
-      title: 'Carte d’agent', iconName: 'doc',
+      title: 'Agent card', iconName: 'doc',
       body: el('p', { class: 'page-desc', text: 'This agent has not declared a card yet (set_agent_card).' }),
     });
   }
   const rows = [];
-  if (cardData.domain) rows.push(['Domaine', cardData.domain]);
+  if (cardData.domain) rows.push(['Domain', cardData.domain]);
   if (cardData.model) rows.push(['Model', cardData.model]);
   if (cardData.sla) rows.push(['Announced SLA', cardData.sla]);
-  if (cardData.limits) rows.push(['Limites', cardData.limits]);
+  if (cardData.limits) rows.push(['Limits', cardData.limits]);
   if (cardData.estimated_cost) rows.push(['Estimated cost', cardData.estimated_cost]);
   const capChips = (cardData.capabilities || []).map(c => el('span', { class: 'chip', text: c }));
   const toolsChips = (cardData.tools || []).map(t => el('span', { class: 'chip', text: t }));
   const validated = cardData.validation_state === 'approved';
   return card({
-    title: 'Carte d’agent', iconName: 'doc',
+    title: 'Agent card', iconName: 'doc',
     actions: badge(validated ? 'Validated' : 'Pending validation', validated ? 'ok' : 'warn', { dot: true }),
     body: el('div', { style: 'display:flex;flex-direction:column;gap:16px' },
       el('div', { style: 'display:flex;flex-direction:column;gap:8px' },
@@ -44,7 +44,7 @@ function cardSection(cardData) {
       ),
       rows.length ? el('dl', { class: 'dl' }, ...rows.flatMap(([dt, dd]) => [el('dt', { text: dt }), el('dd', { text: dd })])) : null,
       toolsChips.length ? el('div', { style: 'display:flex;flex-direction:column;gap:8px' },
-        el('span', { class: 'field-label' }, 'Outils'),
+        el('span', { class: 'field-label' }, 'Tools'),
         el('div', { class: 'cap-grid' }, ...toolsChips)) : null,
     ),
   });
@@ -53,11 +53,11 @@ function cardSection(cardData) {
 function reputationSection(rep) {
   const score = rep?.score ?? null;
   const qual = rep?.qualitative || null;
-  const qualBadge = score === null ? badge('inconnue', 'neutral')
-    : qual === 'excellent' ? badge('excellente', 'ok', { dot: true })
-      : qual === 'bon' ? badge('bonne', 'ok', { dot: true })
-        : qual === 'moyen' ? badge('moyenne', 'warn', { dot: true })
-          : badge('faible', 'danger', { dot: true });
+  const qualBadge = score === null ? badge('unknown', 'neutral')
+    : qual === 'excellent' ? badge('excellent', 'ok', { dot: true })
+      : qual === 'bon' ? badge('good', 'ok', { dot: true })
+        : qual === 'moyen' ? badge('average', 'warn', { dot: true })
+          : badge('low', 'danger', { dot: true });
   const pct = score === null ? 0 : Math.round(score * 100);
   const barTone = score === null ? 'neutral'
     : qual === 'excellent' || qual === 'bon' ? 'accent'
@@ -74,7 +74,7 @@ function reputationSection(rep) {
         ),
         el('div', { style: 'display:flex;flex-direction:column;gap:6px' },
           qualBadge,
-          el('span', { class: 'cell-sub', text: rep?.note ? `« ${rep.note} »` : 'Mention computed by the server from completed tasks.' }),
+          el('span', { class: 'cell-sub', text: rep?.note ? `"${rep.note}"` : 'Note computed by the server from completed tasks.' }),
         ),
       ),
       // Score bar: preattentive length (NN/g), never color alone.
@@ -165,7 +165,7 @@ export async function render(container, params) {
   } catch (e) {
     clear(container);
     container.append(pageHeader({ title: username }),
-      emptyState({ iconName: 'error', title: 'Fiche indisponible',
+      emptyState({ iconName: 'error', title: 'Card unavailable',
         desc: e.message + '. Check that the server is reachable, then retry.',
         action: el('button', { class: 'btn btn-secondary', onclick: () => render(container, params) }, 'Retry') }));
     return;
@@ -188,19 +188,19 @@ export function renderDetail(container, username, detail) {
   const dept = api.departmentOf(username);
 
   const badgesRow = el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
-    snapAgent ? (snapAgent.status === 'active' ? badge('Actif', 'accent', { dot: true }) : badge('Inactif', 'neutral', { dot: true })) : null,
-    snapAgent?.is_observer ? badge('Observateur', 'info') : null,
+    snapAgent ? (snapAgent.status === 'active' ? badge('Active', 'accent', { dot: true }) : badge('Inactive', 'neutral', { dot: true })) : null,
+    snapAgent?.is_observer ? badge('Observer', 'info') : null,
     badge(principalTypeLabel(snapAgent?.principal_type), 'neutral'),
     dept ? badge(`${dept.department}${dept.role ? ' · ' + dept.role : ''}`, 'info') : null,
   );
 
   container.append(
-    pageHeader({ title: username, actions: el('a', { class: 'btn btn-secondary btn-sm', href: '#/agents' }, '← Annuaire') }),
+    pageHeader({ title: username, actions: el('a', { class: 'btn btn-secondary btn-sm', href: '#/agents' }, '← Directory') }),
     el('div', { class: 'agent-hero' },
       avatarWithStatus(username, snapAgent?.status || 'active', 'lg'),
       el('div', { class: 'agent-hero-info' },
         el('div', { class: 'agent-hero-name' }, username, badgesRow),
-        el('p', { class: 'agent-hero-desc' }, detail.description || 'Aucune description.'),
+        el('p', { class: 'agent-hero-desc' }, detail.description || 'No description.'),
         el('div', { class: 'cell-sub' },
           `organization ${esc(detail.organization_name)}${dept ? '' : ' · no department'}`),
       ),

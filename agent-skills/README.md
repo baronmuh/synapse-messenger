@@ -1,25 +1,25 @@
-# SKILLS_AGENT — Skills Hermes pour utiliser le projet Synapse
+# SKILLS_AGENT — Hermes skills for using the Synapse project
 
 This folder contains **Hermes Agent**-format skills that let an
 AI agent immediately understand and use the Synapse project (a
-multi-agent server: messaging, tasks, groups, organizations), from the
+multi-agent server: messaging, tasks, groups, organizations), using
 only **its account credentials**.
 
 **Separation of responsibilities**: these skills only teach the
 features available to an **agent** account (messaging, tasks,
 groups, directory, delegations). They contain **no instruction**
 for actions reserved for humans or administrators (creating
-comptes ou d'agents, administration of'organisations, modification des
-permissions/politiques/budgets, audit, observateurs, administration du
+accounts or agents, administration of organizations, modification of
+permissions/policies/budgets, audit, observers, administration of the
 server): these actions are listed only as **limits** never to
 cross, without any call details. No bypass of
 authentication or authorization is suggested nor documented.
 
 All examples were **executed and verified against a real server**
-(v3.1.1) : formes CLI en groupes (`synapse message send …`), contrats du
+(v3.1.1): CLI forms in groups (`synapse message send …`), contracts of the
 Python client (66 methods), UUIDv4 identifiers, runtime permissions.
 
-## Contenu
+## Contents
 
 | Path | Role |
 |---|---|
@@ -32,32 +32,32 @@ Python client (66 methods), UUIDv4 identifiers, runtime permissions.
 
 ## Format (Hermes Agent compliance)
 
-Chaque skill respecte les conventions Hermes :
+Each skill respects the Hermes conventions:
 
-- frontmatter YAML : `name` (minuscules, tirets, ≤ 64 car.), `description`
+- YAML frontmatter: `name` (lowercase, hyphens, ≤ 64 chars), `description`
   (≤ 1024 chars, self-contained trigger in the first 57 characters),
-  `version`, `author`, `license`, `metadata.hermes.{tags, related_skills}` ;
-- structure : `# Titre` → `## Overview` → `## When to Use` → corps → `## Common Pitfalls` → `## Verification Checklist` ;
+  `version`, `author`, `license`, `metadata.hermes.{tags, related_skills}`;
+- structure: `# Title` → `## Overview` → `## When to Use` → body → `## Common Pitfalls` → `## Verification Checklist`;
 - bulky material in `references/` (progressive disclosure);
 - no duplication: authentication and the permission model live
-  une seule fois, dans `synapse/SKILL.md`.
+  only once, in `synapse/SKILL.md`.
 
 ## Giving the skills to an agent
 
-1. Copy the `synapse/` folder to the agent's skills directory
-   Hermes (par exemple `~/.hermes/profiles/<profil>/skills/`), ou fournir le
+1. Copy the `synapse/` folder to the agent's Hermes skills directory
+   (for example `~/.hermes/profiles/<profil>/skills/`), or provide the
    content of `SKILLS_AGENT/` as an attachment/context.
 2. Provide the **agent account credentials in the task
    instruction** (account name + password) — never in an environment
-   environment variable nor as a command argument (the project's
+   variable nor as a command argument (the project's
    security rule). Also indicate the socket path if different from the default
-   (`/var/run/synapse/synapse.sock`) : la configuration se passe par
-   `--config <chemin>` ou `$SYNAPSE_CONFIG`.
+   (`/var/run/synapse/synapse.sock`): the configuration is passed via
+   `--config <chemin>` or `$SYNAPSE_CONFIG`.
 3. The agent loads `synapse` (the skill triggers on "Synapse project"),
    verifies its connection (`synapse api get_my_organization --my-name <account>
-   --password-stdin`), puis utilise les commandes selon les droits de son
+   --password-stdin`), then uses the commands according to the rights of its
    account (the skill documents precisely what an agent account can and cannot
-   peut pas faire).
+   do).
 
 ## Prerequisites
 
@@ -66,4 +66,4 @@ Chaque skill respecte les conventions Hermes :
 - The Synapse server started and reachable via the Unix socket (default
   `/var/run/synapse/synapse.sock`).
 - An existing account: agent (`--my-name`) or human
-  (`<org>_humain`), selon les permissions voulues.
+  (`<org>_humain`), according to the desired permissions.

@@ -9,20 +9,20 @@
 #   - the backup and secrets directories (the storage,
 #     logs and run directories are managed by systemd via
 #     StateDirectory/LogsDirectory/RuntimeDirectory — SPEC_PRODUCTION §6) ;
-#   - la configuration /etc/synapse/config.json ;
+#   - the configuration /etc/synapse/config.json ;
 #   - the systemd units (server, web, A2A bridge as a template,
 #     backup + verification, monitor, CI) from scripts/systemd/;
-#   - le wrapper de la passerelle A2A (/opt/synapse/bin) et le moniteur
+#   - the A2A gateway wrapper (/opt/synapse/bin) and the monitor
 #     (/opt/synapse/scripts).
 #
-# Usage :  sudo ./install.sh [chemin/vers/le/depot/synapse]
+# Usage:  sudo ./install.sh [path/to/the/synapse/repo]
 # (default: current directory)
 #
 # After installation:
 #   sudo -u synapse /opt/synapse/venv/bin/synapse-init-org
 #   sudo systemctl enable --now synapse
 #   sudo systemctl start synapse-web
-#   # passerelle A2A (optionnelle) : provisionner les secrets puis
+#   # A2A gateway (optional): provision the secrets then
 #   sudo systemctl enable --now synapse-a2a@<agent>.service
 # =============================================================================
 set -euo pipefail
@@ -76,7 +76,7 @@ python3 -m venv "$VENV_DIR"
 "$VENV_DIR/bin/pip" install --require-hashes -r "$REPO/requirements.lock"
 "$VENV_DIR/bin/pip" install --no-deps "$REPO"
 
-echo "==> Scripts d'exploitation"
+echo "==> Operational scripts"
 install -m 0755 "$REPO/scripts/synapse-a2a-systemd" "$BIN_DIR/synapse-a2a-systemd"
 install -m 0755 "$REPO/scripts/synapse-monitor.py" "$SCRIPTS_DIR/synapse-monitor.py"
 
@@ -90,7 +90,7 @@ def vulnerable(v: str) -> bool:
     try:
         p = tuple(int(x) for x in v.split("."))
     except ValueError:
-        return False  # version illisible : on ne bloque pas l'installation
+        return False  # unreadable version: do not block the installation
     if p < (3, 7, 0) or p >= (3, 51, 3):
         return False
     if p[:2] == (3, 50) and p[2] >= 7:
@@ -102,7 +102,7 @@ def vulnerable(v: str) -> bool:
 v = sqlite3.sqlite_version
 if vulnerable(v):
     print(f"  WARNING: SQLite {v} is in the range affected by the bug")
-    print("  WAL-reset (corruption rare mais possible, voir docs/PERFORMANCE.md §13.5).")
+    print("  WAL-reset (rare but possible corruption, see docs/PERFORMANCE.md §13.5).")
     print("  An application write lock protects the service; update the")
     print("  libsqlite3 package as soon as a >= 3.51.3 version (or backport) is available.")
 else:
@@ -123,9 +123,9 @@ fi
 chown "$SERVICE_USER:$SERVICE_USER" "$ETC_DIR/config.json"
 chmod 0600 "$ETC_DIR/config.json"
 
-echo "==> Copie de secours de backup.key (SPEC_PRODUCTION §3)"
-# The key is created by the first backup; if it already exists, a
-# place une copie dans /etc/synapse (hors du backup_dir). Permissions
+echo "==> Backup copy of backup.key (SPEC_PRODUCTION §3)"
+# The key is created by the first backup; if it already exists, we
+# place a copy in /etc/synapse (outside the backup_dir). Permissions
 # 0640 root:synapse: root writes, the synapse account READS (the monitor
 # verifies the sha256 fingerprint of the copy). Otherwise the operator will run the
 # copy after the first backup (OPERATIONS).
@@ -141,7 +141,7 @@ echo "==> systemd units (SPEC_PRODUCTION §1/§4/§6)"
 # Socket path expected by the ExecStartPre (availability wait):
 # read from the installed configuration, service default otherwise.
 SOCKET_PATH="$(python3 -c "import json,sys; print(json.load(open('$ETC_DIR/config.json')).get('socket_path', '/var/run/synapse/synapse.sock'))" 2>/dev/null || echo '/var/run/synapse/synapse.sock')"
-echo "  socket : $SOCKET_PATH"
+echo "  socket: $SOCKET_PATH"
 
 subst() {
     sed -e "s|@@VENV@@|$VENV_DIR|g" \
@@ -193,7 +193,7 @@ echo "IMPORTANT: keep a copy of $LIB_DIR/backup.key (and of"
 echo "$ETC_DIR/backup.key.vault) in a separate vault; without it, no"
 echo "backup can be restored."
 echo
-echo "Supervision :  systemctl status synapse synapse-web ;"
+echo "Monitoring:  systemctl status synapse synapse-web ;"
 echo "  the monitor writes /var/lib/synapse/monitor.json every 5 min."
-echo "CI locale : hook pre-push via scripts/install-git-hooks.sh ;"
+echo "Local CI: pre-push hook via scripts/install-git-hooks.sh ;"
 echo "  full nightly test suite (synapse-ci.timer)."

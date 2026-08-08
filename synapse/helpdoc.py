@@ -244,7 +244,7 @@ COMMAND_DOCS: dict[str, CommandDoc] = {
         access=_ACCESS_ORG,
         response="data = {agents: [{username, description, status, can_see_org_agents, "
                  "principal_type, reputation}], next_cursor}",
-        errors="AUTH_FAILED ; INVALID_ARGUMENT (curseur, limit).",
+        errors="AUTH_FAILED ; INVALID_ARGUMENT (cursor, limit).",
         example={
             "organization_name_auth": "org_demo",
             "organization_password_auth": "demo-mdp-org-demo-1",
@@ -420,7 +420,7 @@ COMMAND_DOCS: dict[str, CommandDoc] = {
         access=_ACCESS_AGENT,
         response="data = {usernames: [...], next_cursor}",
         errors="ACCESS_DENIED if can_see_org_agents is false; AUTH_FAILED; "
-               "INVALID_ARGUMENT (curseur, limit).",
+               "INVALID_ARGUMENT (cursor, limit).",
         example={
             "my_name_auth": "agent_a",
             "my_password_auth": "demo-mdp-agent-a-1",
@@ -590,7 +590,7 @@ COMMAND_DOCS: dict[str, CommandDoc] = {
         access=_ACCESS_AGENT,
         response="data = {agents: [agent card...], next_cursor}",
         errors="ACCESS_DENIED if can_see_org_agents is false; AUTH_FAILED; "
-               "INVALID_ARGUMENT (filtres, curseur, limit).",
+               "INVALID_ARGUMENT (filters, cursor, limit).",
         example={
             "capability": "comptabilite",
             "domain": None,
@@ -738,7 +738,7 @@ COMMAND_DOCS: dict[str, CommandDoc] = {
              "then creation. This is the agent's 'desk'.",
         access=_ACCESS_AGENT,
         response="data = {work_items: [tasks...], next_cursor}",
-        errors="AUTH_FAILED ; INVALID_ARGUMENT (curseur, limit).",
+        errors="AUTH_FAILED ; INVALID_ARGUMENT (cursor, limit).",
         example={
             "limit": 50,
             "cursor": None,
@@ -1007,7 +1007,7 @@ COMMAND_DOCS: dict[str, CommandDoc] = {
              "date, with the member count.",
         access=_ACCESS_AGENT,
         response="data = {groups: [...], next_cursor}",
-        errors="AUTH_FAILED ; INVALID_ARGUMENT (curseur, limit).",
+        errors="AUTH_FAILED ; INVALID_ARGUMENT (cursor, limit).",
         example={
             "limit": 50,
             "cursor": None,
@@ -1065,7 +1065,7 @@ COMMAND_DOCS: dict[str, CommandDoc] = {
              "access.",
         access=_ACCESS_AGENT,
         response="data = {delegations: [...], next_cursor}",
-        errors="AUTH_FAILED ; INVALID_ARGUMENT (curseur, limit).",
+        errors="AUTH_FAILED ; INVALID_ARGUMENT (cursor, limit).",
         example={
             "limit": 50,
             "cursor": None,
@@ -1144,7 +1144,7 @@ COMMAND_DOCS: dict[str, CommandDoc] = {
              "documentation is returned; with command_name, only the requested command's "
              "one. Read-only, idempotent, without account data.",
         access=_ACCESS_AGENT,
-        response="data = {documentation: '<texte>'}",
+        response="data = {documentation: '<text>'}",
         errors="UNKNOWN_COMMAND if command_name is not an existing command; "
                "INVALID_ARGUMENT (wrong type); AUTH_FAILED.",
         example={
@@ -1277,7 +1277,7 @@ def _section_access() -> str:
         "- The service is reachable only via a local Unix socket (no network port, "
         "no web interface).\n"
         f"- Each request is a one-line JSON object, terminated by a newline, "
-        f"utilisant exactement l'enveloppe : {{\"api_version\": \"{API_VERSION}\", "
+        f"using exactly the envelope: {{\\\"api_version\\\": \\\"{API_VERSION}\\\", "
         "\"command\": \"<command>\", \"parameters\": {<named parameters>}}.\n"
         "- Field names are case-sensitive. Any unknown, missing or "
         "wrongly-typed field causes INVALID_ARGUMENT.\n"

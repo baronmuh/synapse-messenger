@@ -7,11 +7,11 @@ import { esc, commandLabel } from '../format.js';
 import { api } from '../api.js';
 
 const GROUPS = [
-  ['all', 'Tous'],
-  ['messages', 'Messagerie'],
+  ['all', 'All'],
+  ['messages', 'Messaging'],
   ['tasks', 'Tasks'],
-  ['org', 'Organisation'],
-  ['accounts', 'Comptes'],
+  ['org', 'Organization'],
+  ['accounts', 'Accounts'],
 ];
 const GROUP_KEYS = {
   messages: ['send_message', 'send_group_message'],
@@ -55,14 +55,14 @@ function renderFeed(container) {
   container.append(el('div', { class: 'table-wrap' },
     el('table', { class: 'data' },
       el('thead', null, el('tr', null,
-        thSortable('Horodatage', 'at', sortState, setSort),
-        thSortable('Acteur', 'actor', sortState, setSort),
+        thSortable('Timestamp', 'at', sortState, setSort),
+        thSortable('Actor', 'actor', sortState, setSort),
         thSortable('Action', 'command', sortState, setSort),
         el('th', { scope: 'col' }, 'Issue'),
       )),
       el('tbody', null, ...entries.map(e => el('tr', null,
-        el('td', { 'data-label': 'Horodatage' }, timeEl(e.at)),
-        el('td', { 'data-label': 'Acteur' }, el('a', { href: `#/agents/${encodeURIComponent(e.actor_username)}`, class: 'audit-actor', text: e.actor_username })),
+        el('td', { 'data-label': 'Timestamp' }, timeEl(e.at)),
+        el('td', { 'data-label': 'Actor' }, el('a', { href: `#/agents/${encodeURIComponent(e.actor_username)}`, class: 'audit-actor', text: e.actor_username })),
         el('td', { 'data-label': 'Action' },
           el('div', { style: 'display:flex;flex-direction:column;gap:2px' },
             el('span', { class: 'audit-cmd', text: e.command }),

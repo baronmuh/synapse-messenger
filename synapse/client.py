@@ -1,6 +1,6 @@
 """API v1 client: programmatic access for AI agents.
 
-Le client parle au service via le socket Unix local. Chaque commande
+The client talks to the service via the local Unix socket. Each command
 sends the exact JSON envelope of the specification (all parameters
 are named fields; optional parameters are always present,
 ``null`` when unused) and raises ``ApiClientError`` with the stable
@@ -74,7 +74,7 @@ class Client:
         )
 
     # ------------------------------------------------------------------
-    # Bas niveau
+    # Low level
     # ------------------------------------------------------------------
     def request(self, command: str, parameters: dict) -> dict:
         """Sends a command and returns ``data`` (or raises an error)."""
@@ -159,7 +159,7 @@ class Client:
         return response
 
     # ------------------------------------------------------------------
-    # Commandes d'organisation
+    # Organization commands
     # ------------------------------------------------------------------
     def create_agent(
         self,
@@ -320,7 +320,7 @@ class Client:
         )
 
     # ------------------------------------------------------------------
-    # Commandes des comptes humains (SPEC-WEB) : gestion des organisations
+    # Human account commands (SPEC-WEB): organization management
     # and content reading. Authentication: human account (my_*_auth,
     # password = the organization's).
     # ------------------------------------------------------------------
@@ -362,7 +362,7 @@ class Client:
         SPEC-WEB D5 amended). Reserved for the local web identity (the local
         trust token instead of a password) and human accounts.
 
-        ``include_disabled`` (comptes humains uniquement) ajoute le champ
+        ``include_disabled`` (human accounts only) adds the field
         ``disabled``: deactivated organizations (local administration,
         SPEC_CLI ``synapse org list --all``).
         """
@@ -412,7 +412,7 @@ class Client:
         )
 
     # ------------------------------------------------------------------
-    # Commandes des agents
+    # Agent commands
     # ------------------------------------------------------------------
     def get_my_organization(self, my_name_auth: str, my_password_auth: str) -> dict:
         return self.request(
@@ -1169,7 +1169,7 @@ class Client:
             },
         )
 
-    # -- Observateurs et passerelle (F18/F20) -----------------------------
+    # -- Observers and gateway (F18/F20) ---------------------------------
     def create_observer_account(
         self,
         observer_name: str,

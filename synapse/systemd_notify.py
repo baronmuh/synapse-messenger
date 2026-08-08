@@ -1,6 +1,6 @@
-"""Client ``sd_notify`` minimal pour la supervision systemd (SPEC_PRODUCTION §4).
+"""Minimal ``sd_notify`` client for systemd supervision (SPEC_PRODUCTION §4).
 
-Envoie des datagrammes vers ``$NOTIFY_SOCKET`` (protocole systemd). Aucune
+Sends datagrams to ``$NOTIFY_SOCKET`` (systemd protocol). No
 external dependency; **inactive (strict no-op) when ``$NOTIFY_SOCKET`` is
 absent** — daemon behavior outside systemd (development, tests)
 is strictly unchanged.
@@ -30,7 +30,7 @@ def notify(message: str) -> bool:
     sock_path = os.environ.get("NOTIFY_SOCKET")
     if not sock_path:
         return False
-    # Socket abstraite (Linux) : le chemin commence par '@' dans
+    # Abstract socket (Linux): the path starts with '@' in
     # $NOTIFY_SOCKET, '\0' is required for the real address.
     if sock_path.startswith("@"):
         sock_path = "\0" + sock_path[1:]
@@ -61,8 +61,8 @@ def watchdog() -> bool:
 
 
 class WatchdogThread:
-    """Thread de battement de cœur : ``WATCHDOG=1`` toutes les ``interval``
-    secondes, tant que le daemon vit. Inoffensif hors systemd (les envois
+    """Heartbeat thread: ``WATCHDOG=1`` every ``interval``
+    seconds, as long as the daemon lives. Harmless outside systemd (the sends
     fail silently)."""
 
     def __init__(self, interval: float = _DEFAULT_WATCHDOG_INTERVAL) -> None:
@@ -82,7 +82,7 @@ class WatchdogThread:
 
 
 class watchdog_context:
-    """Contexte de supervision systemd autour du service bloquant.
+    """Systemd supervision context around the blocking service.
 
     Usage ::
 

@@ -7,7 +7,7 @@ states, messages, conversations, UUIDs, dates, statuses, idempotency keys)
 as well as the cursor signing key: a restore re-establishes the
 values without regenerating identifiers or modifying dates or statuses.
 
-Format du fichier (extension ``.synbk``) :
+File format (``.synbk`` extension):
     magic ``SYNBK\\x01`` (7 bytes) | 12-byte nonce | AES-GCM ciphertext
     where the ciphertext contains a JSON header line then the SQLite bytes.
 
@@ -63,7 +63,7 @@ def _temp_path(config: Config, prefix: str, suffix: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Sauvegarde
+# Backup
 # ---------------------------------------------------------------------------
 
 
@@ -173,7 +173,7 @@ def _decrypt_archive(config: Config, backup_path: str) -> tuple[dict, bytes]:
 
 def _check_sqlite_integrity(db_path: str) -> int:
     """Verifies the SQLite integrity of a database file; returns the number
-    de tables applicatives (hors tables internes ``sqlite_*``)."""
+    of application tables (excluding the internal ``sqlite_*`` tables)."""
     check = sqlite3.connect(db_path)
     try:
         row = check.execute("PRAGMA integrity_check").fetchone()
@@ -189,7 +189,7 @@ def _check_sqlite_integrity(db_path: str) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Restauration
+# Restore
 # ---------------------------------------------------------------------------
 
 
@@ -229,7 +229,7 @@ def _restore(config: Config, backup_path: str) -> None:
             raise
 
         ensure_storage(config)
-        # Remplacement atomique de la base et nettoyage du WAL.
+        # Atomic replacement of the database and WAL cleanup.
         os.replace(tmp_path, config.db_path)
         for suffix in ("-wal", "-shm"):
             try:
@@ -309,7 +309,7 @@ def verify(config: Config, backup_path: str,
 
     ``scratch_dir``: working directory (temporarily created if
     absent). Returns a report: archive, format, created_at, integrity,
-    nombre de tables.
+    number of tables.
     """
     try:
         return _verify(config, backup_path, scratch_dir)

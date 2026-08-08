@@ -1,9 +1,9 @@
 /* ==========================================================================
    Synapse — Conversations view (SPEC-WEB §2, option B, reorganized):
-   switch [Agent ↔ Agent | Humain ↔ Agent].
+   switch [Agent ↔ Agent | Human ↔ Agent].
 
-   * Agent ↔ Agent     : consultation en lecture seule (aucun composeur).
-   * Humain ↔ Agent    : consultation + envoi de messages (compte humain).
+   * Agent ↔ Agent     : read-only consultation (no composer).
+   * Human ↔ Agent    : consultation + sending messages (human account).
 
    FLUID refresh: data is compared by fingerprint
    (ids, counters, timestamps); if nothing changed, the DOM is NOT
@@ -17,8 +17,8 @@ import { icon } from '../icons.js';
 import { esc, timeAgo } from '../format.js';
 import { api } from '../api.js';
 
-const MODE_AA = 'aa';  // Agent ↔ Agent (lecture seule)
-const MODE_HA = 'ha';  // Humain ↔ Agent (consultation + envoi)
+const MODE_AA = 'aa';  // Agent ↔ Agent (read-only)
+const MODE_HA = 'ha';  // Human ↔ Agent (consultation + sending)
 
 let mode = MODE_AA;
 let currentId = null;
@@ -40,7 +40,7 @@ function isHuman(username) {
   return !!api.session && username === api.session.human_username;
 }
 
-/** Filtre les conversations selon le mode : l'humain courant participe (HA)
+/** Filters the conversations by mode: the current human participates (HA)
  *  or not (AA). Multi-org consistent: the list is already the org's. */
 function filterByMode(conversations) {
   if (mode === MODE_HA) {
@@ -105,7 +105,7 @@ async function switchMode(next) {
     if (!stillThere) {
       currentId = null;
       detailFingerprint = '';
-      location.hash = '#/conversations';  // liste du nouveau mode
+      location.hash = '#/conversations';  // list of the new mode
       return;
     }
     await renderDetail(detailWrap, currentId, true);
@@ -130,8 +130,8 @@ async function renderList(container, selectedId, detailWrap, force) {
     clear(container);
     if (!filtered.length) {
       container.append(emptyState(
-        mode === MODE_HA ? 'Aucune conversation humain ↔ agent.'
-                         : 'Aucune conversation entre agents.',
+        mode === MODE_HA ? 'No human ↔ agent conversation.'
+                         : 'No agent-to-agent conversation.',
         mode === MODE_HA
           ? 'Exchanges involving a human account of the organization will appear here.'
           : 'Exchanges between the organization agents will appear here.'));
@@ -141,8 +141,8 @@ async function renderList(container, selectedId, detailWrap, force) {
       const me = api.session?.human_username;
       const participants = c.participants || [];
       const other = participants.find(u => u !== me) || participants[0] || '?';
-      // En Agent ↔ Agent, on montre les deux interlocuteurs ; en Humain ↔
-      // Agent, le nom de l'agent (l'humain est « moi »).
+      // In Agent ↔ Agent mode, show both interlocutors; in Human ↔
+      // Agent mode, show the agent name (the human is "me").
       const displayName = mode === MODE_HA ? other : participants.join(' ↔ ');
       const row = el('a', {
         class: 'conv-row' + (c.conversation_id === selectedId ? ' active' : ''),
@@ -193,7 +193,7 @@ async function renderDetail(container, conversation_id, force) {
     const data = await api.conversation(conversation_id);
     const fp = fingerprintDetail(data);
     // The content did not change: the already-displayed detail is kept as
-    // quel (pas de clignotement, pas de perte de scroll ni de focus).
+    // as is (no flicker, no scroll or focus loss).
     if (!force && fp === detailFingerprint && container.querySelector('.conv-thread')) {
       return;
     }
@@ -234,14 +234,14 @@ async function renderDetail(container, conversation_id, force) {
         ),
       ));
     }
-    if (!messages.length) thread.append(emptyState('Aucun message dans cette conversation.'));
+    if (!messages.length) thread.append(emptyState('No message in this conversation.'));
 
     container.append(head, thread);
 
     // UNREAD handling (messaging): viewing marked as read the
     // messages addressed to the human (server-side, when reading the detail).
     // The read state is immediately reflected on the local counter (sidebar)
-    // et sur la liste (badge), sans attendre le polling.
+    // and on the list (badge), without waiting for the polling.
     if (api.snapshot && Array.isArray(api.snapshot.conversations)) {
       let changed = false;
       for (const c of api.snapshot.conversations) {
@@ -253,8 +253,8 @@ async function renderDetail(container, conversation_id, force) {
       if (changed) api._emit();  // sidebar + list (unread badge disappears)
     }
 
-    // Composeur UNIQUEMENT en vue Humain ↔ Agent : la vue Agent ↔ Agent
-    // est en lecture seule.
+    // Composer ONLY in the Human ↔ Agent view: the Agent ↔ Agent view
+    // is read-only.
     if (mode === MODE_HA) {
       const composer = el('form', {
         class: 'conv-composer',
@@ -267,7 +267,7 @@ async function renderDetail(container, conversation_id, force) {
             await api.sendMessage(other, text);
             input.value = '';
             // Silent success: the message appears in the thread (redesign v2).
-            detailFingerprint = '';  // force le re-rendu avec le nouveau message
+            detailFingerprint = '';  // forces the re-render with the new message
             await renderDetail(container, conversation_id, true);
           } catch (err) {
             toast('error', err.message || 'Send failed');
@@ -282,7 +282,7 @@ async function renderDetail(container, conversation_id, force) {
       });
       const sendBtn = el('button', { type: 'submit', class: 'btn btn-primary' },
         el('span', { style: 'display:inline-flex', html: icon('send', 14) }),
-        el('span', { text: 'Envoyer' }));
+        el('span', { text: 'Send' }));
       composer.append(input, sendBtn);
       container.append(composer);
     }

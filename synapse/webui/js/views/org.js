@@ -28,7 +28,7 @@ function roleBadge(role) {
 function agentNode(m, tone) {
   /* Org chart node: avatar + link + role. The link is real (keyboard,
      screen readers); column layout and connectors are
-     purement visuels. */
+     purely visual. */
   return el('div', { class: 'org-chart-node' },
     avatarWithStatus(m.username, 'active', 'sm'),
     el('a', { href: `#/agents/${encodeURIComponent(m.username)}`, class: 'org-chart-link', text: m.username }),
@@ -49,7 +49,7 @@ function renderOrgChart(container) {
     class: 'org-chart',
     'aria-label': `Org chart of ${snap.organization_name}`,
   });
-  // Racine : l'organisation.
+  // Root: the organization.
   chart.append(el('div', { class: 'org-chart-root' },
     el('span', { class: 'dept-icon', html: icon('organisation') }),
     el('span', { text: snap.organization_name }),
@@ -141,7 +141,7 @@ export function render(container) {
   const snap = api.snapshot;
   clear(container);
   container.append(pageHeader({
-    title: 'Organisation',
+    title: 'Organization',
     desc: "The agents' organization structure: live org chart, departments, roles and policies. Metadata only, never content (F18).",
   }));
   if (!snap) {
@@ -194,7 +194,7 @@ export function render(container) {
 export const refresh = render;
 
 /* ==========================================================================
-   Administration des organisations (SPEC-WEB §4) : gel de SON organisation
+   Organization administration (SPEC-WEB §4): freeze YOUR organization
    (reversible — reactivation is a local procedure). Creating
    an organization now happens FROM THE LOGIN PAGE
    (SPEC-WEB D5 amended) — it is no longer offered here.

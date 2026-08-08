@@ -29,8 +29,8 @@ from .common import (
 GROUP = "a2a"
 
 _EXAMPLES = """\
-Exemples :
-  synapse a2a start --agent-name support            (mot de passe + jeton via stdin)
+Examples:
+  synapse a2a start --agent-name support            (password + token via stdin)
   synapse a2a start --agent-name support --foreground
   synapse a2a stop
   synapse a2a status --json
@@ -40,7 +40,7 @@ Exemples :
 def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser) -> None:
     p = sub.add_parser(
         GROUP,
-        help="pont A2A (start, stop, status)",
+        help="A2A bridge (start, stop, status)",
         parents=[common],
         epilog=_EXAMPLES,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -75,12 +75,12 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
 
 
 # ---------------------------------------------------------------------------
-# Commandes
+# Commands
 # ---------------------------------------------------------------------------
 
 
 def _resolve_a2a_port(args: argparse.Namespace) -> int:
-    """Port du pont : ``--port`` > ``$SYNAPSE_A2A_PORT`` > 8090.
+    """Bridge port: ``--port`` > ``$SYNAPSE_A2A_PORT`` > 8090.
 
     Same isolation mechanism as ``SYNAPSE_WEB_PORT`` (tests on a
     machine where production already listens)."""
@@ -245,7 +245,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
         return EXIT_OK
     label = ("DEGRADED" if state == "degraded" else "running")
     rows = [
-        [f"pont A2A {label} (PID {pid})"],
+        [f"A2A bridge {label} (PID {pid})"],
         [f"  port          {payload['port']}"],
         [f"  agent         {payload.get('agent_name') or 'unknown'}"],
         [f"  http          {'responding' if payload['http_ok'] else 'silent'}"],

@@ -4,7 +4,7 @@ The Argon2id parameters are fixed by the specification (64 MiB, 3
 iterations, parallelism 1) and are not configurable: they are part
 of the security contract.
 
-Le module expose un hacheur unique ; les tests peuvent le remplacer par un
+The module exposes a single hasher; the tests can replace it with a
 fast hasher (``security.install_fast_hasher()``) to speed up the test suite,
 while a dedicated test verifies the production parameters.
 """
@@ -38,7 +38,7 @@ _PRODUCTION_HASHER = PasswordHasher(
     salt_len=ARGON2_SALT_LEN,
 )
 
-# Hacheur actif. Les tests remplacent ``_hasher`` par une instance rapide.
+# Active hasher. The tests replace ``_hasher`` with a fast instance.
 _hasher = _PRODUCTION_HASHER
 
 # Bounds the number of simultaneous Argon2id computations (~2 × cores). Each
@@ -92,9 +92,9 @@ def hash_password(password: str) -> str:
 
 
 def human_password_sentinel() -> str:
-    """Hash sentinelle du compte humain (SPEC-WEB §5.2).
+    """Sentinel hash of the human account (SPEC-WEB §5.2).
 
-    Le mot de passe de l'humain est celui de SON organisation (jamais
+    The password of the human is that of THEIR organization (never
     copied): the hash stored on the human account is never verified.
     The sentinel is a valid Argon2id hash of a random secret — in the
     format expected by all checks, with no relation to any

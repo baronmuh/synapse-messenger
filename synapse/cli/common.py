@@ -1,15 +1,15 @@
 """Shared functions of the unified ``synapse`` CLI (SPEC_CLI.md).
 
-Ce module centralise :
+This module centralizes:
 
 * configuration resolution (``--config`` > ``$SYNAPSE_CONFIG`` >
   ``$Synapse_CONFIG`` > default path);
 * the runtime directory (derived from the socket path) and the
-  confiance local (``web_token``, 0600) ;
-* l'authentification en trois modes (SPEC_CLI §2.1) : jeton local (aucun
-  mot de passe), compte humain (``--organization-name``), compte agent
-  (``--my-name``) ;
-* les fichiers PID (``synapse.pid``, ``web.pid``, ``a2a.pid``) avec la
+  local trust token (``web_token``, 0600);
+* the three-mode authentication (SPEC_CLI §2.1): local token (no
+  password), human account (``--organization-name``), agent account
+  (``--my-name``);
+* the PID files (``synapse.pid``, ``web.pid``, ``a2a.pid``) with the
   double check live PID + socket/HTTP (SPEC_CLI §2.2/§7.4);
 * exit codes (0 success, 1 error, 3 service unavailable,
   4 already running);
@@ -46,7 +46,7 @@ EXIT_ERROR = 1
 EXIT_UNAVAILABLE = 3
 EXIT_RUNNING = 4
 
-# Version du projet pour les fichiers PID et ``update check``. La source
+# Project version for PID files and ``update check``. The source
 # of truth is the installed package; in development (not installed), we
 # fall back to the version declared in pyproject.toml.
 _FALLBACK_VERSION = "3.1.2"
@@ -55,7 +55,7 @@ _FALLBACK_VERSION = "3.1.2"
 class CliError(Exception):
     """Error of the CLI itself (arguments, refusals, local state).
 
-    ``code`` est le code de sortie du processus (SPEC_CLI §2).
+    ``code`` is the exit code of the process (SPEC_CLI §2).
     """
 
     def __init__(self, message: str, code: int = EXIT_ERROR) -> None:
@@ -90,9 +90,9 @@ def project_version() -> str:
 
 
 def resolve_config(args: argparse.Namespace | None = None) -> Config:
-    """Charge la configuration effective (SPEC_CLI §2).
+    """Loads the effective configuration (SPEC_CLI §2).
 
-    Ordre de recherche : ``--config`` (racine ou sous-commande), puis
+    Search order: ``--config`` (root or subcommand), then
     ``$SYNAPSE_CONFIG`` (specification), then ``$Synapse_CONFIG``
     (legacy service variable), then the default path.
     """
@@ -119,9 +119,9 @@ def now_iso() -> str:
 
 
 def normalize_datetime(value: str | None) -> str | None:
-    """Normalise un horodatage vers le format exact de l'API
-    (YYYY-MM-DDTHH:MM:SS.sssZ). L'API exige les millisecondes ; la
-    documentation SPEC_CLI utilise ``YYYY-MM-DDTHH:MM:SSZ`` — les
+    """Normalizes a timestamp into the exact API format
+    (YYYY-MM-DDTHH:MM:SS.sssZ). The API requires milliseconds; the
+    SPEC_CLI documentation uses ``YYYY-MM-DDTHH:MM:SSZ`` — the
     missing milliseconds are added (no other transformation)."""
     if value is None:
         return None
@@ -133,7 +133,7 @@ def normalize_datetime(value: str | None) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# Jeton de confiance local (SPEC_CLI §2.1, mode 1)
+# Local trust token (SPEC_CLI §2.1, mode 1)
 # ---------------------------------------------------------------------------
 
 
@@ -161,15 +161,15 @@ def socket_responds(config: Config) -> bool:
 
 
 def getpass_get(prompt: str) -> str:
-    """Saisie interactive d'un secret (point unique de ``getpass`` — les
-    tests remplacent ce module pour simuler les secrets)."""
+    """Interactive entry of a secret (single point of ``getpass`` — the
+    tests replace this module to simulate the secrets)."""
     return getpass.getpass(prompt)
 
 
 def read_password(args: argparse.Namespace, prompt: str) -> str:
-    """Lit un mot de passe : ligne de stdin (``--password-stdin``) ou getpass.
+    """Reads a password: a line of stdin (``--password-stdin``) or getpass.
 
-    Avec ``--password-stdin``, chaque appel consomme une ligne de stdin
+    With ``--password-stdin``, each call consumes a line of stdin
     (commands with several secrets read several lines, in
     the order documented by their help).
     """
@@ -187,7 +187,7 @@ def read_password(args: argparse.Namespace, prompt: str) -> str:
 
 
 def require_service(config: Config) -> None:
-    """Toute commande servie par l'API exige un service joignable : code 3
+    """Any command served by the API requires a reachable service: code 3
     (service unavailable, SPEC_CLI §2) if the socket does not respond."""
     if not socket_responds(config):
         raise CliError(
@@ -198,11 +198,11 @@ def require_service(config: Config) -> None:
 
 
 def unique_org_name(config: Config) -> str:
-    """Nom de l'organisation unique active (contexte de jeton local).
+    """Name of the unique active organization (local token context).
 
     Raises an explicit error if no token is available, if no
-    organisation n'est active, ou si plusieurs active organizations
-    imposent ``--organization-name``.
+    organization is active, or if several active organizations
+    require ``--organization-name``.
     """
     from ..client import ApiClientError, Client, ClientTransportError
     from ..service import _WEB_LOCAL
@@ -237,7 +237,7 @@ def resolve_org_auth(config: Config, args: argparse.Namespace,
                      org_name: str | None = None) -> tuple[str, str]:
     """(organization_name_auth, organization_password_auth).
 
-    Le jeton local sert de mot de passe d'organisation quand il est
+    The local token serves as the organization password when it is
     present (rule 7: a command served by the token requires no
     password); otherwise the password is prompted on stdin/getpass.
     """
@@ -251,10 +251,10 @@ def resolve_org_auth(config: Config, args: argparse.Namespace,
 
 def resolve_human_auth(config: Config, args: argparse.Namespace,
                        org_name: str | None = None) -> tuple[str, str]:
-    """(my_name_auth, my_password_auth) pour un compte humain.
+    """(my_name_auth, my_password_auth) for a human account.
 
     The human identity is the ``<org>_humain`` account; the local token
-    remplace son mot de passe (SPEC-WEB R6.7), sinon le mot de passe de
+    replaces its password (SPEC-WEB R6.7), otherwise the password of
     the organization is prompted.
     """
     require_service(config)
@@ -281,8 +281,8 @@ def resolve_identity(config: Config, args: argparse.Namespace,
     """Identity of an "as account" command (messages, tasks…).
 
     Priority: ``--my-name`` (agent account); otherwise the human account of
-    l'organisation (jeton local ou mot de passe) — les comptes humains
-    peuvent appeler les commandes de compte (dispatch _AGENT_HANDLERS).
+    the organization (local token or password) — the human accounts
+    can call the account commands (dispatch _AGENT_HANDLERS).
     """
     if getattr(args, "my_name", None) or my_name:
         return resolve_agent_auth(config, args, my_name)

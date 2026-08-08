@@ -1,7 +1,7 @@
 """Normalized errors of the API v2.
 
 Each error has a stable code (used by clients) and a message
-informatif localisable. Seul ``error.code`` fait partie du contrat de l'API.
+informative and localizable. Only ``error.code`` is part of the API contract.
 """
 
 from __future__ import annotations
@@ -25,10 +25,10 @@ GROUP_NOT_FOUND = "GROUP_NOT_FOUND"
 INTERNAL_ERROR = "INTERNAL_ERROR"
 
 _MESSAGES: dict[str, str] = {
-    AUTH_FAILED: "Identifiants invalides",
+    AUTH_FAILED: "Invalid credentials",
     ACCESS_DENIED: "Access denied",
-    INVALID_ARGUMENT: "Argument invalide",
-    UNKNOWN_COMMAND: "Commande unknowne",
+    INVALID_ARGUMENT: "Invalid argument",
+    UNKNOWN_COMMAND: "Unknown command",
     USERNAME_ALREADY_EXISTS: "This username already exists",
     USER_NOT_FOUND: "User not found",
     RECIPIENT_NOT_FOUND: "Recipient not found",
@@ -49,7 +49,7 @@ class ApiError(Exception):
     """Business error returned to the client as ``error.code``.
 
     Attributes:
-        code: code d'stable error, part of the API contractAPI.
+        code: stable error code, part of the API contract.
         message: informative, localizable message, never interpreted by the client.
     """
 

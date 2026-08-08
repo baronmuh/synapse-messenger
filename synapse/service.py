@@ -4,7 +4,7 @@ Each request strictly follows the path:
     1. envelope and parameter validation (``INVALID_ARGUMENT``,
        ``UNKNOWN_COMMAND``) ;
     2. authentication (``AUTH_FAILED``, rate limiting) — agent or
-       organisation selon la commande ;
+       organization depending on the command ;
     3. business operation in a transaction.
 
 No business data is read or modified before authentication.
@@ -65,7 +65,7 @@ _SORT_ASC = queries.SORT_ASC
 _SORT_USERNAME = "username_asc"
 
 # Time bound never reached for the event journal (append-only,
-# pagination par ``seq`` uniquement — le snapshot temporel figerait le polling).
+# pagination by ``seq`` only — a temporal snapshot would freeze the polling).
 _EVENTS_NO_BOUNDARY = "9999-12-31T23:59:59.999Z"
 
 # System identity of the local web interface (SPEC-WEB D5 amended): the web
@@ -142,7 +142,7 @@ _TARGET_FIELD: dict[str, str | None] = {
 _MAX_AUTH_CACHE_ENTRIES = 2048
 
 # Write commands audited by the dispatch point (the
-# coordination s'auditent dans leur propre transaction).
+# coordination commands audit within their own transaction).
 _AUDITED_COMMANDS = frozenset(
     {
         "create_agent",
@@ -207,7 +207,7 @@ class Service:
         # lock (it must never be held for 255 ms).
         self._auth_cache: dict[str, tuple[str, str, float]] = {}
         self._auth_cache_lock = threading.Lock()
-        # Compteurs de serveur (F12, get_server_status).
+        # Server counters (F12, get_server_status).
         self._started_at = time.monotonic()
         self._requests_total = 0
         self._requests_lock = threading.Lock()
@@ -218,7 +218,7 @@ class Service:
         self._web_token: str | None = None
 
     # ------------------------------------------------------------------
-    # Jeton de confiance local (interface web)
+    # Local trust token (web interface)
     # ------------------------------------------------------------------
     def set_web_token(self, token: str) -> None:
         """Injects the local trust token (called by the server at
@@ -299,7 +299,7 @@ class Service:
     def _dispatch(self, command: str, params: dict, meta: dict) -> dict:
         spec = COMMAND_SPECS[command]
         with db.connect(self.config) as conn:
-            if spec[2]:  # commande d'organisation
+            if spec[2]:  # organization command
                 org_name = self._authenticate_organization(
                     conn, params["organization_name_auth"], params["organization_password_auth"]
                 )
@@ -315,7 +315,7 @@ class Service:
                 raise ApiError(ACCESS_DENIED, "Observer account is read-only")
             if command == "list_orgs":
                 # Reserved for the local web identity (_web_local) and to
-                # comptes humains : liste les organisations actives pour
+                # human accounts: lists the active organizations for
                 # the selection login screen (SPEC-WEB D5 amended).
                 if user != _WEB_LOCAL and (row is None or row["principal_type"] != "human"):
                     raise ApiError(ACCESS_DENIED,
@@ -334,7 +334,7 @@ class Service:
                                "Local web identity reserved for list_orgs and create_org")
             if command in _HUMAN_HANDLERS:
                 # Commands reserved for human accounts (SPEC-WEB): management
-                # des organisations et lecture de contenu de l'organisation.
+                # of organizations and reading of the organization content.
                 if row is None or row["principal_type"] != "human":
                     raise ApiError(ACCESS_DENIED, "Command reserved for human accounts")
                 data = _HUMAN_HANDLERS[command](self, conn, params, user)
@@ -376,7 +376,7 @@ class Service:
             )
 
     # ------------------------------------------------------------------
-    # Cache d'authentification (F1)
+    # Authentication cache (F1)
     # ------------------------------------------------------------------
     def _cached_password_ok(self, key: str, password_hash: str, password: str) -> bool:
         """Verifies a password, with temporary success caching.
@@ -401,7 +401,7 @@ class Service:
                 and entry[2] > now
             ):
                 return True
-        # Calcul Argon2id hors du verrou : il ne doit jamais bloquer les
+        # Argon2id computation outside the lock: it must never block
         # other threads for ~255 ms (Argon2id semaphore already in place).
         ok = verify_password(password_hash, password)
         if ok:
@@ -439,33 +439,33 @@ class Service:
                 authfail.clear(conn, username)
                 return _WEB_LOCAL
             authfail.record(conn, username)
-            raise ApiError(AUTH_FAILED, "Identifiants invalides")
+            raise ApiError(AUTH_FAILED, "Invalid credentials")
         row = accounts.get(conn, username)
         if row is None or row["status"] != "active":
             verify_dummy(password_raw)  # constant timing (anti-enumeration)
             authfail.record(conn, username)
-            raise ApiError(AUTH_FAILED, "Identifiants invalides")
+            raise ApiError(AUTH_FAILED, "Invalid credentials")
         org_row = organizations.get(conn, row["organization_name"])
         if org_row is None or not bool(org_row["enabled"]):
             # Organization deactivated or not found (SPEC-WEB §4.3):
-            # aucun compte de l'organisation ne s'authentifie.
+            # no account of the organization can authenticate.
             verify_dummy(password_raw)
             authfail.record(conn, username)
-            raise ApiError(AUTH_FAILED, "Identifiants invalides")
+            raise ApiError(AUTH_FAILED, "Invalid credentials")
         if row["principal_type"] == "human":
-            # Compte humain (SPEC-WEB §5.2) : le mot de passe est celui de
+            # Human account (SPEC-WEB §5.2): the password is the one of
             # the organization, never copied — the verification is delegated to the
-            # hash de l'organisation. Le jeton de confiance local (interface
-            # web) is accepted as a replacement (selection login).
+            # organization hash. The local trust token (web interface)
+            # is accepted as a replacement (selection login).
             if not (self._cached_password_ok(username, org_row["password_hash"], password_raw)
                     or self.web_token_matches(password_raw)):
                 authfail.record(conn, username)
-                raise ApiError(AUTH_FAILED, "Identifiants invalides")
+                raise ApiError(AUTH_FAILED, "Invalid credentials")
             authfail.clear(conn, username)
             return username
         if not self._cached_password_ok(username, row["password_hash"], password_raw):
             authfail.record(conn, username)
-            raise ApiError(AUTH_FAILED, "Identifiants invalides")
+            raise ApiError(AUTH_FAILED, "Invalid credentials")
         authfail.clear(conn, username)
         return username
 
@@ -475,14 +475,14 @@ class Service:
         """Authenticates an organization (rate-limit key ``org:<name>``).
 
         Failures are counted separately from usernames (``org:`` prefix):
-        une organisation et un agent homonymes ne partagent pas leur budget
+        a same-named organization and agent do not share their budget
         of failures. Control order (section 3.3):
 
-        * une organisation existante avec un mauvais mot de passe ->
+        * an existing organization with a wrong password ->
           ``AUTH_FAILED`` ;
         * a username (agent account) used as identity
-          d'organisation -> ``ACCESS_DENIED`` : un agent ne peut pas appeler
-          une commande d'organisation ;
+          of an organization -> ``ACCESS_DENIED`` : an agent cannot call
+          an organization command ;
         * an unknown name -> ``AUTH_FAILED`` (no existence revelation).
         """
         window = self.config.auth_window_seconds
@@ -499,19 +499,19 @@ class Service:
                 # authentication fails, data intact.
                 verify_dummy(password_raw)
                 authfail.record(conn, key)
-                raise ApiError(AUTH_FAILED, "Identifiants invalides")
+                raise ApiError(AUTH_FAILED, "Invalid credentials")
             if not (self._cached_password_ok(key, row["password_hash"], password_raw)
                     or self.web_token_matches(password_raw)):
                 authfail.record(conn, key)
-                raise ApiError(AUTH_FAILED, "Identifiants invalides")
+                raise ApiError(AUTH_FAILED, "Invalid credentials")
             authfail.clear(conn, key)
             return org_name
         if accounts.get(conn, org_name) is not None:
-            # Un agent ne peut pas s'authentifier comme organisation.
+            # An agent cannot authenticate as the organization.
             raise ApiError(ACCESS_DENIED, "Command reserved for organizations")
         verify_dummy(password_raw)  # constant timing (anti-enumeration)
         authfail.record(conn, key)
-        raise ApiError(AUTH_FAILED, "Identifiants invalides")
+        raise ApiError(AUTH_FAILED, "Invalid credentials")
 
     # ------------------------------------------------------------------
     # Pagination
@@ -557,7 +557,7 @@ class Service:
 
 
 # ===========================================================================
-# Commandes d'organisation
+# Organization commands
 # ===========================================================================
 
 
@@ -582,7 +582,7 @@ def _org_create_agent(service: Service, conn: sqlite3.Connection, p: dict, org_n
         raise ApiError(INVALID_ARGUMENT, "This name is reserved for the organization's human account")
     if p["principal_type"] == "human":
         # SPEC-WEB §5: human accounts are created automatically with
-        # leur organisation (jamais par create_agent).
+        # their organization (never by create_agent).
         raise ApiError(INVALID_ARGUMENT, "Human accounts are created automatically")
     password_hash = hash_password(p["password"])
     with db.begin_immediate(conn):
@@ -613,7 +613,7 @@ def _org_deactivate_agent(service: Service, conn: sqlite3.Connection, p: dict, o
         row = _org_require_member(conn, p["username"], org_name)
         if row["principal_type"] == "human":
             # SPEC-WEB §5.5: the human account cannot be deactivated
-            # individuellement (le gel se fait au niveau de l'organisation).
+            # individually (the freeze happens at the organization level).
             raise ApiError(ACCESS_DENIED, "The human account cannot be deactivated")
         if row["status"] == "disabled":
             return {"username": p["username"], "status": "disabled"}
@@ -719,8 +719,8 @@ def _org_change_organization_password(
 def _org_change_agent_description(
     service: Service, conn: sqlite3.Connection, p: dict, org_name: str
 ) -> dict:
-    """Modifie la description publique d'an agent of theorganisation
-    (SPEC-WEB §4, « modifier un agent »). Le compte humain n'est pas
+    """Modifies the public description of an agent of the organization
+    (SPEC-WEB §4, "modify an agent"). The human account is not
     modifiable: its description is self-managed."""
     with db.begin_immediate(conn):
         member = _org_require_member(conn, p["username"], org_name)
@@ -734,9 +734,9 @@ def _org_change_agent_description(
 
 
 # ===========================================================================
-# Commandes des comptes humains (SPEC-WEB) : gestion des organisations et
+# Human account commands (SPEC-WEB): organization management and
 # content reading. Authentication: human account (my_*_auth), checked
-# contre le mot de passe de son organisation (§5.2).
+# against the password of its organization (§5.2).
 # ===========================================================================
 
 
@@ -885,11 +885,11 @@ def _human_list_org_conversations(
 def _human_get_org_conversation(
     service: Service, conn: sqlite3.Connection, p: dict, me: str
 ) -> dict:
-    """Lecture d'a conversation of theorganisation, contenu compris
+    """Reads a conversation of the organization, content included
     (SPEC-WEB §2/§7.4).
 
     Authorization: at least one participant belongs to the organization of
-    l'appelant, sinon ``CONVERSATION_NOT_FOUND`` (non-divulgation). La
+    the caller, otherwise ``CONVERSATION_NOT_FOUND`` (non-disclosure). The
     content reading is traced (audit F11, R2.6)."""
     org_name = _org_of(conn, me)
     conv_id = p["conversation_id"]
@@ -944,7 +944,7 @@ def _human_get_org_conversation(
 def _org_approve_agent_card(
     service: Service, conn: sqlite3.Connection, p: dict, org_name: str
 ) -> dict:
-    """Valide la carte d'an agent of theorganisation (SPEC.txt F2).
+    """Validates the card of an agent of the organization (SPEC.txt F2).
 
     The card must exist (``USER_NOT_FOUND`` otherwise) and belong to an
     agent of the authenticated organization. Validation is idempotent.
@@ -980,7 +980,7 @@ def _get_my_organization(service: Service, conn: sqlite3.Connection, p: dict, me
 
 
 def _get_agent_description(service: Service, conn: sqlite3.Connection, p: dict, me: str) -> dict:
-    """Retourne la description publique d'un compte (section 13.1).
+    """Returns the public description of an account (section 13.1).
 
     Read-only. The description and organization are public directory
     metadata: a deactivated account stays consultable, and no
@@ -1060,7 +1060,7 @@ def _agent_set_agent_card(service: Service, conn: sqlite3.Connection, p: dict, m
 
 
 def _agent_get_agent_card(service: Service, conn: sqlite3.Connection, p: dict, me: str) -> dict:
-    """Retourne la carte d'un compte (SPEC.txt F2), lecture publique.
+    """Returns the card of an account (SPEC.txt F2), public reading.
 
     Like the description: a deactivated account stays consultable, no
     other information (hash, state) is exposed. An account without a card
@@ -1160,7 +1160,7 @@ def _send_message(service: Service, conn: sqlite3.Connection, p: dict, me: str) 
                 return messages.row_to_message(existing)
             messages.raise_message_already_exists()
         _check_message_budget(conn, me)
-        # Politiques de communication externe (section 6.2 et 6.3).
+        # External communication policies (section 6.2 and 6.3).
         outgoing_blocked = not sender_org["allow_outgoing_external"]
         recip = accounts.get(conn, recipient)
         # R4.3: a recipient whose organization is deactivated is
@@ -1772,7 +1772,7 @@ def _agent_get_events(service: Service, conn: sqlite3.Connection, p: dict, me: s
     last, boundary = service._pagination(p, me, "get_events", "seq_asc", filters)
     last_seq = int(last[0]) if last else None
     # Append-only journal: the ``seq`` cursor is enough for stability;
-    # la borne temporelle du snapshot n'a pas de sens pour un polling
+    # the temporal bound of the snapshot makes no sense for a polling
     # (it freezes events created after the first read).
     with db.begin_read(conn):
         rows = events.page(
@@ -1845,8 +1845,8 @@ def _org_set_escalation_policy(
 def _org_get_escalation_policy(
     service: Service, conn: sqlite3.Connection, p: dict, org_name: str
 ) -> dict:
-    """Lecture de la politique d'escalation of theorganisation (SPEC_CLI
-    ``policy escalation``, lecture). Retourne la politique courante, ou
+    """Reads the escalation policy of the organization (SPEC_CLI
+    ``policy escalation``, reading). Returns the current policy, or
     the default state (disabled) if it was never configured."""
     row = conn.execute(
         "SELECT enabled, due_after_seconds, failed_after_seconds, "
@@ -2007,8 +2007,8 @@ def _agent_list_department_tasks(
             raise ApiError(ACCESS_DENIED, "Manager role required for this department")
         # The scope is limited to one's own organization: the subquery
         # filters by organization_name, otherwise a same-named department of another
-        # autre organisation would expose its tasks to the manager (isolation
-        # inter-organisations, contrainte 3 de SPEC.txt).
+        # organization would expose its tasks to the manager (isolation
+        # between organizations, constraint 3 of SPEC.txt).
         org = _org_of(conn, me)
         rows = conn.execute(
             "SELECT task_id, title, assignee_username, state, priority, due_at, "
@@ -2045,9 +2045,9 @@ def _agent_list_department_tasks(
 
 
 def _org_get_audit(service: Service, conn: sqlite3.Connection, p: dict, org_name: str) -> dict:
-    """Journal d'audit de l'organisation (SPEC.txt F11) : actions des agents et
-    de l'organisation, sans contenu. Filtres : depuis une date, par acteur,
-    par commande. Append-only (aucune modification possible)."""
+    """Organization audit journal (SPEC.txt F11): agent and organization
+    actions, without content. Filters: since a date, by actor,
+    by command. Append-only (no modification possible)."""
     limit = p["limit"]
     filters = {
         "since": p["since"],
@@ -2135,8 +2135,8 @@ def _org_get_server_status(
 
 
 def _group_require_member(conn: sqlite3.Connection, group_id: str, me: str) -> sqlite3.Row:
-    """Groupe dont ``me`` est membre, sinon ``GROUP_NOT_FOUND`` (non-divulgation :
-    un groupe inaccessible est indiscernable d'un groupe inexistant)."""
+    """Group of which ``me`` is a member, otherwise ``GROUP_NOT_FOUND`` (non-disclosure:
+    an inaccessible group is indistinguishable from a nonexistent group)."""
     group = conn.execute(
         "SELECT group_id, name, created_by, created_at FROM groups WHERE group_id = ?",
         (group_id,),
@@ -2191,10 +2191,10 @@ def _agent_add_group_member(service: Service, conn: sqlite3.Connection, p: dict,
     with db.begin_immediate(conn):
         _group_require_member(conn, p["group_id"], me)
         _require_active_account(conn, p["username"])
-        # Un groupe ne contourne pas les politiques de communication externe :
+        # A group does not bypass the external communication policies:
         # adding a member from another organization is subject to the same
         # rules as a send (outgoing of the adder, incoming of the org of the
-        # membre), sinon l'isolation par politiques serait neutralisable.
+        # member), otherwise the isolation by policies would be neutralizable.
         if not _external_comm_allowed(conn, me, p["username"]):
             raise ApiError(
                 POLICY_DENIED,

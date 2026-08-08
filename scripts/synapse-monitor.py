@@ -11,11 +11,11 @@ local token 0600). Checks:
      ``SYNAPSE_MONITOR_BACKUP_MAX_AGE_HOURS``) ;
   3. database freshness: last event of the ``events`` table
      (the "a session is running" metric) — reported, anomaly only if
-     la base est absente ;
+     the database is missing ;
   4. disk space: usage >= 90% (default;
-     ``SYNAPSE_MONITOR_DISK_WARN_PERCENT``) sur stockage, journaux,
-     sauvegardes ;
-  5. rafales d'erreurs : ``AUTH_FAILED`` et ``exception_type`` dans les
+     ``SYNAPSE_MONITOR_DISK_WARN_PERCENT``) on storage, logs,
+     backups ;
+  5. error bursts: ``AUTH_FAILED`` and ``exception_type`` in the
      last 15 minutes (default; ``SYNAPSE_MONITOR_ERROR_WINDOW_SECONDS``,
      ``SYNAPSE_MONITOR_MAX_AUTH_FAILURES`` = 30,
      ``SYNAPSE_MONITOR_MAX_EXCEPTIONS`` = 1) ;
@@ -106,7 +106,7 @@ def check_services(config_path: str) -> tuple[list[str], dict]:
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     except OSError as exc:
-        return [f"status injoignable : {exc}"], {"error": str(exc)}
+        return [f"status unreachable: {exc}"], {"error": str(exc)}
     if result.returncode != 0:
         return [f"status failed (code {result.returncode})"], {
             "error": result.stderr.strip() or f"code {result.returncode}"}
@@ -165,7 +165,7 @@ def check_database(config: Config) -> tuple[list[str], dict]:
     db_path = config.db_path
     info: dict = {"db": db_path}
     if not os.path.exists(db_path):
-        return [f"base absente : {db_path}"], info
+        return [f"database missing: {db_path}"], info
     try:
         conn = sqlite3.connect(db_path)
         try:
@@ -173,7 +173,7 @@ def check_database(config: Config) -> tuple[list[str], dict]:
         finally:
             conn.close()
     except sqlite3.Error as exc:
-        return [f"base illisible : {exc}"], info
+        return [f"database unreadable: {exc}"], info
     latest = row[0] if row else None
     if latest is None:
         info["freshness"] = "no event"
@@ -291,7 +291,7 @@ def check_key_vault(config: Config, vault_path: str) -> tuple[list[str], dict]:
         return anomalies, info
     if not os.path.exists(vault_path):
         return [f"backup key copy missing: {vault_path}"], {
-            **info, "state": "copie absente"}
+            **info, "state": "key copy missing"}
     try:
         key_digest = _sha256(key_path)
         vault_digest = _sha256(vault_path)

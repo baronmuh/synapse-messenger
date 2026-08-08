@@ -20,7 +20,7 @@ from .common import (
 GROUP = "agent"
 
 _EXAMPLES = """\
-Exemples :
+Examples:
   synapse agent create support --department support --role employee
   synapse agent status comptable --json
   synapse agent description support "Handles incoming requests"
@@ -79,7 +79,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
     a = actions.add_parser("description", parents=[common],
                            help="replaces the description of an agent")
     a.add_argument("name", help="agent name")
-    a.add_argument("text", help="nouvelle description")
+    a.add_argument("text", help="new description")
     a.add_argument("--json", action="store_true",
                    help="machine JSON output")
     a.set_defaults(run=_cmd_description)
@@ -94,8 +94,8 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
     a.add_argument("--model", default=None, help="model")
     a.add_argument("--sla", default=None, help="SLA")
     a.add_argument("--estimated-cost", default=None, help="estimated cost")
-    a.add_argument("--limits", default=None, help="limites")
-    a.add_argument("--domain", default=None, help="domaine")
+    a.add_argument("--limits", default=None, help="limits")
+    a.add_argument("--domain", default=None, help="domain")
     a.add_argument("--my-name", default=None, help="account identity (write)")
     a.add_argument("--password-stdin", action="store_true")
     a.add_argument("--json", action="store_true")
@@ -173,7 +173,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
     a.add_argument("--password-stdin", action="store_true",
                    help="read the passwords from stdin (observer then org)")
     a.add_argument("--description", default="",
-                   help="description de l'observer")
+                   help="description of the observer")
     a.add_argument("--json", action="store_true",
                    help="machine JSON output")
     a.set_defaults(run=_cmd_create_observer)
@@ -192,7 +192,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
 
 
 # ---------------------------------------------------------------------------
-# Commandes
+# Commands
 # ---------------------------------------------------------------------------
 
 
@@ -245,9 +245,9 @@ def _cmd_create(args: argparse.Namespace) -> int:
             return _api_error(exc)
     if args.capability:
         try:
-            # La card est celle du compte AUTHENTIFIÉ : on utilise le mot de
-            # passe du nouvel agent (jamais celui de l'organisation — le
-            # jeton local ne s'applique pas aux comptes agents).
+            # The card is that of the AUTHENTICATED account: we use the new
+            # agent's password (never the organization's — the
+            # local token does not apply to agent accounts).
             _client(config).set_agent_card(
                 args.capability, args.name, new_password, domain=args.domain
             )
@@ -338,7 +338,7 @@ def _cmd_card(args: argparse.Namespace) -> int:
         card_public = data.get("card") or data
         state = card_public.get("validation_state") if isinstance(card_public, dict) else None
         return emit(args, data,
-                    f"Card of agent '{args.name}' soumise (validation : {state}).")
+                    f"Card of agent '{args.name}' submitted (validation: {state}).")
     my_name, password = resolve_identity(config, args, my_name=args.my_name)
     try:
         data = client.get_agent_card(args.name, my_name, password)
@@ -349,7 +349,7 @@ def _cmd_card(args: argparse.Namespace) -> int:
     card_public = data.get("card") or data
     if isinstance(card_public, dict):
         rows = [[k, str(v)] for k, v in sorted(card_public.items())]
-        print(table(rows, ["champ", "valeur"]))
+        print(table(rows, ["field", "value"]))
     else:
         print(data)
     return EXIT_OK
@@ -395,7 +395,7 @@ def _cmd_budget(args: argparse.Namespace) -> int:
     if args.montant is not None:
         return emit_error(
             "the API has no monetary budget: budgets are "
-            "--max-active-tasks <n> et --max-messages-per-hour <n>"
+            "--max-active-tasks <n> and --max-messages-per-hour <n>"
         )
     if args.max_active_tasks is None and args.max_messages_per_hour is None:
         return emit_error(
@@ -472,7 +472,7 @@ def _cmd_find(args: argparse.Namespace) -> int:
     else:
         print(table([[str(a)] for a in agents], ["agents"]))
     if data.get("next_cursor"):
-        print(f"(page suivante : --cursor {data['next_cursor']})")
+        print(f"(next page: --cursor {data['next_cursor']})")
     return EXIT_OK
 
 
@@ -527,5 +527,5 @@ def _cmd_observers(args: argparse.Namespace) -> int:
 
 def _api_error(exc: Exception) -> int:
     if isinstance(exc, ClientTransportError):
-        return emit_error(f"service indisponible : {exc}", code=3)
+        return emit_error(f"service unavailable: {exc}", code=3)
     return emit_error(exc.message, api_code=exc.code)  # type: ignore[attr-defined]

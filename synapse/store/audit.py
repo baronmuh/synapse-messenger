@@ -1,9 +1,9 @@
-"""Audit organisationnel (F11) : journal immuable des actions, sans contenu.
+"""Organizational audit (F11): immutable journal of actions, without content.
 
 Every command executed by an organization agent is recorded in the
 same transaction: actor, command, target, outcome. The journal is
-append-only (aucune modification ni suppression) et ne contient jamais le
-contenu des messages, descriptions ou cartes.
+append-only (no modification nor deletion) and never contains the
+content of messages, descriptions or cards.
 """
 
 from __future__ import annotations

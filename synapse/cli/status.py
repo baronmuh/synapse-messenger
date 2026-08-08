@@ -19,7 +19,7 @@ from .common import (
 GROUP = "status"
 
 _EXAMPLES = """\
-Exemples :
+Examples:
   synapse status            condensed view: server + web + organizations
   synapse status --json     full JSON aggregate
 """
@@ -60,7 +60,7 @@ def _a2a_state(config) -> dict:  # noqa: ANN001
 
     The bridge is OPTIONAL (provisioned by the presence of agent secrets
     of agent secrets, SPEC_PRODUCTION §1): ``stopped`` is a legitimate state;
-    seul ``degraded`` (PID vivant, HTTP muet) signale une anomalie.
+    only ``degraded`` (live PID, silent HTTP) signals an anomaly.
     """
     info = read_pid_file(config, "a2a") or {}
     pid = info.get("pid")
@@ -98,7 +98,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
             data = Client.from_config(config).list_orgs(_WEB_LOCAL, token)
             payload["organizations"] = data.get("organizations", [])
         except (ApiClientError, ClientTransportError):
-            payload["organizations"] = {"error": "service injoignable"}
+            payload["organizations"] = {"error": "service unreachable"}
 
     # Recent backups (read from the local directory).
     from .backup import _header_date
@@ -119,7 +119,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
     if server["state"] == "running":
         print(f"  running (PID {server['pid']})")
     elif server["state"] == "degraded":
-        print(f"  DÉGRADÉ (PID {server['pid']} vivant, socket muet)")
+        print(f"  DEGRADED (PID {server['pid']} alive, socket silent)")
     else:
         print("  stopped")
     print("=== web ===")
@@ -127,16 +127,16 @@ def _cmd_status(args: argparse.Namespace) -> int:
         info = web["pid_file"] or {}
         print(f"  running (PID {web['pid']}, port {info.get('port', 8080)})")
     elif web["state"] == "degraded":
-        print(f"  DÉGRADÉ (PID {web['pid']})")
+        print(f"  DEGRADED (PID {web['pid']})")
     else:
         print("  stopped")
-    print("=== passerelle A2A ===")
+    print("=== A2A gateway ===")
     if a2a["state"] == "running":
         print(f"  running (PID {a2a['pid']}, agent "
               f"{a2a.get('agent_name') or 'unknown'}, port "
               f"{(a2a['pid_file'] or {}).get('port', 8090)})")
     elif a2a["state"] == "degraded":
-        print(f"  DÉGRADÉ (PID {a2a['pid']})")
+        print(f"  DEGRADED (PID {a2a['pid']})")
     else:
         print("  stopped (optional — provision agent secrets to enable it)")
     orgs = payload["organizations"]
@@ -149,5 +149,5 @@ def _cmd_status(args: argparse.Namespace) -> int:
     if backups:
         print("=== recent backups ===")
         for b in backups:
-            print(f"  - {b['name']} ({b['size']} octets, {b['created_at'] or '?'})")
+            print(f"  - {b['name']} ({b['size']} bytes, {b['created_at'] or '?'})")
     return EXIT_OK

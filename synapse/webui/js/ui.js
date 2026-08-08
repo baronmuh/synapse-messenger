@@ -67,26 +67,26 @@ export function badge(text, tone = 'neutral', { dot = false, mono = false, title
 }
 
 export function statusBadge(agent) {
-  if (agent.is_observer) return badge('Observateur', 'info', { dot: true });
-  if (agent.status === 'active') return badge('Actif', 'accent', { dot: true });
-  return badge('Inactif', 'neutral', { dot: true });
+  if (agent.is_observer) return badge('Observer', 'info', { dot: true });
+  if (agent.status === 'active') return badge('Active', 'accent', { dot: true });
+  return badge('Inactive', 'neutral', { dot: true });
 }
 
 export function stateBadge(state) {
   const tones = { submitted: 'info', in_progress: 'accent', pending_approval: 'warn',
     completed: 'ok', failed: 'danger', canceled: 'neutral' };
-  const labels = { submitted: 'Soumise', in_progress: 'In progress', pending_approval: 'Approbation',
+  const labels = { submitted: 'Submitted', in_progress: 'In progress', pending_approval: 'Approval',
     completed: 'Completed', failed: 'Failed', canceled: 'Canceled' };
   return badge(labels[state] || state, tones[state] || 'neutral');
 }
 
 export function priorityBadge(priority) {
-  const map = { low: ['Basse', 'neutral'], normal: ['Normale', 'neutral'], high: ['Haute', 'warn'] };
+  const map = { low: ['Low', 'neutral'], normal: ['Normal', 'neutral'], high: ['High', 'warn'] };
   const [label, tone] = map[priority] || [priority, 'neutral'];
   return badge(label, tone);
 }
 
-/* ---- Carte ------------------------------------------------------------------ */
+/* ---- Card ------------------------------------------------------------------ */
 export function card({ title, iconName = null, actions = null, body = null, foot = null, extraClass = '' }) {
   const header = (title || actions) ? el('div', { class: 'card-header' },
     title ? el('h2', { class: 'card-title' },
@@ -112,7 +112,7 @@ export function toast(type, message, { duration = 5000 } = {}) {
   node.addEventListener('click', remove);
 }
 
-/* ---- Modale -------------------------------------------------------------------- */
+/* ---- Modal -------------------------------------------------------------------- */
 export function openModal({ title, body, actions = [], onClose }) {
   const root = document.getElementById('modal-root');
   const prevFocus = document.activeElement;
@@ -135,7 +135,7 @@ export function openModal({ title, body, actions = [], onClose }) {
   const modal = el('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
     el('div', { class: 'modal-header' },
       el('h3', { class: 'modal-title' }, title),
-      el('button', { class: 'icon-btn', 'aria-label': 'Fermer', onclick: close }, icon('close')),
+      el('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, icon('close')),
     ),
     el('div', { class: 'modal-body' }, body),
     actions.length ? el('div', { class: 'modal-foot' }, ...actions) : null,
@@ -148,7 +148,7 @@ export function openModal({ title, body, actions = [], onClose }) {
   return { close, node: modal };
 }
 
-/* ---- État vide ------------------------------------------------------------------- */
+/* ---- Empty state ------------------------------------------------------------------- */
 export function emptyState({ iconName = 'inbox', title, desc = '', action = null }) {
   return el('div', { class: 'empty' },
     el('div', { class: 'empty-icon', html: icon(iconName, 20) }),
@@ -188,7 +188,7 @@ export function protectedBanner() {
   );
 }
 
-/* ---- Ligne de flux (a ⇄ b) ------------------------------------------------------------------ */
+/* ---- Flow line (a ⇄ b) ------------------------------------------------------------------ */
 export function flowPair(a, b, { linked = true } = {}) {
   const make = (u) => el('span', {
     class: 'flow-name', title: esc(u),
@@ -196,7 +196,7 @@ export function flowPair(a, b, { linked = true } = {}) {
   return el('span', { class: 'flow-pair' }, make(a), el('span', { class: 'flow-arrow', html: icon('arrowRight') }), make(b));
 }
 
-/* ---- Lien agent dans une cellule ---------------------------------------------------------------- */
+/* ---- Agent link in a cell ---------------------------------------------------------------- */
 export function agentLink(username, { sub = null } = {}) {
   return el('div', { style: 'display:flex;flex-direction:column;gap:2px;min-width:0' },
     el('a', { href: `#/agents/${encodeURIComponent(username)}`, class: 'cell-main', text: username }),
@@ -204,7 +204,7 @@ export function agentLink(username, { sub = null } = {}) {
   );
 }
 
-/* ---- Temps relatif ------------------------------------------------------------------------------- */
+/* ---- Relative time ------------------------------------------------------------------------------- */
 export function timeEl(iso, { mono = true } = {}) {
   if (!iso) return el('span', { text: '—' });
   return el('span', {
@@ -213,9 +213,9 @@ export function timeEl(iso, { mono = true } = {}) {
 }
 
 /* ==========================================================================
-   Tri de tableaux accessible (NN/g : tri visuel ; WCAG : aria-sort).
+   Accessible table sorting (NN/g: visual sorting; WCAG: aria-sort).
    Usage: thSortable('label', key, state, onSort) -> <th> with button.
-   state = { key, dir } courant ; onSort(key, dir) re-rend la table.
+   state = { key, dir } current; onSort(key, dir) re-renders the table.
    ========================================================================== */
 export function thSortable(label, key, state, onSort, { right = false } = {}) {
   const active = state.key === key;
@@ -235,12 +235,12 @@ export function thSortable(label, key, state, onSort, { right = false } = {}) {
     },
   }, label,
     // The sort icon only appears on the active column (NN/g: no
-    // bruit sur les colonnes inertes ; l'indication reste accessible via
-    // aria-sort et le label du bouton).
+    // noise on inert columns; the indication stays accessible via
+    // aria-sort and the button label).
     active ? el('span', { class: 'sort-icon', html: icon(iconName, 12) }) : null));
 }
 
-/* ---- Sparkline (mini barres de tendance) ------------------------------------------------ */
+/* ---- Sparkline (mini trend bars) ------------------------------------------------ */
 /* Data: array of numbers. Renders a mini histogram readable at a
    glance (preattentive length — NN/g). */
 export function sparkline(values, { height = 40, tone = 'accent' } = {}) {
@@ -254,13 +254,13 @@ export function sparkline(values, { height = 40, tone = 'accent' } = {}) {
       'aria-hidden': 'true',
     });
   });
-  return el('div', { class: 'mini-bars', role: 'img', 'aria-label': `Tendance : ${values.join(', ')}` }, ...bars);
+  return el('div', { class: 'mini-bars', role: 'img', 'aria-label': `Trend: ${values.join(', ')}` }, ...bars);
 }
 
-/* ---- Pagination simple (curseur) ------------------------------------------------------------ */
+/* ---- Simple pagination (cursor) ------------------------------------------------------------ */
 export function pagination({ hasMore, onMore, count, label }) {
   return el('div', { class: 'table-foot' },
     el('span', { text: label }),
-    hasMore ? el('button', { class: 'btn btn-ghost btn-sm', onclick: onMore }, 'Charger plus') : null,
+    hasMore ? el('button', { class: 'btn btn-ghost btn-sm', onclick: onMore }, 'Load more') : null,
   );
 }

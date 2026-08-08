@@ -2,9 +2,9 @@
 
 ``synapse server start`` (without ``--foreground``) detaches a process that
 runs ``_daemon server``; ``web start`` and ``a2a start`` do the same.
-Chaque daemon :
+Each daemon:
 
-1. charge la configuration et configure la journalisation fichier ;
+1. loads the configuration and sets up file logging;
 2. writes its PID file (``run_dir/<service>.pid``, 0600);
 3. installs the signal handlers (SIGTERM/SIGINT → clean stop);
 4. starts the service and stays in the foreground of ITS OWN process;
@@ -78,7 +78,7 @@ def run_server_daemon(config_path: str | None, log_level: str | None) -> None:
 
     platform.install_stop_handlers(_shutdown)
     try:
-        # READY + battements WATCHDOG sous systemd ; no-op hors systemd.
+        # READY + WATCHDOG heartbeats under systemd; no-op outside systemd.
         with watchdog_context():
             server.start()  # blocks; removes socket + web token on stop
     finally:
@@ -102,7 +102,7 @@ def run_web_daemon(config_path: str | None, port: int, log_level: str | None) ->
     try:
         with watchdog_context():
             web.start()
-            stop_event.wait()  # SIGTERM/SIGINT → sortie propre
+            stop_event.wait()  # SIGTERM/SIGINT → clean exit
     finally:
         web.stop()
         remove_pid_file(config, "web")
@@ -125,7 +125,7 @@ def run_a2a_daemon(config_path: str | None, agent_name: str, port: int,
     try:
         with watchdog_context():
             bridge.start()
-            stop_event.wait()  # SIGTERM/SIGINT → sortie propre
+            stop_event.wait()  # SIGTERM/SIGINT → clean exit
     finally:
         bridge.stop()
         remove_pid_file(config, "a2a")
@@ -166,11 +166,11 @@ def main(argv: list[str] | None = None) -> int:
     elif args.service == "web":
         run_web_daemon(args.config, args.port, args.log_level)
     elif args.service == "a2a":
-        # Le mot de passe de l'agent arrive sur stdin (le parent le lit et
-        # le transmet par le pipe — jamais en argument ni en environnement).
+        # The agent's password arrives on stdin (the parent reads it and
+        # passes it through the pipe — never as an argument nor an env var).
         password = sys.stdin.readline().rstrip("\n")
         if not password:
-            print("synapse _daemon a2a: mot de passe de l'agent absent",
+            print("synapse _daemon a2a: agent password missing",
                   file=sys.stderr)
             return 1
         run_a2a_daemon(args.config, args.agent_name, args.port, args.token,

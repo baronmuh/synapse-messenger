@@ -74,7 +74,7 @@ def fetch_or_create_conversation(
 
     The uniqueness constraint on ``key`` guarantees one conversation per
     pair even with simultaneous sends: on collision, the
-    conversation existante est relue.
+    existing conversation is re-read.
     """
     row = get_conversation_by_key(conn, key)
     if row is not None:
@@ -139,7 +139,7 @@ def get_message_by_id(conn: sqlite3.Connection, message_id: str) -> sqlite3.Row 
 
 
 def mark_read_conditional(conn: sqlite3.Connection, message_id: str, read_at: str) -> None:
-    """Marque un message lu uniquement si ``read_at`` est encore NULL.
+    """Marks a message read only if ``read_at`` is still NULL.
 
     Concurrent reads all return the same first-read date
     (that of the first committed transaction).
@@ -182,7 +182,7 @@ def get_no_reply(conn: sqlite3.Connection, conversation_id: str, username: str) 
 
 
 # ---------------------------------------------------------------------------
-# Transformation de lignes
+# Row transformation
 # ---------------------------------------------------------------------------
 
 

@@ -1,9 +1,9 @@
 /* ==========================================================================
    Synapse — Login screen (SPEC-WEB D5 amended).
-   Deux modes, accessibles sans session :
+   Two modes, accessible without a session:
      • Sign in: selection of an active organization (list served by
-       le web local, jeton de confiance du run dir) — aucune saisie
-       d'identifiants.
+       the local web, trust token of the run dir) — no credential
+       entry.
      • Create an organization: new organization + human account
        auto-created (web equivalent of synapse-init-org), then automatic
        login to the new organization.
@@ -133,7 +133,7 @@ async function submitLogin(btn, select) {
     await api.bootstrap();  // loads the snapshot (the shell is already mounted)
     location.hash = '#/dashboard';
   } catch (err) {
-    setError(err.message || 'Organisation indisponible.');
+    setError(err.message || 'Organization unavailable.');
     btn.disabled = false;
     btn.textContent = 'Sign in';
     select.focus();
@@ -144,7 +144,7 @@ async function submitLogin(btn, select) {
 
 function renderCreateFields() {
   const orgName = el('input', { class: 'login-input', type: 'text', required: true,
-    placeholder: 'ex. org_nouvelle', spellcheck: 'false', autocomplete: 'off',
+    placeholder: 'e.g. org_nouvelle', spellcheck: 'false', autocomplete: 'off',
     'aria-label': 'Name of the new organization (3-64 [a-z0-9_-])', id: 'create-org-name' });
   const password = el('input', { class: 'login-input', type: 'password', required: true,
     minlength: 12, placeholder: 'Password (>= 12 characters)',
@@ -168,7 +168,7 @@ function renderCreateFields() {
   return [
     el('label', { class: 'login-label', for: 'create-org-name' }, "Organization name"),
     orgName,
-    el('label', { class: 'login-label', for: 'create-org-password' }, 'Mot de passe'),
+    el('label', { class: 'login-label', for: 'create-org-password' }, 'Password'),
     password,
     el('label', { class: 'login-label', for: 'create-org-confirm' }, 'Confirmation'),
     confirm,
@@ -200,8 +200,8 @@ async function submitCreate(btn, orgName, password, confirm) {
   try {
     await api.createOrg(name, password.value);
     // Automatic login: same behavior as selecting an
-    // organisation existante (le web s'authentifie par jeton local au nom
-    // du compte humain de la nouvelle organisation).
+    // existing organization (the web authenticates by local token on behalf
+    // of the human account of the new organization).
     await api.login(name);
     await api.bootstrap();
     location.hash = '#/dashboard';
@@ -213,7 +213,7 @@ async function submitCreate(btn, orgName, password, confirm) {
   }
 }
 
-/* --- Erreurs --- */
+/* --- Errors --- */
 
 function setError(message) {
   const box = document.querySelector('.login-error');

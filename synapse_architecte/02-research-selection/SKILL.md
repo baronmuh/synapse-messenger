@@ -29,7 +29,7 @@ The goal is to understand THE TRADE, not to search "<domain> AI skills".
 For each business domain, research (web, official docs, recognized
 sources) the six dimensions:
 
-- **A. Core competencies** — the real skills of the trade (not clichés).
+- **A. Core competencies** — the real skills of the trade (not stereotypes).
 - **B. Tools** — professional tools practitioners actually use.
 - **C. Workflows** — repetitive/complex tasks that can be automated or
   supported by an AI agent.

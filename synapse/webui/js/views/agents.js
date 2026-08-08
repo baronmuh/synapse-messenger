@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Synapse — Vue Agents : annuaire + recherche + filtres + tri.
+   Synapse — Agents view: directory + search + filters + sort.
    ========================================================================== */
 
 import { el, clear, badge, emptyState, pageHeader, avatarWithStatus, openModal, toast } from '../ui.js';
@@ -32,7 +32,7 @@ function agentCardEl(a, dept) {
   const deptInfo = dept ? `${dept.department}${dept.role ? ' · ' + dept.role : ''}` : 'no department';
   return el('a', {
     class: 'agent-card', href: `#/agents/${encodeURIComponent(a.username)}`,
-    'aria-label': `Fiche de ${a.username}`,
+    'aria-label': `Record of ${a.username}`,
   },
     el('div', { class: 'agent-card-head' },
       avatarWithStatus(a.username, a.status),
@@ -40,12 +40,12 @@ function agentCardEl(a, dept) {
         el('div', { class: 'agent-card-name', text: a.username }),
         el('div', { class: 'cell-sub', text: principalTypeLabel(a.principal_type) }),
       ),
-      a.status === 'active' ? badge('Actif', 'accent', { dot: true })
-        : badge('Inactif', 'neutral', { dot: true }),
+      a.status === 'active' ? badge('Active', 'accent', { dot: true })
+        : badge('Inactive', 'neutral', { dot: true }),
     ),
-    el('p', { class: 'agent-card-desc' }, a.description || 'Aucune description.'),
+    el('p', { class: 'agent-card-desc' }, a.description || 'No description.'),
     el('div', { class: 'agent-card-foot' },
-      a.is_observer ? badge('Observateur', 'info') : null,
+      a.is_observer ? badge('Observer', 'info') : null,
       badge(deptInfo, 'neutral'),
     ),
   );
@@ -114,15 +114,15 @@ export function render(container) {
     ),
     el('div', { class: 'toolbar-segs' },
       el('div', { class: 'seg', role: 'group', 'aria-label': 'Filter by status' },
-        [['all', 'Tous'], ['active', 'Actifs'], ['inactive', 'Inactifs']].map(([v, label]) =>
+        [['all', 'All'], ['active', 'Active'], ['inactive', 'Inactive']].map(([v, label]) =>
           el('button', { 'aria-pressed': filterStatus === v ? 'true' : 'false', onclick: () => { filterStatus = v; renderGrid(results); } }, label)),
       ),
       el('div', { class: 'seg', role: 'group', 'aria-label': 'Filter by type' },
-        [['all', 'Tous'], ['agent', 'Agents'], ['human', 'Humains'], ['observer', 'Observateurs']].map(([v, label]) =>
+        [['all', 'All'], ['agent', 'Agents'], ['human', 'Humans'], ['observer', 'Observers']].map(([v, label]) =>
           el('button', { 'aria-pressed': filterType === v ? 'true' : 'false', onclick: () => { filterType = v; renderGrid(results); } }, label)),
       ),
-      el('div', { class: 'seg', role: 'group', 'aria-label': 'Trier' },
-        [['name', 'Nom'], ['status', 'Statut'], ['type', 'Type']].map(([v, label]) =>
+      el('div', { class: 'seg', role: 'group', 'aria-label': 'Sort' },
+        [['name', 'Name'], ['status', 'Status'], ['type', 'Type']].map(([v, label]) =>
           el('button', { 'aria-pressed': sortBy === v ? 'true' : 'false', onclick: () => { sortBy = v; renderGrid(results); } }, label)),
       ),
     ),
@@ -137,15 +137,15 @@ export function render(container) {
 export const refresh = render;
 
 /* ==========================================================================
-   Agent management (SPEC-WEB §4): creation, deactivation/reactivation,
-   modification de description. Les pouvoirs d'organisation de la session
-   human powers are exercised by the web server.
-   ========================================================================== */
+  Agent management (SPEC-WEB §4): creation, deactivation/reactivation,
+  description modification. The organization powers of the session
+  human powers are exercised by the web server.
+  ========================================================================== */
 
 function createAgentModal() {
   const form = el('form', { class: 'form-stack', novalidate: true });
   const username = el('input', { class: 'input', type: 'text', required: true,
-    placeholder: 'ex. agent_d', spellcheck: 'false', 'aria-label': "Nom d'utilisateur (3-64 [a-z0-9_-])" });
+    placeholder: 'e.g. agent_d', spellcheck: 'false', 'aria-label': "Username (3-64 [a-z0-9_-])" });
   const password = el('input', { class: 'input', type: 'password', required: true,
     minlength: 12, placeholder: 'Password (>= 12 characters)',
     'aria-label': 'New agent password' });
@@ -153,8 +153,8 @@ function createAgentModal() {
     placeholder: 'Short description (role, capabilities)', 'aria-label': 'Description' });
   const error = el('div', { class: 'form-error', role: 'alert', hidden: true });
   form.append(
-    el('label', { class: 'field-label' }, "Nom d'utilisateur"), username,
-    el('label', { class: 'field-label' }, 'Mot de passe'), password,
+    el('label', { class: 'field-label' }, 'Username'), username,
+    el('label', { class: 'field-label' }, 'Password'), password,
     el('label', { class: 'field-label' }, 'Description'), description,
     error,
   );
@@ -186,10 +186,10 @@ function createAgentModal() {
 function editDescriptionModal(a) {
   const form = el('form', { class: 'form-stack', novalidate: true });
   const input = el('input', { class: 'input', type: 'text', value: a.description || '',
-    'aria-label': 'Nouvelle description' });
+    'aria-label': 'New description' });
   const error = el('div', { class: 'form-error', role: 'alert', hidden: true });
   form.append(input, error);
-  const submit = el('button', { type: 'submit', class: 'btn btn-primary', text: 'Enregistrer' });
+  const submit = el('button', { type: 'submit', class: 'btn btn-primary', text: 'Save' });
   openModal({
     title: `Edit the description of ${a.username}`,
     body: form,
@@ -251,12 +251,12 @@ function managementPanel(container, snap) {
           el('div', { style: 'flex:1;min-width:0' },
             el('div', { class: 'manage-row-name', text: a.username }),
             el('div', { class: 'cell-sub' },
-              a.status === 'active' ? badge('Actif', 'accent', { dot: true })
+              a.status === 'active' ? badge('Active', 'accent', { dot: true })
                 : badge('Deactivated', 'neutral', { dot: true }),
               el('span', { text: a.is_observer ? 'observer' : 'agent' }),
             ),
           ),
-          a.username === human ? badge('vous', 'info') : null,
+          a.username === human ? badge('you', 'info') : null,
           el('button', {
             class: 'btn btn-ghost btn-sm', type: 'button',
             onclick: () => editDescriptionModal(a),

@@ -1,14 +1,15 @@
-"""Passerelle A2A (SPEC.txt F20) : pont local vers le protocole A2A de la Linux
-Foundation, limited to 127.0.0.1.
+"""A2A gateway (SPEC.txt F20): local bridge to the Linux Foundation's A2A
+protocol, limited to 127.0.0.1.
 
-La passerelle est un client Synapse comme les autres : elle s'authentifie sur
-le socket avec les identifiants d'un agent, expose sa carte (agent card A2A)
-sur ``/.well-known/agent.json`` et traduit les appels JSON-RPC 2.0 du protocole
-A2A (``tasks/message``, ``tasks/get``, ``tasks/list``, ``tasks/cancel``) en
-commandes Synapse (create_task, get_task, list_tasks, update_task_state).
+The gateway is a Synapse client like any other: it authenticates on
+the socket with an agent's credentials, exposes its card (A2A agent card)
+on ``/.well-known/agent.json`` and translates the JSON-RPC 2.0 calls of the
+A2A protocol (``tasks/message``, ``tasks/get``, ``tasks/list``,
+``tasks/cancel``) into Synapse commands (create_task, get_task,
+list_tasks, update_task_state).
 
-Documented limits: no push notifications (SSE) — A2A clients
-pollent via ``tasks/get`` / ``tasks/list`` ; un seul agent par passerelle.
+Documented limits: no push notifications (SSE) — A2A clients poll
+via ``tasks/get`` / ``tasks/list``; one agent per gateway.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from typing import Any
 from .client import ApiClientError, Client
 
 # Anti-abuse bound on incoming JSON-RPC bodies (consistent with the limit
-# de 1 MiB de l'API principale, SPEC.txt §2).
+# of 1 MiB of the main API, SPEC.txt §2).
 _MAX_BRIDGE_REQUEST_BYTES = 1024 * 1024
 
 logger = logging.getLogger("synapse.a2a")
@@ -43,9 +44,9 @@ class _Handler(BaseHTTPRequestHandler):
                 card = self.bridge.agent_card()
                 self._send(200, "application/json",
                            json.dumps(card, ensure_ascii=False).encode("utf-8"))
-            except Exception as exc:  # ne jamais exposer de trace interne
+            except Exception as exc:  # never expose an internal traceback
                 logger.warning("A2A card unavailable: %s", exc)
-                self._send(503, "application/json", b'{"error":"agent indisponible"}')
+                self._send(503, "application/json", b'{"error":"agent unavailable"}')
         else:
             self._send(404, "text/plain", b"404")
 
@@ -60,7 +61,7 @@ class _Handler(BaseHTTPRequestHandler):
             if length < 0 or length > _MAX_BRIDGE_REQUEST_BYTES:
                 # Anti-abuse bound: an oversized body must not be able to
                 # exhaust the process memory (consistent with the limit
-                # de 1 MiB de l'API principale).
+                # of 1 MiB of the main API).
                 self._send(413, "application/json",
                            json.dumps(_a2a_error(-32600, "Request too large")).encode("utf-8"))
                 return
@@ -68,7 +69,7 @@ class _Handler(BaseHTTPRequestHandler):
             request = json.loads(raw.decode("utf-8"))
         except (ValueError, UnicodeDecodeError):
             self._send(400, "application/json",
-                       json.dumps(_a2a_error(-32700, "JSON invalide")).encode("utf-8"))
+                       json.dumps(_a2a_error(-32700, "Invalid JSON")).encode("utf-8"))
             return
         response = self.bridge.dispatch(request)
         self._send(200, "application/json",
@@ -236,9 +237,9 @@ def run_bridge(config: Any, agent_name: str, agent_password: str, port: int = 80
 
 
 def bridge_main() -> None:  # pragma: no cover
-    """CLI ``synapse-a2a-bridge`` : expose un agent Synapse au format A2A
+    """CLI ``synapse-a2a-bridge``: exposes a Synapse agent in the A2A format
     on 127.0.0.1. The agent password is read via ``--password-stdin``
-    ou ``getpass`` (jamais en clair sur la ligne de commande)."""
+    or ``getpass`` (never in clear text on the command line)."""
     import argparse
     import getpass
     import json

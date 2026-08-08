@@ -1,15 +1,15 @@
 """Human web interface (SPEC-WEB): local HTTP server restricted to 127.0.0.1.
 
 The interface is exclusively for humans: login only accepts
-que ``organization_name`` + ``organization_password`` (les agents n'ont pas ce
+``organization_name`` + ``organization_password`` (agents do not have this
 secret — that is the real anti-agent control, §6.3/I9). The server starts without
 any secret and no longer holds an observer account nor a static token.
 
 Each authenticated session goes through the Synapse socket with the identity of the
-compte humain (messagerie et lecture d'organisation) et les pouvoirs de
-l'organization (account management), the password of theorganisation ne
+human account (messaging and organization reading) and the powers of
+the organization (account management), the password of the organization
 residing only in session memory. No sensitive data is written to
-disque ni dans les logs.
+disk nor to the logs.
 """
 
 from __future__ import annotations
@@ -96,7 +96,7 @@ class _Handler(BaseHTTPRequestHandler):
         session = self._session()
         if session is None:
             self._send(401, "application/json; charset=utf-8",
-                       jsonutil.dumps({"error": "session requise"}),
+                       jsonutil.dumps({"error": "session required"}),
                        extra=self._clear_cookie_header())
             return None
         return session
@@ -154,10 +154,25 @@ class _Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = unquote(parsed.path)
 
-        # Coquille et assets statiques : servis sans session — ils ne
+        # Shell and static assets: served without a session — they
         # contain NO organization data (everything is loaded via
-        # /api/*), l'interface doit pouvoir se charger pour se connecter.
+        # /api/*), the interface must be able to load to connect.
+        if path == "/onboarding":
+            self._serve_static("onboarding.html")
+            return
         if path in ("/", "/index.html"):
+            # Onboarding gate: when no organization exists yet, send the
+            # user to the interactive guide instead of the login screen.
+            try:
+                orgs = self.web.list_orgs() if self.web.web_token else None
+                no_org = bool(orgs) is False or not (orgs or {}).get("organizations")
+            except ApiClientError:
+                no_org = True
+            if no_org:
+                self.send_response(302)
+                self.send_header("Location", "/onboarding")
+                self.end_headers()
+                return
             self._serve_static("index.html")
             return
         if path.startswith("/assets/"):
@@ -170,10 +185,10 @@ class _Handler(BaseHTTPRequestHandler):
             self._handle_orgs()
             return
         if path == "/api/status":
-            # État du web pour la supervision locale (SPEC_CLI ``web
+            # Web state for local supervision (SPEC_CLI ``web
             # status``): port, active in-memory sessions, startup.
             # Metadata only — same trust domain as
-            # /api/orgs (poste local).
+            # /api/orgs (local workstation).
             self._send_json(200, {
                 "port": self.web.port,
                 "sessions_active": self.web.session_count(),
@@ -205,7 +220,7 @@ class _Handler(BaseHTTPRequestHandler):
             query = parse_qs(parsed.query)
             conversation_id = query.get("conversation_id", [""])[0].strip()
             if not conversation_id:
-                self._send_json(400, {"error": "conversation_id requis"})
+                self._send_json(400, {"error": "conversation_id required"})
             else:
                 self._serve_json(
                     lambda: self.web.conversation(session, conversation_id), session=session)
@@ -287,7 +302,7 @@ class _Handler(BaseHTTPRequestHandler):
     def _handle_orgs(self) -> None:
         """Lists the active organizations (selection login screen).
         Relies on the local web identity (_web_local + trust token
-        du run dir) — sans session ni mot de passe saisi."""
+        from the run dir) — without a session or an entered password."""
         token = self.web.web_token
         if token is None:
             self._send_json(503, {"error": "local service not ready (web token missing)"})
@@ -305,7 +320,7 @@ class _Handler(BaseHTTPRequestHandler):
             return
         org_name = body.get("organization_name")
         if not isinstance(org_name, str):
-            self._send_json(401, {"error": "identifiants invalides"})
+            self._send_json(401, {"error": "invalid credentials"})
             return
         org_name = org_name.lower()
         try:
@@ -314,7 +329,7 @@ class _Handler(BaseHTTPRequestHandler):
             self._send_json(429, {"error": "too many attempts, try again later"})
             return
         except _LoginFailed:
-            self._send_json(401, {"error": "identifiants invalides"})
+            self._send_json(401, {"error": "invalid credentials"})
             return
         session = self.web.get_session(token)
         if session is None:  # pragma: no cover - defensive
@@ -352,7 +367,7 @@ class _Handler(BaseHTTPRequestHandler):
             data = fn()
         except ApiClientError as exc:
             if exc.code == "AUTH_FAILED":
-                # Les identifiants de la session ne sont plus valides
+                # The session credentials are no longer valid
                 # (password rotation, deactivated organization):
                 # the session is destroyed, the client returns to login.
                 if session is not None:
@@ -407,7 +422,7 @@ class _LoginLocked(Exception):
 
 
 class SynapseWebUI:
-    """Interface web humaine d'une instance Synapse (SPEC-WEB).
+    """Human web interface of a Synapse instance (SPEC-WEB).
 
     Starts without any secret; login (org + password) creates an
     in-memory session. Listens on 127.0.0.1 only.
@@ -421,13 +436,13 @@ class SynapseWebUI:
         self.max_body_bytes = config.max_request_bytes
         self._sessions: dict[str, _Session] = {}
         self._sessions_lock = threading.Lock()
-        # Échecs de connexion par organisation (rate-limit, SPEC-WEB §6.3).
+        # Login failures per organization (rate-limit, SPEC-WEB §6.3).
         self._login_failures: dict[str, tuple[int, float]] = {}
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
         self._cache: dict[str, tuple[float, Any]] = {}
         self._cache_lock = threading.Lock()
-        self.started_at: float | None = None  # rempli par start() (supervision locale)
+        self.started_at: float | None = None  # set by start() (local supervision)
         # Local trust token (SPEC-WEB D5 amended): read from the run dir
         # (0600 file written by the server), used to authenticate
         # to the service without a password (selection login).
@@ -448,12 +463,12 @@ class SynapseWebUI:
         """Creates a session for the chosen organization (SPEC-WEB D5 amended).
 
         No more typed password: the web authenticates to the service
-        avec le jeton de confiance local (fichier 0600 du run dir), au nom
+        with the local trust token (0600 file of the run dir), on behalf
         of the organization's human account. ``password`` is only accepted
         for HTTP test backward compatibility; the interface never sends
-        jamais de mot de passe.
+        any password.
 
-        La validation passe par l'API socket : la commande
+        The validation goes through the socket API: the command
         ``get_my_organization`` run with the human account identity
         fails if the organization is unknown/deactivated or if the human
         account is missing (generic AUTH_FAILED — no revelation)."""
@@ -626,9 +641,9 @@ class SynapseWebUI:
         client = self._client()
         data = client.get_org_conversation(
             conversation_id, session.human_username, session.org_password, limit=100)
-        # Gestion des NON LUS (messagerie) : consulter la conversation marque
+        # Unread handling (messaging): consulting the conversation marks
         # read the messages addressed to the human. The service only marks
-        # messages dont l'humain est destinataire (idempotent, non-divulgation
+        # messages whose human is the recipient (idempotent, non-disclosure
         # kept); a race (already read/revoked message) is non-blocking.
         marked = 0
         for m in data.get("messages", []):

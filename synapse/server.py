@@ -1,4 +1,4 @@
-"""Serveur socket Unix du service de messagerie Synapse.
+"""Unix socket server of the Synapse messaging service.
 
 Transport: a local Unix socket only (no network port). Each
 request is a compact JSON object on one line, terminated by ``\\n``. A
@@ -39,8 +39,8 @@ _READ_CHUNK = 65536
 # handled connections and a connection inactivity timeout. Beyond
 # the bound, a connection briefly waits for a slot then is refused.
 MAX_CONCURRENT_CONNECTIONS = 64
-CONNECTION_IDLE_TIMEOUT = 60  # secondes
-CONNECTION_ACQUIRE_TIMEOUT = 2.0  # secondes
+CONNECTION_IDLE_TIMEOUT = 60  # seconds
+CONNECTION_ACQUIRE_TIMEOUT = 2.0  # seconds
 
 
 class RequestTooLarge(Exception):
@@ -51,10 +51,10 @@ class _ConnectionHandler(socketserver.StreamRequestHandler):
     """Handles a connection: one or more requests, line by line.
 
     The service is reachable via ``self.server.service`` (injected by
-    ``SynapseServer`` au niveau de l'instance du serveur).
+    ``SynapseServer`` at the server instance level).
     """
 
-    timeout = CONNECTION_IDLE_TIMEOUT
+    timeout = CONNECTION_IDLE_TIMEOUT  # seconds
 
     @property
     def service(self) -> Service:
@@ -99,8 +99,8 @@ class _ConnectionHandler(socketserver.StreamRequestHandler):
                 continue
             try:
                 response, meta = self.service.process(bytes(line))
-            except Exception as exc:  # noqa: BLE001 - garde ultime
-                # Une panne inattendue ne doit jamais laisser la connexion
+            except Exception as exc:  # noqa: BLE001 - last line of defense
+                # An unexpected failure must never leave the connection
                 # without leaking the response or the content.
                 meta = {"result": INTERNAL_ERROR, "internal_error": exc}
                 response = {
@@ -121,7 +121,7 @@ class _ConnectionHandler(socketserver.StreamRequestHandler):
                     "Internal error", exc_info=meta["internal_error"]
                 )
 
-    # -- lecture d'une ligne avec limite de taille -----------------------
+    # -- reading a line with a size limit --------------------------------
     def _read_line(self) -> bytes | None:
         max_bytes = self.service.config.max_request_bytes
         while True:
@@ -137,7 +137,7 @@ class _ConnectionHandler(socketserver.StreamRequestHandler):
             try:
                 chunk = self.request.recv(_READ_CHUNK)
             except (socket.timeout, TimeoutError):
-                return None  # connexion inactive : fermeture propre
+                return None  # inactive connection: clean close
             if not chunk:
                 if self._buffer:
                     # Last line without newline: still processed.
@@ -163,7 +163,7 @@ class _ConnectionHandler(socketserver.StreamRequestHandler):
             # The client disconnected during the write (RST, BrokenPipe,
             # connection closed before reading): the response can no longer be
             # delivered. The handler loop will see the error/EOF on the next read
-            # suivante et se fermera proprement ; aucun traceback ne doit
+            # and close cleanly; no traceback must
             # pollute the logs nor fail the handler thread.
             pass
 
@@ -213,7 +213,7 @@ class _ConnectionPool:
             fn, args = item
             try:
                 fn(*args)
-            except Exception:  # noqa: BLE001 - un travailleur ne meurt jamais
+            except Exception:  # noqa: BLE001 - a worker never dies
                 logger.exception("Error in a pool worker")
 
     def submit(self, fn, *args) -> None:  # noqa: ANN001
@@ -221,7 +221,7 @@ class _ConnectionPool:
 
     def close(self) -> None:
         """Signals the stop to workers (queued tasks are processed
-        d'abord, puis chaque travailleur sort)."""
+        first, then each worker exits)."""
         for _ in self._workers:
             self._queue.put(None)
 
@@ -296,7 +296,7 @@ def lock_is_stale(lock_path: str | os.PathLike) -> bool:
     """A lock is stale if its content is the PID of a dead process.
 
     Shared between the server (restart) and the restore. Any content
-    unknown (ex. "restore") ou un PID vivant indique un verrou actif.
+    unknown (ex. "restore") or a live PID indicates an active lock.
     """
     try:
         content = Path(lock_path).read_text(encoding="ascii").strip()
@@ -305,7 +305,7 @@ def lock_is_stale(lock_path: str | os.PathLike) -> bool:
     try:
         pid = int(content)
     except ValueError:
-        return False  # contenu unknown (ex. "restore") : verrou actif
+        return False  # unknown content (ex. "restore"): the lock is active
     if pid <= 0:
         return False
     if platform.process_alive(pid):
@@ -314,7 +314,7 @@ def lock_is_stale(lock_path: str | os.PathLike) -> bool:
 
 
 class SynapseServer:
-    """Pilotable Unix socket server (clean start/stop)."""
+    """Controllable Unix socket server (clean start/stop)."""
 
     def __init__(self, config: Config) -> None:
         self.config = config
@@ -363,8 +363,8 @@ class SynapseServer:
         """Clean stop: closes the socket, releases the lock.
 
         Idempotent and thread-safe: ``serve_forever`` also triggers
-        ``stop()`` dans son ``finally`` ; les deux appels peuvent se
-        chevaucher (thread du serveur + thread appelant).
+        ``stop()`` in its ``finally``; the two calls may
+        overlap (server thread + calling thread).
         """
         with self._stop_lock:
             server = self._server
@@ -427,7 +427,7 @@ class SynapseServer:
                     file=sys.stderr,
                 )
                 sys.exit(1)
-            os.unlink(socket_path)  # socket orphelin
+            os.unlink(socket_path)  # orphan socket
 
     @staticmethod
     def _socket_in_use(socket_path: str) -> bool:

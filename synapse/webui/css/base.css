@@ -4,15 +4,15 @@
    pre-emit critique: P5 H5 E5 S5 R5 V5
    --------------------------------------------------------------------------
    Synapse — Base: reset, elements, "Registre" app shell.
-   La coquille v3 : barre de marque (N9 edge-aligned) + tab strip horizontal
-   des vues. La sidebar gauche de la v2 a disparu — toute la hauteur est
-   rendue au contenu ; la navigation est un registre d'onglets.
+   The v3 shell: brand bar (N9 edge-aligned) + horizontal view tab strip
+   The v2 left sidebar is gone — the full height is
+   given back to the content; navigation is a tab register.
    ========================================================================== */
 
 *, *::before, *::after { box-sizing: border-box; }
 
 /* Gate 34: never horizontal scroll — clip (not hidden: preserves
-   position: sticky/fixed des descendants). */
+   position: sticky/fixed of the descendants). */
 html { overflow-x: clip; }
 body { overflow-x: clip; }
 
@@ -33,7 +33,7 @@ body {
 h1, h2, h3, h4, p, figure, dl, dd { margin: 0; }
 
 /* Bricolage Grotesque display on titles; tight negative tracking.
-   Toujours roman (jamais d'italique sur les titres — gate 38a). */
+   Always roman (never italic on titles — gate 38a). */
 h1 { font-family: var(--font-display); font-size: var(--text-h1); line-height: var(--lh-h1); font-weight: 650; letter-spacing: var(--tracking-display); }
 h2 { font-family: var(--font-display); font-size: var(--text-h2); line-height: var(--lh-h2); font-weight: 650; letter-spacing: var(--tracking-tight); }
 h3 { font-size: var(--text-h3); line-height: var(--lh-h3); font-weight: 600; letter-spacing: var(--tracking-tight); }
@@ -69,13 +69,13 @@ input, select, textarea { font-family: inherit; }
 *::-webkit-scrollbar-track { background: transparent; }
 
 /* ==========================================================================
-   Coquille applicative — « Registre »
+   App shell — "Registre"
    ========================================================================== */
 
 .app { display: flex; flex-direction: column; min-height: 100vh; }
 .app[hidden] { display: none; }
 
-/* ---- Barre de marque (N9 edge-aligned) ---------------------------------- */
+/* ---- Brand bar (N9 edge-aligned) ---------------------------------- */
 .brandbar {
   position: sticky;
   top: 0;
@@ -132,7 +132,7 @@ input, select, textarea { font-family: inherit; }
 }
 .session-identity .identity-name { font-weight: 600; color: var(--color-ink-2); }
 
-/* ---- Tab strip (registre des vues) -------------------------------------- */
+/* ---- Tab strip (view register) -------------------------------------- */
 .tabstrip {
   position: sticky;
   top: var(--brandbar-h);
@@ -198,7 +198,7 @@ input, select, textarea { font-family: inherit; }
 .tab[aria-current="page"] .tab-icon { color: var(--color-accent); }
 .tab[aria-current="page"] .tab-count { color: var(--color-accent); border-color: var(--color-accent-border); background: var(--color-paper-3); }
 
-/* ---- Contenu ------------------------------------------------------------- */
+/* ---- Content ------------------------------------------------------------- */
 .content {
   flex: 1;
   width: 100%;
@@ -219,7 +219,7 @@ input, select, textarea { font-family: inherit; }
 .content-header .page-desc { color: var(--color-ink-2); font-size: var(--text-small); max-width: 640px; line-height: 1.55; }
 .content-header .page-actions { display: flex; gap: var(--space-2xs); align-items: center; }
 
-/* Recherche dans la barre de marque */
+/* Search in the brand bar */
 .search-trigger {
   display: inline-flex;
   align-items: center;
@@ -290,7 +290,7 @@ input, select, textarea { font-family: inherit; }
 }
 
 /* ==========================================================================
-   Divers utilitaires
+   Misc utilities
    ========================================================================== */
 .sr-only {
   position: absolute;

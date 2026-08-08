@@ -3,12 +3,12 @@
    nav: N9 edge-aligned + tab strip app · footer: none (app) · design-system: docs/DESIGN.md
    pre-emit critique: P5 H5 E5 S5 R5 V5
    --------------------------------------------------------------------------
-   Synapse — Design tokens (redesign total « Registre », OKLCH).
+   Synapse — Design tokens (full redesign « Registre », OKLCH).
    Single source of visual decisions (docs/DESIGN.md §3).
-   Les composants n'utilisent QUE ces tokens — aucune valeur ad hoc.
-   Jeu de noms unique --color-* / --font-* / --space-* … (les aliases --syn-*
-   from v2 were removed: js/ was rewritten to reference the tokens
-   Hallmark directement).
+   Components use ONLY these tokens — no ad hoc values.
+   Unique naming set --color-* / --font-* / --space-* … (the --syn-* aliases
+   from v2 were removed: js/ was rewritten to reference
+   the Hallmark tokens directly).
    ========================================================================== */
 
 :root {
@@ -18,28 +18,28 @@
      ≥ 4.5:1, icons/rings ≥ 3:1 on all surfaces (34 pairs,
      verification script kept in docs/DESIGN.md §3.8).
      ====================================================================== */
-  --color-paper:     oklch(0.975 0.008 75);   /* fond d'application — ivoire clair */
-  --color-paper-2:   oklch(0.955 0.010 75);   /* surface principale (panneaux, strip) */
-  --color-paper-3:   oklch(0.930 0.012 75);   /* surface de contenu (cartes) */
+  --color-paper:     oklch(0.975 0.008 75);   /* app background — light ivory */
+  --color-paper-2:   oklch(0.955 0.010 75);   /* primary surface (panels, strip) */
+  --color-paper-3:   oklch(0.930 0.012 75);   /* content surface (cards) */
   --color-paper-4:   oklch(0.990 0.006 75);   /* elevated surface (popovers, toasts) */
   --color-rule:      oklch(0.860 0.014 75);   /* separators, hairlines */
-  --color-rule-2:    oklch(0.780 0.016 75);   /* bordures d'interaction */
+  --color-rule-2:    oklch(0.780 0.016 75);   /* interaction borders */
 
-  --color-ink:       oklch(0.180 0.012 70);   /* texte principal — noir chaud */
-  --color-ink-2:     oklch(0.380 0.018 70);   /* texte secondaire */
+  --color-ink:       oklch(0.180 0.012 70);   /* primary text — warm black */
+  --color-ink-2:     oklch(0.380 0.018 70);   /* secondary text */
   --color-ink-3:     oklch(0.495 0.020 70);   /* muted text (metadata) */
   --color-ink-4:     oklch(0.600 0.016 70);   /* disabled text (≥ 3:1) */
 
   /* ---- Semantic roles --------------------------------------------- */
   --color-accent:        oklch(0.540 0.185 35);  /* vermilion: active, action, success */
-  --color-accent-strong: oklch(0.470 0.175 35);  /* hover des actions primaires */
-  --color-accent-ink:    oklch(0.980 0.010 60);  /* texte sur fond accent (5.2:1) */
+  --color-accent-strong: oklch(0.470 0.175 35);  /* hover of primary actions */
+  --color-accent-ink:    oklch(0.980 0.010 60);  /* text on accent background (5.2:1) */
   --color-accent-soft:   oklch(0.940 0.028 40);  /* active state backgrounds — ink text on top */
   --color-accent-border: oklch(0.540 0.185 35 / 0.35);
 
-  --color-link:        oklch(0.440 0.110 250);   /* bleu acier : liens, info */
+  --color-link:        oklch(0.440 0.110 250);   /* steel blue: links, info */
   --color-link-strong: oklch(0.370 0.100 250);
-  --color-link-ink:    oklch(0.980 0.010 250);   /* texte sur fond link (7.3:1) */
+  --color-link-ink:    oklch(0.980 0.010 250);   /* text on link background (7.3:1) */
   --color-link-soft:   oklch(0.930 0.030 250);
   --color-link-border: oklch(0.440 0.110 250 / 0.35);
 
@@ -48,14 +48,14 @@
   --color-success-soft:   oklch(0.930 0.040 150);
   --color-success-border: oklch(0.480 0.130 150 / 0.35);
 
-  --color-warning:        oklch(0.650 0.140 75);   /* ambre */
-  --color-warning-ink:    oklch(0.250 0.050 75);   /* texte sur fond warning (4.9:1) */
+  --color-warning:        oklch(0.650 0.140 75);   /* amber */
+  --color-warning-ink:    oklch(0.250 0.050 75);   /* text on warning background (4.9:1) */
   --color-warning-soft:   oklch(0.940 0.060 75);
   --color-warning-border: oklch(0.650 0.140 75 / 0.4);
 
-  --color-danger:         oklch(0.520 0.190 25);   /* rouge profond */
-  --color-danger-bright:  oklch(0.520 0.185 25);   /* texte danger sur fonds clairs (4.9:1) */
-  --color-danger-ink:     oklch(0.980 0.010 25);   /* texte sur fond danger (5.7:1) */
+  --color-danger:         oklch(0.520 0.190 25);   /* deep red */
+  --color-danger-bright:  oklch(0.520 0.185 25);   /* danger text on light backgrounds (4.9:1) */
+  --color-danger-ink:     oklch(0.980 0.010 25);   /* text on danger background (5.7:1) */
   --color-danger-soft:    oklch(0.940 0.040 25);
   --color-danger-border:  oklch(0.520 0.190 25 / 0.4);
 
@@ -63,19 +63,19 @@
   --color-info-ink:    var(--color-link-ink);
   --color-info-soft:   var(--color-link-soft);
 
-  --color-focus:   oklch(0.500 0.160 250);       /* anneau de focus (≥ 3:1) */
-  --color-overlay: oklch(0.160 0.010 70 / 0.40); /* blanket modale/palette */
-  --color-avatar-edge: oklch(0.860 0.014 75 / 0.5); /* bordure des avatars */
+  --color-focus:   oklch(0.500 0.160 250);       /* focus ring (≥ 3:1) */
+  --color-overlay: oklch(0.160 0.010 70 / 0.40); /* modal/palette blanket */
+  --color-avatar-edge: oklch(0.860 0.014 75 / 0.5); /* avatar border */
 
-  /* ---- Couleurs : graphiques (charts) ---------------------------------- */
+  /* ---- Colors: charts ---------------------------------- */
   /* Data palette: harmonized on the wheel, reserved for
      visualizations — never for the UI. */
-  --chart-1: oklch(0.540 0.185 35);   /* vermillon */
+  --chart-1: oklch(0.540 0.185 35);   /* vermilion */
   --chart-2: oklch(0.480 0.130 150);  /* forest green */
-  --chart-3: oklch(0.440 0.110 250);  /* bleu acier */
-  --chart-4: oklch(0.650 0.140 75);   /* ambre */
-  --chart-5: oklch(0.520 0.190 25);   /* rouge */
-  --chart-6: oklch(0.600 0.100 300);  /* prune */
+  --chart-3: oklch(0.440 0.110 250);  /* steel blue */
+  --chart-4: oklch(0.650 0.140 75);   /* amber */
+  --chart-5: oklch(0.520 0.190 25);   /* red */
+  --chart-6: oklch(0.600 0.100 300);  /* plum */
   --chart-grid: oklch(0.180 0.012 70 / 0.10);
 
   /* ---- Opacity ---------------------------------------------------------- */
@@ -83,7 +83,7 @@
   --opacity-muted: 0.65;
 
   /* ======================================================================
-     Typographie — 2 + 1 familles (gate 37) :
+     Typography — 2 + 1 families (gate 37):
      display Bricolage Grotesque (variable) · body Switzer · outlier JetBrains Mono.
      Self-hosted (assets/fonts/, no network calls).
      ====================================================================== */
@@ -95,12 +95,12 @@
      body, body-lg, h3, h2, h1, display). 14 px body assumed (infra app). */
   --text-caption: 0.75rem;            /* 12 px — metadata */
   --text-small:   0.8125rem;          /* 13 px — labels, badges */
-  --text-body:    0.875rem;           /* 14 px — texte courant */
-  --text-body-lg: 0.9375rem;          /* 15 px — tableaux, listes denses */
-  --text-h3:      1rem;               /* 16 px — sous-titres de section */
-  --text-h2:      1.125rem;           /* 18 px — titres de cartes */
-  --text-h1:      1.75rem;            /* 28 px — titres de page (display) */
-  --text-display: clamp(1.9rem, 1.6vw + 1.2rem, 2.75rem); /* 30-44 px — chiffres KPI */
+  --text-body:    0.875rem;           /* 14 px — body text */
+  --text-body-lg: 0.9375rem;          /* 15 px — tables, dense lists */
+  --text-h3:      1rem;               /* 16 px — section subtitles */
+  --text-h2:      1.125rem;           /* 18 px — card titles */
+  --text-h1:      1.75rem;            /* 28 px — page titles (display) */
+  --text-display: clamp(1.9rem, 1.6vw + 1.2rem, 2.75rem); /* 30-44 px — KPI numbers */
 
   --lh-caption: 1.45;
   --lh-small:   1.5;
@@ -129,13 +129,13 @@
 
   /* ======================================================================
      Radius — tight (instrument register; modern-minimal does no
-     cartes molles). Le full reste pour avatars/pills.
+     soft cards). Full stays for avatars/pills.
      ====================================================================== */
-  --radius-sm:   4px;      /* boutons, inputs, badges */
+  --radius-sm:   4px;      /* buttons, inputs, badges */
   --radius-md:   6px;      /* navigation, selects, rows */
-  --radius-lg:   8px;      /* cartes, dropdowns, panneaux */
-  --radius-xl:   12px;     /* modales, login */
-  --radius-full: 9999px;   /* avatars, pills, points */
+  --radius-lg:   8px;      /* cards, dropdowns, panels */
+  --radius-xl:   12px;     /* modals, login */
+  --radius-full: 9999px;   /* avatars, pills, dots */
 
   /* ======================================================================
      Elevation — light theme: single, discreet shadow (light carries
@@ -152,13 +152,13 @@
   --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in:     cubic-bezier(0.7, 0, 0.84, 0);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --dur-micro: 120ms;   /* press, tick, changement de couleur */
+  --dur-micro: 120ms;   /* press, tick, color change */
   --dur-short: 200ms;   /* hover, tooltip, menu */
-  --dur-long:  300ms;   /* modale, overlay, changement de vue */
+  --dur-long:  300ms;   /* modale, overlay, view change */
 
   /* ======================================================================
-     Dimensions — coquille « Registre » : barre de marque + tab strip
-     (la sidebar de la v2 a disparu).
+     Dimensions — "Registre" shell: brand bar + tab strip
+     (the v2 sidebar is gone).
      ====================================================================== */
   --brandbar-h: 56px;
   --tabstrip-h: 44px;
@@ -166,7 +166,7 @@
   --content-gutter: 40px;
   --control-h: 40px;        /* inputs, buttons — single shared height */
   --control-h-sm: 30px;
-  --control-h-lg: 44px;     /* cibles principales */
+  --control-h-lg: 44px;     /* primary targets */
   --table-row-h: 44px;
 
   /* ---- Breakpoints (rem) ------------------------------------------------ */

@@ -22,8 +22,8 @@ PASSWORD_FILE="${SECRETS_DIR}/a2a-${AGENT}.password"
 TOKEN_FILE="${SECRETS_DIR}/a2a-${AGENT}.token"
 
 if [[ ! -f "$PASSWORD_FILE" || ! -f "$TOKEN_FILE" ]]; then
-    echo "synapse-a2a-systemd: secrets absents pour l'agent '${AGENT}' " \
-         "(attendus : ${PASSWORD_FILE}, ${TOKEN_FILE})" >&2
+    echo "synapse-a2a-systemd: secrets missing for agent '${AGENT}' " \
+         "(expected: ${PASSWORD_FILE}, ${TOKEN_FILE})" >&2
     exit 1
 fi
 

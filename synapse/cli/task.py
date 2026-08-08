@@ -1,4 +1,4 @@
-"""Groupe ``task`` (SPEC_CLI §4.7) : tasks and work queues."""
+"""``task`` group (SPEC_CLI §4.7): tasks and work queues."""
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ def _priority(value: str) -> str:
 
 
 _EXAMPLES = """\
-Exemples :
+Examples:
   synapse task list --state en_attente --json
   synapse task create "Rapport mensuel" --assignee analyste --priority haute
   synapse task status t-42 --json
@@ -138,7 +138,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
     a = actions.add_parser("request-approval", parents=[common],
                            help="requests approval of a task")
     a.add_argument("task_id")
-    a.add_argument("--approver", required=True, help="approbateur (requis)")
+    a.add_argument("--approver", required=True, help="approver (required)")
     a.add_argument("--my-name", default=None)
     a.add_argument("--password-stdin", action="store_true")
     a.add_argument("--json", action="store_true",
@@ -149,7 +149,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
                            help="transfers a task")
     a.add_argument("task_id")
     a.add_argument("assignee", help="new assignee")
-    a.add_argument("--note", default=None, help="note de transfert")
+    a.add_argument("--note", default=None, help="transfer note")
     a.add_argument("--my-name", default=None)
     a.add_argument("--password-stdin", action="store_true")
     a.add_argument("--json", action="store_true",
@@ -157,7 +157,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
     a.set_defaults(run=_cmd_transfer)
 
     a = actions.add_parser("my-work", parents=[common],
-                           help="file de travail de l'agent courant")
+                           help="work queue of the current agent")
     a.add_argument("--my-name", default=None)
     a.add_argument("--limit", type=int, default=50)
     a.add_argument("--cursor", default=None)
@@ -167,7 +167,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
 
 
 # ---------------------------------------------------------------------------
-# Commandes
+# Commands
 # ---------------------------------------------------------------------------
 
 
@@ -203,7 +203,7 @@ def _cmd_list(args: argparse.Namespace) -> int:
     ]
     print(table(rows, ["id", "title", "state", "assignee"]))
     if data.get("next_cursor"):
-        print(f"(page suivante : --cursor {data['next_cursor']})")
+        print(f"(next page: --cursor {data['next_cursor']})")
     return EXIT_OK
 
 
@@ -244,7 +244,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
     if getattr(args, "json", False):
         return emit(args, data)
     rows = [[k, str(v)] for k, v in sorted(data.items())]
-    print(table(rows, ["champ", "valeur"]))
+    print(table(rows, ["field", "value"]))
     return EXIT_OK
 
 
@@ -295,7 +295,7 @@ def _cmd_request_approval(args: argparse.Namespace) -> int:
         return _api_error(exc)
     return emit(args, data,
                 f"Approval requested for {args.task_id} "
-                f"(approbateur : {args.approver}).")
+                f"(approver: {args.approver}).")
 
 
 def _cmd_transfer(args: argparse.Namespace) -> int:
@@ -330,11 +330,11 @@ def _cmd_my_work(args: argparse.Namespace) -> int:
     ]
     print(table(rows, ["id", "title", "state", "due"]))
     if data.get("next_cursor"):
-        print(f"(page suivante : --cursor {data['next_cursor']})")
+        print(f"(next page: --cursor {data['next_cursor']})")
     return EXIT_OK
 
 
 def _api_error(exc: Exception) -> int:
     if isinstance(exc, ClientTransportError):
-        return emit_error(f"service indisponible : {exc}", code=3)
+        return emit_error(f"service unavailable: {exc}", code=3)
     return emit_error(exc.message, api_code=exc.code)  # type: ignore[attr-defined]

@@ -92,7 +92,7 @@ def search(
     """Paginated search in the cards of an organization's active agents.
 
     The scope is limited to one's own organization (no leak
-    d'usernames inter-organisations via la recherche). Les filtres sont des
+    of usernames across organizations via the search). The filters are
     case-insensitive substrings on capabilities, domain and
     name. Agents without a card are excluded (a card is required to be
     discovered by capability).
@@ -101,7 +101,7 @@ def search(
         "c.username = a.username",
         "a.organization_name = ?",
         "a.status = 'active'",
-        "c.username > ?",  # pagination par username (borne exclusive)
+        "c.username > ?",  # pagination by username (exclusive bound)
     ]
     args: list[Any] = [org_name, last_username if last_username is not None else ""]
     if capability:
@@ -126,10 +126,10 @@ def search(
 
 
 def row_to_card(row: sqlite3.Row) -> dict[str, Any]:
-    """Transforme une ligne en objet JSON de carte d'agent.
+    """Turns a row into an agent card JSON object.
 
     ``organization_name`` is only present for rows from the
-    recherche (JOIN avec accounts) ; les lectures ponctuelles l'omettent
+    search (JOIN with accounts); single reads omit it
     (the card is public metadata like the description).
     """
     card: dict[str, Any] = {

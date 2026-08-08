@@ -29,15 +29,15 @@ from .common import (
 GROUP = "server"
 
 _EXAMPLES = """\
-Exemples :
+Examples:
   synapse server start                      start the server (detached)
   synapse server start --foreground         start in the foreground
-  synapse server start --log-level debug    niveau de journalisation
+  synapse server start --log-level debug    logging level
   synapse server stop                       clean stop (SIGTERM)
   synapse server stop --force               forced stop (SIGKILL)
   synapse server restart                    restart
   synapse server status --json              full state as JSON
-  synapse server logs --follow              suivre les journaux
+  synapse server logs --follow              follow the logs
   synapse server config --json              configuration effective
 """
 
@@ -82,7 +82,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
     a.set_defaults(run=_cmd_status)
 
     a = actions.add_parser("logs", parents=[common], help="server logs")
-    a.add_argument("--follow", "-f", action="store_true", help="suivi continu")
+    a.add_argument("--follow", "-f", action="store_true", help="continuous follow")
     a.add_argument("--lines", type=int, default=100, help="number of lines (default: 100)")
     a.add_argument("--level", default=None,
                    help="filter by level (unavailable: the JSON logs do not "
@@ -99,7 +99,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
 
 
 # ---------------------------------------------------------------------------
-# Commandes
+# Commands
 # ---------------------------------------------------------------------------
 
 
@@ -129,7 +129,7 @@ def _run_server_foreground(config: Config, log_level: str | None) -> int:
     signal_mod.signal(signal_mod.SIGTERM, _shutdown)
     signal_mod.signal(signal_mod.SIGINT, _shutdown)
     try:
-        # READY + battements WATCHDOG sous systemd ; no-op hors systemd.
+        # READY + WATCHDOG heartbeats under systemd; no-op outside systemd.
         with watchdog_context():
             server.start()
     finally:
@@ -156,7 +156,7 @@ def _start_detached(config: Config, args: argparse.Namespace) -> int:
         return emit_error(
             f"degraded state: PID {state['pid']} alive but socket "
             f"{config.socket_path} silent — stop it first (synapse server stop "
-            "--force) puis relancez"
+            "--force) then start it again"
         )
 
     # Pre-checks: free storage lock (an active
@@ -254,8 +254,8 @@ def _cmd_status(args: argparse.Namespace) -> int:
         "database": config.db_path,
     }
     if state["state"] != "stopped":
-        # Compteurs du service (get_server_status, org-auth — le jeton
-        # local ou les identifiants d'organisation servent de preuve).
+        # Service counters (get_server_status, org-auth — the local
+        # token or the organization credentials serve as proof).
         from .common import resolve_org_auth
 
         try:
@@ -275,7 +275,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
     if state["state"] == "stopped":
         print("server stopped")
     elif state["state"] == "degraded":
-        print(f"server DEGRADED (PID {state['pid']} vivant, socket muet)")
+        print(f"server DEGRADED (PID {state['pid']} alive, socket silent)")
     else:
         lines = [
             [f"server running (PID {state['pid']})"],
@@ -289,7 +289,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
         ]
         print(table(lines))
         if payload.get("live_error"):
-            print(f"  (compteurs indisponibles : {payload['live_error']})")
+            print(f"  (counters unavailable: {payload['live_error']})")
     return EXIT_OK
 
 

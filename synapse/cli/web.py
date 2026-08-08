@@ -1,4 +1,4 @@
-"""Groupe ``web`` (SPEC_CLI §4.3) : cycle de vie de l'interface web."""
+"""``web`` group (SPEC_CLI §4.3): lifecycle of the web interface."""
 
 from __future__ import annotations
 
@@ -30,13 +30,13 @@ from .common import (
 GROUP = "web"
 
 _EXAMPLES = """\
-Exemples :
+Examples:
   synapse web start                  start the web interface (detached, port 8080)
-  synapse web start --port 9000      choisir le port
+  synapse web start --port 9000      choose the port
   synapse web stop                   clean stop
   synapse web restart                restart
   synapse web status --json          full state as JSON
-  synapse web logs --follow          suivre les web logs
+  synapse web logs --follow          follow the web logs
 """
 
 
@@ -92,7 +92,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
 
 
 # ---------------------------------------------------------------------------
-# Commandes
+# Commands
 # ---------------------------------------------------------------------------
 
 
@@ -101,15 +101,15 @@ def _require_server(config) -> None:  # noqa: ANN001
     if not socket_responds(config) or read_web_token(config) is None:
         raise SystemExit(emit_error(
             "local service not ready: the server must be started "
-            "(synapse server start) avant l'interface web",
+            "(synapse server start) before the web interface",
             code=EXIT_UNAVAILABLE,
         ))
 
 
 def _resolve_web_port(args: argparse.Namespace) -> int:
-    """Port du web : ``--port`` > ``$SYNAPSE_WEB_PORT`` > 8080.
+    """Web port: ``--port`` > ``$SYNAPSE_WEB_PORT`` > 8080.
 
-    La variable d'environnement permet d'isoler les tests sur une machine
+    The environment variable allows the tests to be isolated on a machine
     where production already listens on the default port (SPEC_PRODUCTION
     §10.5)."""
     port = getattr(args, "port", None)
@@ -239,7 +239,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
     code, status = http_get(port, "/api/status")
     http_ok = code == 200
     # Web-specific double check: live PID AND HTTP responds
-    # (SPEC_CLI §2.2) — pas de socket Unix ici.
+    # (SPEC_CLI §2.2) — no Unix socket here.
     if not alive:
         state = "stopped"
     elif http_ok:
@@ -269,7 +269,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
         [f"  port          {payload['port']}"],
         [f"  version       {payload.get('version') or 'unknowne'}"],
         [f"  started       {payload.get('started_at') or 'unknown'}"],
-        [f"  http /api/orgs {'200' if payload['http_ok'] else 'injoignable'}"],
+        [f"  http /api/orgs {'200' if payload['http_ok'] else 'unreachable'}"],
         [f"  sessions      {payload.get('sessions_active', 'n/a')}"],
     ]
     print(table(rows))

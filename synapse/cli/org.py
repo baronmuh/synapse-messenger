@@ -1,4 +1,4 @@
-"""Groupe ``org`` (SPEC_CLI §4.4) : organisations et comptes humains.
+"""``org`` group (SPEC_CLI §4.4): organizations and human accounts.
 
 ``init`` and ``enable`` are LOCAL procedures (direct access to the
 database, transversal rules 6): organization creation and thaw — never
@@ -31,18 +31,18 @@ from .common import (
 GROUP = "org"
 
 _EXAMPLES = """\
-Exemples :
+Examples:
   echo "motdepasse-acme-1" | synapse org init acme --password-stdin
   synapse org list --json                 active organizations
   synapse org list --all                  active + deactivated (human account)
   synapse org status acme --json          state of an organization
   synapse org enable acme                 local thaw (org password)
   synapse org disable acme                absolute freeze (irreversible via API)
-  synapse org password acme               rotation du mot de passe
-  synapse org agents acme --json          agents de l'organisation
-  synapse org structure acme --json       organigramme
+  synapse org password acme               rotation of the password
+  synapse org agents acme --json          organization agents
+  synapse org structure acme --json       org chart
   synapse org metrics acme --json         metrics
-  synapse org audit acme --limit 50       journal d'audit
+  synapse org audit acme --limit 50       audit journal
 """
 
 
@@ -138,7 +138,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
 
 
 # ---------------------------------------------------------------------------
-# Commandes
+# Commands
 # ---------------------------------------------------------------------------
 
 
@@ -151,7 +151,7 @@ def _cmd_init(args: argparse.Namespace) -> int:
     name = args.name
     if name is None:
         try:
-            name = input("Nom de l'organisation : ")
+            name = input("Organization name: ")
         except (EOFError, KeyboardInterrupt):
             return emit_error("operation canceled")
         if not name.strip():
@@ -183,8 +183,8 @@ def _cmd_list(args: argparse.Namespace) -> int:
             if "aucune organisation active" in exc.message:
                 return emit_error(
                     "no active organization to derive the human account from: "
-                    "specify --organization-name (human account of a "
-                    "organisation active, ou mot de passe)"
+                    "specify --organization-name (human account of an "
+                    "active organization, or password)"
                 )
             raise
     else:
@@ -237,22 +237,22 @@ def _cmd_status(args: argparse.Namespace) -> int:
     }
     if getattr(args, "json", False):
         return emit(args, payload)
-    print(f"Organisation '{name}' : ACTIVE")
+    print(f"Organization '{name}': ACTIVE")
     print(f"  agents         {len(snapshot.get('agents', []))} "
-          f"({sum(1 for a in snapshot.get('agents', []) if a.get('status') == 'active')} actifs)")
+          f"({sum(1 for a in snapshot.get('agents', []) if a.get('status') == 'active')} active)")
     print(f"  tasks          {snapshot.get('tasks_by_state', {})}")
     print(f"  departments   {len(snapshot.get('departments', []))}")
     print(f"  messages/h     {snapshot.get('messages_last_hour', 0)}")
     if metrics:
         print(f"  total agents   {metrics.get('total_agents')}")
-        print(f"  actifs         {metrics.get('active_agents')}")
+        print(f"  active         {metrics.get('active_agents')}")
     return EXIT_OK
 
 
 def _status_disabled_org(config, args, name: str, client: Client) -> int:
-    """AUTH_FAILED on the snapshot: the org is unknown or deactivated (freeze
-    absolu — aucune lecture possible). On tente de distinguer via la liste
-    local list of deactivated ones (human account of another org or token)."""
+    """AUTH_FAILED on the snapshot: the org is unknown or deactivated (absolute
+    freeze — no read possible). We try to distinguish via the local list
+    of deactivated ones (human account of another org or token)."""
     try:
         human, password = resolve_human_auth(config, args)
     except CliError:
@@ -312,7 +312,7 @@ def _cmd_password(args: argparse.Namespace) -> int:
         if not new_password:
             return emit_error("empty password on stdin")
     else:
-        new_password = getpass_get("Nouveau mot de passe de l'organisation : ")
+        new_password = getpass_get("New password of the organization: ")
     org, password = resolve_org_auth(config, args, org_name=args.name)
     try:
         data = _client(config).change_organization_password(
@@ -337,9 +337,9 @@ def _cmd_agents(args: argparse.Namespace) -> int:
     if getattr(args, "json", False):
         return emit(args, data)
     rows = [[u] for u in data.get("usernames", [])]
-    print(table(rows, [f"agents de '{args.name}'"]))
+    print(table(rows, [f"agents of '{args.name}'"]))
     if data.get("next_cursor"):
-        print(f"(page suivante : --cursor {data['next_cursor']})")
+        print(f"(next page: --cursor {data['next_cursor']})")
     return EXIT_OK
 
 
@@ -392,12 +392,12 @@ def _cmd_audit(args: argparse.Namespace) -> int:
     ]
     print(table(rows, ["timestamp", "actor", "command", "result"]))
     if data.get("next_cursor"):
-        print(f"(page suivante : --cursor {data['next_cursor']})")
+        print(f"(next page: --cursor {data['next_cursor']})")
     return EXIT_OK
 
 
 def _api_error(exc: Exception) -> int:
-    """Erreur API : enveloppe JSON + code 1 (refus) ou 3 (transport)."""
+    """API error: JSON envelope + code 1 (refusal) or 3 (transport)."""
     if isinstance(exc, ClientTransportError):
-        return emit_error(f"service indisponible : {exc}", code=3)
+        return emit_error(f"service unavailable: {exc}", code=3)
     return emit_error(exc.message, api_code=exc.code)  # type: ignore[attr-defined]

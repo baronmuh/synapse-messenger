@@ -1,6 +1,6 @@
-"""Groupe ``group`` (SPEC_CLI §4.8) : groupes de discussion.
+"""``group`` group (SPEC_CLI §4.8): discussion groups.
 
-L'API adresse les groupes par identifiant UUID ; le CLI accepte le NOM
+The API addresses groups by UUID identifier; the CLI accepts the NAME
 (positional, SPEC_CLI) and resolves the identifier via ``list_my_groups``
 (groups are personal to the authenticated account).
 """
@@ -22,7 +22,7 @@ from .common import (
 GROUP = "group"
 
 _EXAMPLES = """\
-Exemples :
+Examples:
   synapse group create direction --description "Pilotage"
   synapse group members direction --json
   synapse group add-member direction comptable
@@ -36,7 +36,7 @@ Exemples :
 def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser) -> None:
     p = sub.add_parser(
         GROUP,
-        help="groupes de discussion (create, members, send, messages…)",
+        help="discussion groups (create, members, send, messages…)",
         parents=[common],
         epilog=_EXAMPLES,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -106,7 +106,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
     a.set_defaults(run=_cmd_send)
 
     a = actions.add_parser("list", parents=[common],
-                           help="groupes de l'agent courant")
+                           help="groups of the current agent")
     a.add_argument("--limit", type=int, default=50)
     a.add_argument("--cursor", default=None)
     a.add_argument("--my-name", default=None)
@@ -116,7 +116,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
 
 
 # ---------------------------------------------------------------------------
-# Commandes
+# Commands
 # ---------------------------------------------------------------------------
 
 
@@ -177,7 +177,7 @@ def _cmd_members(args: argparse.Namespace) -> int:
     members = data.get("members", [])
     rows = [[m.get("username", "")] for m in members] if members and isinstance(
         members[0], dict) else [[str(m)] for m in members]
-    print(table(rows, [f"membres de '{args.name}'"]))
+    print(table(rows, [f"members of '{args.name}'"]))
     return EXIT_OK
 
 
@@ -221,9 +221,9 @@ def _cmd_messages(args: argparse.Namespace) -> int:
         [m.get("created_at", ""), m.get("sender_username", ""), m.get("content", "")]
         for m in messages
     ]
-    print(table(rows, ["horodatage", "de", "message"]))
+    print(table(rows, ["timestamp", "from", "message"]))
     if data.get("next_cursor"):
-        print(f"(page suivante : --cursor {data['next_cursor']})")
+        print(f"(next page: --cursor {data['next_cursor']})")
     return EXIT_OK
 
 
@@ -259,7 +259,7 @@ def _cmd_list(args: argparse.Namespace) -> int:
     ]
     print(table(rows, ["id", "name"]))
     if data.get("next_cursor"):
-        print(f"(page suivante : --cursor {data['next_cursor']})")
+        print(f"(next page: --cursor {data['next_cursor']})")
     return EXIT_OK
 
 
@@ -271,5 +271,5 @@ def _group_error(exc: Exception) -> int:
 
 def _api_error(exc: Exception) -> int:
     if isinstance(exc, ClientTransportError):
-        return emit_error(f"service indisponible : {exc}", code=3)
+        return emit_error(f"service unavailable: {exc}", code=3)
     return emit_error(exc.message, api_code=exc.code)  # type: ignore[attr-defined]

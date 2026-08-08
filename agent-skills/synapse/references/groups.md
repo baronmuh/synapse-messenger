@@ -11,8 +11,8 @@ All these commands belong to the **A** (account) family. Identity:
 ## Scenario 1 — Create a group
 
 ```bash
-echo "$MOT_DE_PASSE" | synapse group create direction \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
+echo "$PASSWORD" | synapse group create direction \
+    --my-name "$ACCOUNT_NAME" --password-stdin
 ```
 
 ```python
@@ -26,12 +26,12 @@ group_id = g["group_id"]            # UUIDv4 — to reuse in Python
 ## Scenario 2 — Manage members
 
 ```bash
-echo "$MOT_DE_PASSE" | synapse group add-member direction comptable \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
-echo "$MOT_DE_PASSE" | synapse group remove-member direction comptable \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
-echo "$MOT_DE_PASSE" | synapse group members direction \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
+echo "$PASSWORD" | synapse group add-member direction comptable \
+    --my-name "$ACCOUNT_NAME" --password-stdin
+echo "$PASSWORD" | synapse group remove-member direction comptable \
+    --my-name "$ACCOUNT_NAME" --password-stdin
+echo "$PASSWORD" | synapse group members direction \
+    --my-name "$ACCOUNT_NAME" --password-stdin
 ```
 
 ```python
@@ -44,9 +44,9 @@ membres = c.get_group_members(group_id, me, pwd)
 
 ```bash
 echo "$PASSWORD" | synapse group send direction "Weekly meeting at 10am" \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
-echo "$MOT_DE_PASSE" | synapse group messages direction \
-    --my-name "$NOM_DE_COMPTE" --password-stdin
+    --my-name "$ACCOUNT_NAME" --password-stdin
+echo "$PASSWORD" | synapse group messages direction \
+    --my-name "$ACCOUNT_NAME" --password-stdin
 ```
 
 ```python
@@ -59,7 +59,7 @@ messages = c.get_group_messages(group_id, me, pwd, limit=50)
 ## Scenario 4 — List your groups
 
 ```bash
-echo "$MOT_DE_PASSE" | synapse group list --my-name "$NOM_DE_COMPTE" --password-stdin
+echo "$PASSWORD" | synapse group list --my-name "$ACCOUNT_NAME" --password-stdin
 ```
 
 ```python
@@ -70,13 +70,13 @@ for g in mes_groupes["groups"]:
 
 ## Group-specific pitfalls
 
-1. **Confondre nom et `group_id`** : le CLI prend le **nom** ; le client
-   Python prend l'**UUIDv4**. Passer l'UUID au CLI (ou le nom au client)
-   renvoie `INVALID_ARGUMENT` / `GROUP_NOT_FOUND`.
+1. **Confusing name and `group_id`**: the CLI takes the **name**; the Python
+   client takes the **UUIDv4**. Passing the UUID to the CLI (or the name to
+   the client) returns `INVALID_ARGUMENT` / `GROUP_NOT_FOUND`.
 2. **Nonexistent group**: `GROUP_NOT_FOUND` — check via `group list` /
    `list_my_groups`.
 3. **Member outside the org**: adding may be refused depending on the
    policy (`POLICY_DENIED`) — only organization members (or authorized)
    ones are accepted.
 4. **Duplicate `client_message_id`** in a group: `INVALID_ARGUMENT` —
-   changez l'identifiant.
+   change the identifier.

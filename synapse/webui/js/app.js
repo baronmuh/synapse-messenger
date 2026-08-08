@@ -1,7 +1,7 @@
 /* ==========================================================================
-   Synapse — Application : coquille « Registre », routeur, palette, cloche,
-   raccourcis. La coquille v3 : barre de marque (N9 edge-aligned) + tab
-   strip des vues. La sidebar de la v2 a disparu.
+   Synapse — Application: "Ledger" shell, router, palette, bell,
+   shortcuts. The v3 shell: brand bar (N9 edge-aligned) + view tab
+   strip. The v2 sidebar is gone.
    ========================================================================== */
 
 import { icon, brandMark } from './icons.js';
@@ -25,12 +25,12 @@ let pendingKeys = '';
 let bellOpen = false;
 
 /* ==========================================================================
-   Coquille « Registre »
+   "Ledger" shell
    ========================================================================== */
 
 function navCount(route) {
   if (!api.snapshot) return 0;
-  if (route === 'taches') return api.taskCounts().active;
+  if (route === 'tasks') return api.taskCounts().active;
   if (route === 'communications') return api.unreadTotal();
   if (route === 'conversations') {
     return (api.snapshot.conversations || []).filter(c => (c.unread_count || 0) > 0).length;
@@ -38,7 +38,7 @@ function navCount(route) {
   return 0;
 }
 
-/* ---- Onglet du tab strip ------------------------------------------------- */
+/* ---- Tab strip tab ------------------------------------------------- */
 function tabEl(item, active) {
   const count = navCount(item.route);
   return el('button', {
@@ -60,7 +60,7 @@ function renderTabstrip() {
   });
 }
 
-/* ---- Barre de marque ------------------------------------------------------ */
+/* ---- Brand bar ------------------------------------------------------ */
 function renderBrandbar() {
   clear(brandbar);
   const snap = api.snapshot;
@@ -84,10 +84,10 @@ function renderBrandbar() {
     ),
     el('button', {
       class: 'search-trigger', onclick: () => openPalette(),
-      'aria-label': 'Recherche globale (Ctrl+K)',
+      'aria-label': 'Global search (Ctrl+K)',
     },
       el('span', { style: 'display:inline-flex', html: icon('search', 15) }),
-      el('span', { text: 'Rechercher…' }),
+      el('span', { text: 'Search…' }),
       el('span', { class: 'kbd', text: '⌘K' }),
     ),
     connPillEl(),
@@ -99,7 +99,7 @@ function renderBrandbar() {
         await api.logout();
         showLogin();
       },
-    }, icon('logout', 14), 'Quitter'),
+    }, icon('logout', 14), 'Sign out'),
   );
 }
 
@@ -109,7 +109,7 @@ function connPillEl() {
   const label = s === 'live' ? 'live' : s === 'stale' ? 'stale data' : 'offline';
   const pill = el('span', {
     class: `conn-pill ${cls}`, role: 'status',
-    title: api.error ? `Erreur : ${api.error}` : `Last update: ${api.lastUpdate?.toLocaleTimeString('fr-FR') || '—'}`,
+    title: api.error ? `Error: ${api.error}` : `Last update: ${api.lastUpdate?.toLocaleTimeString('en-GB') || '—'}`,
     onclick: () => api.poll(),
     style: 'cursor:pointer',
   }, el('span', { class: 'dot' }), label);
@@ -159,8 +159,8 @@ function toggleBell(wrap) {
   const items = attentionItems();
   const pop = el('div', { class: 'popover', role: 'dialog', 'aria-label': 'Items to process' },
     el('div', { class: 'popover-header' },
-      el('span', null, 'À traiter'),
-      el('button', { class: 'icon-btn', 'aria-label': 'Fermer', onclick: () => pop.remove() }, icon('close', 14)),
+      el('span', null, 'To process'),
+      el('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: () => pop.remove() }, icon('close', 14)),
     ),
     items.length === 0
       ? el('div', { class: 'palette-empty', text: 'Nothing needs your attention.' })
@@ -206,7 +206,7 @@ function onSnapshotUpdate() {
   renderBrandbar();
   renderTabstrip();
   // Refresh the current view if it is visible and the user
-  // n'est pas en train d'interagir (focus dans un champ).
+  // is not interacting (focus in a field).
   const active = document.activeElement;
   const interacting = active && content.contains(active) && active.tagName !== 'BODY';
   if (interacting) return;
@@ -217,7 +217,7 @@ function onSnapshotUpdate() {
 }
 
 /* ==========================================================================
-   Palette de commandes (⌘K / /)
+   Command palette (⌘K / /)
    ========================================================================== */
 
 let paletteResults = [];
@@ -227,10 +227,10 @@ function openPalette() {
   paletteOpen = true;
   const input = el('input', {
     class: 'palette-input', type: 'search', placeholder: 'Search an agent, a view…',
-    'aria-label': 'Recherche globale',
+    'aria-label': 'Global search',
   });
   const results = el('div', { class: 'palette-results', role: 'listbox' });
-  const box = el('div', { class: 'palette-box', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Recherche globale' },
+  const box = el('div', { class: 'palette-box', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Global search' },
     input, results);
   const overlay = el('div', {
     class: 'palette', onclick: (e) => { if (e.target === overlay) close(); },
@@ -318,7 +318,7 @@ function openPalette() {
         const existing = new Set(agentItems.map(i => i.label));
         const extra = found.filter(i => !existing.has(i.label));
         if (extra.length) renderResults([...navItems, ...agentItems, ...extra]);
-      } catch { /* silencieux : la recherche locale suffit */ }
+      } catch { /* silent: the local search suffices */ }
     }
   };
 
@@ -329,7 +329,7 @@ function openPalette() {
 }
 
 /* ==========================================================================
-   Raccourcis clavier globaux
+   Global keyboard shortcuts
    ========================================================================== */
 
 document.addEventListener('keydown', (e) => {
@@ -350,9 +350,9 @@ document.addEventListener('keydown', (e) => {
 
 function openShortcuts() {
   const rows = [
-    ['⌘K ou /', 'Recherche globale'],
-    ['g puis d / a / c / t / o / g / s', 'Navigate between views'],
-    ['Échap', 'Close the open window'],
+    ['⌘K or /', 'Global search'],
+    ['g then d / a / c / t / o / g / s', 'Navigate between views'],
+    ['Esc', 'Close the open window'],
     ['Enter', 'Open the selected item'],
     ['r', 'Refresh the data'],
   ];
@@ -365,7 +365,7 @@ function openShortcuts() {
   openModal({
     title: 'Keyboard shortcuts',
     body: grid,
-    actions: [el('button', { class: 'btn btn-secondary', onclick: () => document.querySelector('.blanket')?.remove() }, 'Fermer')],
+    actions: [el('button', { class: 'btn btn-secondary', onclick: () => document.querySelector('.blanket')?.remove() }, 'Close')],
   });
 }
 
@@ -382,7 +382,7 @@ document.addEventListener('click', () => {
   if (bellOpen) { document.querySelectorAll('.popover').forEach(p => p.remove()); bellOpen = false; }
 });
 
-// Raccourci r : actualiser (hors champs de saisie).
+// Shortcut r: refresh (outside input fields).
 document.addEventListener('keydown', (e) => {
   if (e.key === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey &&
       document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {

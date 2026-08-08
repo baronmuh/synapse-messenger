@@ -15,9 +15,9 @@ from .common import (
 GROUP = "logs"
 
 _EXAMPLES = """\
-Exemples :
-  synapse logs --follow          journaux server + web en suivi continu
-  synapse logs web --lines 50    web logs uniquement
+Examples:
+  synapse logs --follow          server + web logs in follow mode
+  synapse logs web --lines 50    web logs only
   synapse logs server --lines 200
 """
 
@@ -33,7 +33,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
     p.add_argument("service", nargs="?", choices=["server", "web"],
                    default=None,
                    help="server or web (default: both, merged)")
-    p.add_argument("--follow", "-f", action="store_true", help="suivi continu")
+    p.add_argument("--follow", "-f", action="store_true", help="continuous follow")
     p.add_argument("--lines", type=int, default=100,
                    help="lines per file (default: 100)")
     p.set_defaults(run=_cmd_logs)
@@ -49,7 +49,7 @@ def _cmd_logs(args: argparse.Namespace) -> int:
         return tail_log(os.path.join(log_dir, "web.log"),
                         lines=args.lines, follow=args.follow)
     # Merge server + web, sorted by timestamp when lines are
-    # des JSON (le format standard des journaux du service).
+    # JSON (the standard format of the service logs).
     files = [os.path.join(log_dir, "synapse.log"), os.path.join(log_dir, "web.log")]
     return tail_log(files, lines=args.lines, follow=args.follow)
 

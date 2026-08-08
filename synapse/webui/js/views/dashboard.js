@@ -107,9 +107,9 @@ function renderFlow(limit = 5) {
 function renderTaskBars() {
   const counts = api.taskCounts();
   const order = [
-    ['submitted', 'Soumises', 'info'],
+    ['submitted', 'Submitted', 'info'],
     ['in_progress', 'In progress', 'accent'],
-    ['pending_approval', 'Approbation', 'warn'],
+    ['pending_approval', 'Approval', 'warn'],
     ['completed', 'Completed', 'ok'],
     ['failed', 'Failed', 'danger'],
     ['canceled', 'Canceled', 'neutral'],
@@ -142,7 +142,7 @@ function renderDepartments() {
         el('div', { class: 'row-title', text: d.department_name }),
         el('div', { class: 'row-sub', text: `${d.members.length} member${d.members.length > 1 ? 's' : ''}` }),
       ),
-      el('a', { href: '#/organization', class: 'cell-sub' }, 'voir'),
+      el('a', { href: '#/organization', class: 'cell-sub' }, 'view'),
     ),
   ));
 }
@@ -192,16 +192,16 @@ export function render(container) {
       title: snap.organization_name,
       desc: 'Real-time organization state — data refreshes automatically (5s). Exchange content is read in the Conversations view.',
       badgeEl: badge('human account', 'accent', { dot: true }),
-      actions: el('button', { class: 'btn btn-ghost btn-sm', onclick: () => api.poll(), 'aria-label': 'Refresh' }, icon('refresh', 14), 'Actualiser'),
+      actions: el('button', { class: 'btn btn-ghost btn-sm', onclick: () => api.poll(), 'aria-label': 'Refresh' }, icon('refresh', 14), 'Refresh'),
     }),
   );
 
   container.append(
     el('div', { class: 'dash-kpis' },
-      kpi('Agents actifs', `${statuses.active}`, `${totalAgents} account${totalAgents > 1 ? 's' : ''} · ${activeRate} % active`, 'accent'),
+      kpi('Active agents', `${statuses.active}`, `${totalAgents} account${totalAgents > 1 ? 's' : ''} · ${activeRate} % active`, 'accent'),
       kpi('Active tasks', counts.active, `${counts.pending_approval || 0} pending approval`, counts.pending_approval ? 'warn' : 'neutral'),
       kpi('Unread messages', unread, 'across all conversations', unread ? 'warn' : 'neutral'),
-      kpi('Messages / heure', messages, 'volume de communication', 'info'),
+      kpi('Messages / hour', messages, 'communication volume', 'info'),
     ),
   );
 
@@ -212,7 +212,7 @@ export function render(container) {
   });
 
   const flowCard = card({
-    title: 'Flux de communication', iconName: 'message',
+    title: 'Communication flows', iconName: 'message',
     body: renderFlow(),
     foot: el('a', { href: '#/communications' }, 'All exchanges →'),
   });

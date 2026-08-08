@@ -1,6 +1,6 @@
 """SQLite access: connection, schema, transactions and permissions.
 
-Le stockage est un fichier SQLite en mode WAL, transactionnel, dans un
+Storage is a WAL-mode SQLite file, transactional, in a
 ``0700`` directory owned by the service system account. All
 writes go through ``BEGIN IMMEDIATE`` (writer serialization);
 multi-proof reads go through ``BEGIN`` (consistent snapshot).
@@ -279,7 +279,7 @@ def ensure_storage(config: Config) -> None:
             conn.executescript(SCHEMA)
         conn.executescript(EXTRA_SCHEMA)  # idempotent (IF NOT EXISTS)
         _migrate(conn)
-        # Mode WAL (persistant dans le fichier) et permissions du fichier :
+        # WAL mode (persistent in the file) and file permissions:
         # applied only once, at the first opening of the process.
         # Subsequent connections do not need to re-declare them
         # (measured: ~200 µs saved per connection).
@@ -294,17 +294,17 @@ def ensure_storage(config: Config) -> None:
 def _migrate(conn: sqlite3.Connection) -> None:
     """Migrates a database created by an earlier schema version.
 
-    Deux niveaux de migration, idempotents :
+    Two idempotent migration levels:
 
     * v1 -> v2: an API v1 database (admin role, accounts without
       organization) is converted: the ``organizations`` table is created,
       the first ``admin`` account becomes an organization (same hash, name
       = its username), and all accounts are attached to this
-      organisation.
-    * ajout de colonnes manquantes (``description``, ``organization_name``,
+      organization.
+    * adding missing columns (``description``, ``organization_name``,
       ``can_see_org_agents``) without touching existing data.
     """
-    # colonnes manquantes
+    # missing columns
     columns = {row[1] for row in conn.execute("PRAGMA table_info(accounts)")}
     if "description" not in columns:
         conn.execute(
@@ -338,7 +338,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
     # after the organization conversion (which still reads `role`).
     columns = {row[1] for row in conn.execute("PRAGMA table_info(accounts)")}
     has_role = "role" in columns
-    # table organizations absente -> conversion v1 vers v2
+    # organizations table absent -> v1 to v2 conversion
     tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     if "organizations" not in tables:
         conn.executescript(
@@ -364,7 +364,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
                 "SELECT 'synapse', '', '1970-01-01T00:00:00.000Z' "
                 "WHERE EXISTS (SELECT 1 FROM accounts)"
             )
-        # rattachement : tous les comptes sans organisation rejoignent
+        # attachment: all accounts without an organization join
         # the only created organization (an organization now exists
         # as soon as an account exists)
         conn.execute(
@@ -424,7 +424,7 @@ def _backfill_humans(conn: sqlite3.Connection) -> None:
 
 def _schema_missing(conn: sqlite3.Connection) -> bool:
     """True if the schema is not created yet (avoids replaying the DDL at
-    chaque connexion)."""
+    every connection)."""
     row = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'accounts'"
     ).fetchone()
@@ -460,14 +460,14 @@ def _open_connection(config: Config) -> sqlite3.Connection:
     )
     conn.row_factory = sqlite3.Row
     # journal_mode=WAL and file chmod are applied only once per
-    # processus dans ensure_storage (le mode WAL est persistant dans le
-    # fichier) ; les pragmas suivants sont par connexion.
+    # process in ensure_storage (WAL mode is persistent in the
+    # file); the following pragmas are per connection.
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA synchronous=FULL")
     # Memory-mapped reads and in-memory temp tables: measured read
     # optimizations (docs/PERFORMANCE.md §13) — without any semantic
     # change (mmap_size bounds addressing, not residency; temp_store
-    # ne concerne que les objets temporaires de tri).
+    # only concerns temporary sort objects).
     conn.execute("PRAGMA mmap_size=67108864")
     conn.execute("PRAGMA temp_store=MEMORY")
     # trusted_schema=OFF: the schema (views, triggers, column
@@ -495,7 +495,7 @@ class _ThreadLocalConnections:
 
     Each thread keeps at most ONE connection (the one of the last
     used database). The server handles each request in a pool thread
-    fixe et n'only usesune base par processus : 64 connexions ouvertes au
+    fixed and uses only one database per process: 64 open connections at
     maximum, regardless of throughput. A thread switching databases (tests,
     offline tools) closes the previous connection before opening the
     new one: the descriptor count stays bounded, no connection
@@ -520,14 +520,14 @@ class _ThreadLocalConnections:
             if old is not None:
                 try:
                     old.close()
-                except sqlite3.Error:  # pragma: no cover - close est idempotent
+                except sqlite3.Error:  # pragma: no cover - close is idempotent
                     pass
             conn = _open_connection(config)
             state.path = config.db_path
             state.conn = conn
             return conn
         conn = state.conn
-        if conn is None:  # pragma: no cover - invariant : path et conn vont de pair
+        if conn is None:  # pragma: no cover - invariant: path and conn go together
             conn = _open_connection(config)
             state.conn = conn
             return conn
@@ -535,7 +535,7 @@ class _ThreadLocalConnections:
             if conn.in_transaction:
                 # Defensive reset: a transaction left open
                 # by a previous request (unexpected error path)
-                # ne doit pas polluer la suivante.
+                # must not pollute the next one.
                 conn.execute("ROLLBACK")
         except sqlite3.ProgrammingError:
             # Connection closed by a caller: replace it.
@@ -557,12 +557,12 @@ def begin_immediate(conn: sqlite3.Connection):
     """Serialized write transaction (BEGIN IMMEDIATE).
 
     A global application lock guarantees a single writer at a
-    fois : la course WAL-reset de SQLite (deux connexions sur des threads
-    separate processes writing or checkpointing at the same instant, on
+    time: the SQLite WAL-reset race (two connections on separate
+    threads, or separate processes writing or checkpointing at the same instant, on
     uncorrected < 3.51.3 versions) becomes structurally impossible.
     Writes were already serialized by SQLite itself (BEGIN IMMEDIATE
     blocks other writers): the lock only moves the wait to the
-    applicatif, sans impact sur les lecteurs (qui n'utilisent pas ce chemin
+    application level, with no impact on readers (which do not use this path
     and never trigger a checkpoint). RLock (reentrant): insensitive
     to any future transaction nesting.
     """

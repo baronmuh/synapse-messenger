@@ -9,7 +9,7 @@
 /* ---- Dashboard ----------------------------------------------------------------- */
 /* Stat-Led (macrostructure): KPIs lead, in one asymmetric row:
    the first cell (active agents) is wider — data is the
-   narration, pas une grille de cartes identiques. */
+   narration, not a grid of identical cards. */
 .dash-kpis { display: grid; grid-template-columns: 1.35fr 1fr 1fr 1fr; gap: var(--space-md); }
 @media (max-width: 75rem) { .dash-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 40rem) { .dash-kpis { grid-template-columns: 1fr; } }
@@ -34,22 +34,22 @@
 .att-ok { background: var(--color-success-soft); color: var(--color-success); }
 
 /* Distribution bars (tasks by state) — preattentive reading (NN/g:
-   la longueur des barres se compare plus vite qu'un donut). */
+   bar length compares faster than a donut). */
 .bars { display: flex; flex-direction: column; gap: var(--space-sm); }
 .bar-row { display: grid; grid-template-columns: 130px 1fr 40px; align-items: center; gap: var(--space-sm); font-size: var(--text-small); }
 .bar-row .bar-label { color: var(--color-ink-2); font-weight: 500; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bar-row .bar-track { height: 8px; border-radius: var(--radius-full); background: var(--color-paper-2); overflow: hidden; }
 /* Functional motion: bar width is data (exception
-   progress-bar au canon transform/opacity). */
+   progress bar to the transform/opacity canon). */
 .bar-row .bar-fill { height: 100%; border-radius: var(--radius-full); transition: width var(--dur-short) var(--ease-out); }
 .bar-row .bar-count { font-variant-numeric: tabular-nums; color: var(--color-ink-2); text-align: right; }
 
-/* Mini-graphique en barres (volume horaire) — une seule teinte, sobre. */
+/* Mini bar chart (hourly volume) — a single, sober hue. */
 .mini-bars { display: flex; align-items: flex-end; gap: var(--space-2xs); height: 56px; }
 .mini-bars .mini-bar { flex: 1; border-radius: 2px 2px 0 0; background: var(--chart-1); opacity: 0.85; transition: opacity var(--dur-micro) var(--ease-out); min-width: 2px; }
 .mini-bars .mini-bar:hover { opacity: 1; }
 
-/* ---- Annuaire d'agents --------------------------------------------------------- */
+/* ---- Agent directory --------------------------------------------------------- */
 .agents-toolbar { display: flex; gap: var(--space-sm); align-items: center; flex-wrap: wrap; margin-bottom: var(--space-lg); }
 .agents-toolbar .search-field { flex: 1; min-width: 220px; max-width: 420px; }
 .toolbar-segs { display: flex; gap: var(--space-2xs); align-items: center; flex-wrap: wrap; margin-left: auto; }
@@ -69,7 +69,7 @@
   text-decoration: none;
   transition: border-color var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out);
 }
-/* Un seul signal au survol. */
+/* A single hover signal. */
 .agent-card:hover { border-color: var(--color-rule-2); background: var(--color-paper-3); }
 .agent-card:active { background: var(--color-paper-3); }
 .agent-card-head { display: flex; align-items: center; gap: var(--space-sm); }
@@ -87,7 +87,7 @@
 }
 .agent-card-foot { display: flex; align-items: center; gap: var(--space-2xs); flex-wrap: wrap; margin-top: auto; }
 
-/* ---- Fiche agent ---------------------------------------------------------------- */
+/* ---- Agent record ---------------------------------------------------------------- */
 .agent-hero { display: flex; align-items: center; gap: var(--space-lg); padding: var(--space-lg); background: var(--color-paper-4); border: 1px solid var(--color-rule); border-radius: var(--radius-lg); box-shadow: var(--shadow-whisper); }
 .agent-hero-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2xs); }
 .agent-hero-name { font-family: var(--font-display); font-size: var(--text-h1); font-weight: 650; letter-spacing: var(--tracking-display); display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; overflow-wrap: anywhere; min-width: 0; }
@@ -124,12 +124,12 @@
 .due.overdue { color: var(--color-danger-bright); font-weight: 600; }
 .due.today { color: var(--color-warning); font-weight: 600; }
 
-/* ---- Flux de communication ------------------------------------------------------ */
+/* ---- Communication flow ------------------------------------------------------ */
 .flow-pair { display: flex; align-items: center; gap: var(--space-2xs); min-width: 0; }
 .flow-pair .flow-arrow { width: 14px; height: 14px; color: var(--color-ink-3); flex-shrink: 0; }
 .flow-pair .flow-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ---- Organisation ---------------------------------------------------------------- */
+/* ---- Organization ---------------------------------------------------------------- */
 .org-hero { display: flex; align-items: center; gap: var(--space-md); padding: var(--space-lg); background: var(--color-paper-4); border: 1px solid var(--color-rule); border-radius: var(--radius-lg); box-shadow: var(--shadow-whisper); }
 .org-name { font-family: var(--font-display); font-size: var(--text-h1); font-weight: 650; letter-spacing: var(--tracking-display); overflow-wrap: anywhere; min-width: 0; }
 
@@ -154,7 +154,7 @@
 .audit-cmd { font-family: var(--font-mono); font-size: var(--text-caption); color: var(--color-ink-2); background: var(--color-paper-2); border: 1px solid var(--color-rule); padding: 1px var(--space-2xs); border-radius: var(--radius-sm); }
 .audit-outcome { font-size: var(--text-caption); color: var(--color-ink-3); }
 
-/* ---- Serveur --------------------------------------------------------------------- */
+/* ---- Server --------------------------------------------------------------------- */
 .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-md); }
 .status-cell { display: flex; flex-direction: column; gap: var(--space-2xs); padding: var(--space-md); background: var(--color-paper-4); border: 1px solid var(--color-rule); border-radius: var(--radius-lg); transition: border-color var(--dur-micro) var(--ease-out); }
 .status-cell:hover { border-color: var(--color-rule-2); }
@@ -166,7 +166,7 @@
 .shortcut-row:nth-child(odd) { background: var(--color-paper-2); }
 .shortcut-row .keys { display: flex; gap: var(--space-2xs); }
 
-/* ---- Mobile : tableaux en cartes --------------------------------------------------- */
+/* ---- Mobile: tables as cards --------------------------------------------------- */
 @media (max-width: 40rem) {
   table.data thead { display: none; }
   table.data, table.data tbody, table.data tr, table.data td { display: block; width: 100%; }
@@ -214,12 +214,12 @@
 }
 
 /* ==========================================================================
-   SPEC-WEB — Écran de connexion, conversations, gestion des agents/orgs.
+   SPEC-WEB — Login screen, conversations, agents/orgs management.
    ========================================================================== */
 
-/* --- Écran de connexion (SPEC-WEB §6) ---------------------------------- */
+/* --- Login screen (SPEC-WEB §6) ---------------------------------- */
 /* Registre: no centered floating card — a full-height panel
-   bicolore (ivoire / papier-2) avec la marque en display. La marque est
+   two-tone (ivory / paper-2) with the brand in display. The brand is
    carried by typography; the decor is a discreet connection line. */
 .login-root {
   min-height: 100vh;
@@ -249,7 +249,7 @@
 .login-input:hover { background: var(--color-paper-3); }
 .login-input:focus { outline: 2px solid var(--color-focus); background: var(--color-paper-3); }
 .login-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='oklch(0.495%200.02%2070)' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 32px; }
-/* Erreur : surface neutre + bordure + texte ink (jamais de texte de teinte
+/* Error: neutral surface + border + ink text (never tinted text
    on a colored background). */
 .login-error { color: var(--color-ink); font-size: var(--text-small);
   background: var(--color-danger-soft); border: 1px solid var(--color-danger-border);
@@ -325,9 +325,9 @@
 .conv-list-loading, .conv-detail-loading { color: var(--color-ink-3);
   font-size: var(--text-small); padding: var(--space-md); text-align: center; }
 
-/* --- Gestion des agents / organisations (SPEC-WEB §4) -------------------- */
+/* --- Agents / organizations management (SPEC-WEB §4) -------------------- */
 /* Management rows: NO internal border (the card is the only
-   contenant — gate 4) ; le survol suffit. */
+   container — gate 4); hover is enough. */
 .manage-panel { margin-top: var(--space-lg); padding: var(--space-md); }
 .manage-head { display: flex; align-items: flex-start; justify-content: space-between;
   gap: var(--space-sm); margin-bottom: var(--space-sm); }

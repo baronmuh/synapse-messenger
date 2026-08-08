@@ -13,8 +13,8 @@ service :
     sudo -u synapse synapse-init-org --enable acme
 
 The password is prompted on standard input (never as a command
-commande, dans l'historique du shell, dans un fichier ou une variable
-d'environnement).
+argument, in shell history, in a file or an environment
+variable).
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ def create_organization(
     """Creates an organization and its human account. Returns the normalized name.
 
     Args:
-        config: configuration du service.
+        config: service configuration.
         organization_name: proposed organization name.
         password: password (also the human account's, delegated).
         confirm: password confirmation (if provided, must match).
@@ -70,7 +70,7 @@ def create_organization(
                 "active",
                 f"Human account of the organization {organization_name} (web access)",
                 organization_name,
-                can_see_org_agents=True,  # superviseur : annuaire et recherche
+                can_see_org_agents=True,  # supervisor: directory and search
                 principal_type="human",
             )
     return organization_name
@@ -90,7 +90,7 @@ def enable_organization(config: Config, organization_name: str, password: str) -
             if row is None:
                 raise ValueError(f"The organization '{organization_name}' does not exist")
             if not verify_password(row["password_hash"], password):
-                raise ValueError("Mot de passe de l'organisation incorrect")
+                raise ValueError("Incorrect organization password")
             if bool(row["enabled"]):
                 raise ValueError(f"The organization '{organization_name}' is not deactivated")
             conn.execute(
@@ -130,7 +130,7 @@ def org_init_main() -> None:
             )
             enabled = enable_organization(config, organization_name, password)
         else:
-            organization_name = input("Nom de l'organisation : ")
+            organization_name = input("Organization name: ")
             password = getpass.getpass("Password (>= 12 printable characters): ")
             confirm = getpass.getpass("Password confirmation: ")
             enabled = create_organization(config, organization_name, password, confirm)

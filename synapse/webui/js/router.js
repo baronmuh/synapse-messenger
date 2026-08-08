@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Synapse — Routeur (hash) : #/dashboard, #/agents, #/agents/:username, …
+   Synapse — Router (hash): #/dashboard, #/agents, #/agents/:username, …
    ========================================================================== */
 
 import { el } from './ui.js';
@@ -54,7 +54,7 @@ export function routeTitle(view, params) {
 /* Breadcrumb: Home › View › [Entity]. Returns ready-to-use <a> or
    <span> items. */
 export function breadcrumbsFor(view, params) {
-  const home = el('a', { class: 'crumb', href: '#/dashboard', 'aria-label': 'Dashboard' }, 'Accueil');
+  const home = el('a', { class: 'crumb', href: '#/dashboard', 'aria-label': 'Dashboard' }, 'Home');
   if (view === 'dashboard') return [el('span', { class: 'crumb current' }, 'Dashboard')];
   if (view === 'agent' && params.username) {
     return [

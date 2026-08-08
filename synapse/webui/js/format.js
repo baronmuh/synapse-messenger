@@ -17,11 +17,11 @@ export function timeAgo(iso) {
   if (Number.isNaN(then)) return esc(iso);
   const diff = Date.now() - then;
   if (diff < 45_000) return "just now";
-  if (diff < HOUR) return `il y a ${Math.round(diff / MINUTE)} min`;
-  if (diff < DAY) return `il y a ${Math.round(diff / HOUR)} h`;
+  if (diff < HOUR) return `${Math.round(diff / MINUTE)} min ago`;
+  if (diff < DAY) return `${Math.round(diff / HOUR)} h ago`;
   if (diff < 7 * DAY) {
     const d = Math.round(diff / DAY);
-    return d === 1 ? 'hier' : `il y a ${d} j`;
+    return d === 1 ? 'yesterday' : `${d} d ago`;
   }
   return new Date(then).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
@@ -41,9 +41,9 @@ export function shortId(uuid) {
 }
 
 export const STATE_LABELS = {
-  submitted: 'Soumise',
+  submitted: 'Submitted',
   in_progress: 'In progress',
-  pending_approval: 'Approbation',
+  pending_approval: 'Approval',
   completed: 'Completed',
   failed: 'Failed',
   canceled: 'Canceled',
@@ -58,13 +58,13 @@ export const STATE_TONES = {
 };
 export const ACTIVE_STATES = new Set(['submitted', 'in_progress', 'pending_approval']);
 
-export const PRIORITY_LABELS = { low: 'Basse', normal: 'Normale', high: 'Haute' };
+export const PRIORITY_LABELS = { low: 'Low', normal: 'Normal', high: 'High' };
 
 export const COMMAND_LABELS = {
   create_agent: 'agent creation',
   deactivate_agent: 'agent deactivation',
   reactivate_agent: 'agent reactivation',
-  change_agent_password: 'rotation de mot de passe',
+  change_agent_password: 'password rotation',
   set_agent_visibility: 'directory visibility',
   send_message: 'message sent',
   create_task: 'task creation',
@@ -93,8 +93,8 @@ export function commandLabel(cmd) {
 export function stateLabel(s) { return STATE_LABELS[s] || s; }
 
 export function principalTypeLabel(t) {
-  if (t === 'human') return 'Humain';
-  if (t === 'observer') return 'Observateur';
+  if (t === 'human') return 'Human';
+  if (t === 'observer') return 'Observer';
   return 'Agent';
 }
 

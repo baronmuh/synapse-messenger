@@ -1,12 +1,12 @@
-"""Journalisation du service.
+"""Service logging.
 
 Logs never contain passwords nor message content.
-message : seuls ``username``, ``command``, ``target_id``, ``timestamp``,
+Only ``username``, ``command``, ``target_id``, ``timestamp``,
 ``result`` and ``process_id`` are allowed (specification section 4).
 
 Logs are written in JSON-lines format, one file per day
 (rotation at midnight), kept ``log_retention_days`` days then deleted
-automatiquement.
+automatically.
 """
 
 from __future__ import annotations
@@ -28,14 +28,14 @@ class JsonFormatter(logging.Formatter):
     """Formats each record as a JSON line with the allowed fields.
 
     For a logged exception, only the **type** of the exception is
-    inclus (jamais son message ni sa trace : aucun contenu ne peut fuir),
+    included (never its message nor its traceback: no content can leak),
     to ease diagnosis without compromising confidentiality.
     """
 
     def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
         # time.strftime (used by logging) does not know %f: we generate
         # the timestamp via datetime, in the specification format
-        # (YYYY-MM-DDTHH:MM:SS.sssZ, millisecondes).
+        # (YYYY-MM-DDTHH:MM:SS.sssZ, milliseconds).
         dt = datetime.fromtimestamp(record.created, tz=timezone.utc)
         ms = dt.microsecond // 1000
         return f"{dt.strftime('%Y-%m-%dT%H:%M:%S')}.{ms:03d}Z"
@@ -77,8 +77,8 @@ def setup_logging(config: Config, verbose: bool = False,
     console).
 
     ``log_name``/``error_log_name`` let each process
-    journaliser dans son propre fichier (serveur : ``synapse.log`` ;
-    interface web : ``web.log`` — SPEC_CLI ``synapse web logs``).
+    log to its own file (server: ``synapse.log``;
+    web interface: ``web.log`` — SPEC_CLI ``synapse web logs``).
     """
     root = logging.getLogger()
     root.setLevel(level)

@@ -59,7 +59,7 @@ function renderTable(container) {
         (c.unread_count || 0) > 0 ? badge(c.unread_count, 'warn') : el('span', { class: 'cell-sub', text: '0' }),
       ),
       el('td', { 'data-label': 'Last exchange' }, timeEl(c.last_at)),
-      el('td', { 'data-label': 'Statut' }, statusCell(c)),
+      el('td', { 'data-label': 'Status' }, statusCell(c)),
     );
     tbody.append(row);
   }
@@ -67,17 +67,17 @@ function renderTable(container) {
     el('table', { class: 'data' },
       el('thead', null,
         el('tr', null,
-          thSortable('Paire d’agents', 'a', sortState, setSort),
+          thSortable('Agent pair', 'a', sortState, setSort),
           thSortable('Messages', 'volume', sortState, setSort, { right: true }),
           thSortable('Unread', 'unread', sortState, setSort, { right: true }),
           thSortable('Last exchange', 'recent', sortState, setSort),
-          el('th', { scope: 'col' }, 'Statut'),
+          el('th', { scope: 'col' }, 'Status'),
         ),
       ),
       tbody,
     ),
     el('div', { class: 'table-foot' },
-      el('span', { text: `${convs.length} conversation${convs.length > 1 ? 's' : ''} interne${convs.length > 1 ? 's' : ''}` }),
+      el('span', { text: `${convs.length} internal conversation${convs.length > 1 ? 's' : ''}` }),
       el('span', { text: 'exchanges with the outside only appear in the volumes' }),
     ),
   );
@@ -98,9 +98,9 @@ export function render(container) {
     el('div', { style: 'margin-top:24px' },
       el('div', { class: 'dash-kpis' },
         el('div', { class: 'kpi', 'data-tone': 'info' }, el('span', { class: 'kpi-label' }, 'Conversations'), el('span', { class: 'kpi-value' }, snap?.conversations?.length || 0)),
-        el('div', { class: 'kpi', 'data-tone': 'neutral' }, el('span', { class: 'kpi-label' }, 'Messages internes'), el('span', { class: 'kpi-value' }, totalMsgs)),
+        el('div', { class: 'kpi', 'data-tone': 'neutral' }, el('span', { class: 'kpi-label' }, 'Internal messages'), el('span', { class: 'kpi-value' }, totalMsgs)),
         el('div', { class: 'kpi', 'data-tone': totalUnread ? 'warn' : 'neutral' }, el('span', { class: 'kpi-label' }, 'Unread'), el('span', { class: 'kpi-value' }, totalUnread)),
-        el('div', { class: 'kpi', 'data-tone': 'accent' }, el('span', { class: 'kpi-label' }, 'Messages / heure'), el('span', { class: 'kpi-value' }, snap?.messages_last_hour || 0)),
+        el('div', { class: 'kpi', 'data-tone': 'accent' }, el('span', { class: 'kpi-label' }, 'Messages / hour'), el('span', { class: 'kpi-value' }, snap?.messages_last_hour || 0)),
       ),
     ),
   );

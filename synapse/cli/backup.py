@@ -20,12 +20,12 @@ from .common import (
 GROUP = "backup"
 
 _EXAMPLES = """\
-Exemples :
+Examples:
   synapse backup create --dir /srv/backups
   synapse server stop && synapse backup restore /srv/backups/2026-08-06.synbk --force
   synapse backup list --json
   synapse backup prune --keep 14           retention: at most 14 archives
-  synapse backup verify --latest           preuve de restauration (semaine)
+  synapse backup verify --latest           restore proof (weekly)
   synapse backup verify /srv/backups/x.synbk --dir /tmp/scratch
 """
 
@@ -88,7 +88,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
 
 
 # ---------------------------------------------------------------------------
-# Commandes
+# Commands
 # ---------------------------------------------------------------------------
 
 
@@ -167,10 +167,10 @@ def _cmd_prune(args: argparse.Namespace) -> int:
     if getattr(args, "json", False):
         return emit(args, {"deleted": deleted, "kept": args.keep})
     if not deleted:
-        print(f"retention respected: at most {args.keep} archive(s) dans "
+        print(f"retention respected: at most {args.keep} archive(s) in "
               f"{config.backup_dir}")
     else:
-        print(f"{len(deleted)} archive(s) deleted (retention: {args.keep}) :")
+        print(f"{len(deleted)} archive(s) deleted (retention: {args.keep}):")
         for path in deleted:
             print(f"  - {path}")
     return EXIT_OK

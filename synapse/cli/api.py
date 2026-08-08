@@ -23,19 +23,19 @@ from .common import (
 GROUP = "api"
 
 _EXAMPLES = """\
-Exemples :
+Examples:
   synapse api get_org_metrics --organization-name acme --password-stdin
   synapse api send_message --recipient bob --message "Bonjour" \\
       --client-message-id m1 --my-name alice --password-stdin
   synapse api help --my-name alice --password-stdin
 
-Les options reconnues : --config, --json, --password-stdin, --my-name,
---organization-name. Tout autre ``--cle valeur`` (ou ``--cle=valeur``) est
+Recognized options: --config, --json, --password-stdin, --my-name,
+--organization-name. Any other ``--key value`` (or ``--key=value``) is
 passed as a command parameter (dashes converted to
 underscores); a valueless ``--flag`` means true. The
-d'authentification (my_name_auth / my_password_auth /
+authentication parameters (my_name_auth / my_password_auth /
 organization_name_auth / organization_password_auth) are inferred from
-options ci-dessus.
+the options above.
 """
 
 _AUTH_OPTIONS = {
@@ -52,7 +52,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
         epilog=_EXAMPLES,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    # NB : le positionnel s'appelle « api_command » — son nom EST le dest
+    # NB: the positional is called « api_command » — its name IS the dest
     # (argparse forbids an explicit dest= on a named positional); the
     # root group's "command" dest is therefore never overwritten.
     p.add_argument("api_command",
@@ -70,7 +70,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
 def _cmd_api(args: argparse.Namespace) -> int:
     """argparse entry point (guard) — the real path goes through
     ``run_raw`` (called by main(), which does NOT pass the
-    arbitraires par argparse)."""
+    arbitrary arguments through argparse)."""
     from .common import resolve_config
 
     config = resolve_config(args)
@@ -113,8 +113,8 @@ def run_raw(tokens: list[str], prefix: list[str] | None = None) -> int:
         print(_EXAMPLES)
         return EXIT_OK
 
-    # Options CLI reconnues (jamais transmises au service) : --json,
-    # --password-stdin, --config. --my-name / --organization-name sont
+    # Recognized CLI options (never forwarded to the service): --json,
+    # --password-stdin, --config. --my-name / --organization-name are
     # kept in the tokens: they serve as authentication context
     # AND as a parameter when the command declares that name (create_org).
     command = tokens[0]
@@ -200,9 +200,9 @@ def run_api(config, *, command: str, raw_tokens: list[str], json_out: bool,
             params["my_name"] = my_name
         _fill_secret_params(params, spec, args=_SecretArgs(password_stdin))
 
-    # Authentification : jeton local, humain ou agent (SPEC_CLI §2.1).
+    # Authentication: local token, human or agent (SPEC_CLI §2.1).
     token = read_web_token(config)
-    if spec is not None and spec[2]:  # commande d'organisation
+    if spec is not None and spec[2]:  # organization command
         org = organization_name or params.get("organization_name_auth")
         if token is not None:
             params["organization_name_auth"] = org or _unique_org(config, token)
@@ -210,7 +210,7 @@ def run_api(config, *, command: str, raw_tokens: list[str], json_out: bool,
         else:
             if not org:
                 return emit_error(
-                    "commande d'organisation : --organization-name requis "
+                    "organization command: --organization-name required "
                     "(or local web token present)"
                 )
             params["organization_name_auth"] = org
@@ -221,14 +221,14 @@ def run_api(config, *, command: str, raw_tokens: list[str], json_out: bool,
     else:
         if command == "create_org" and token is not None:
             # Web equivalent: local web identity + token (creation from
-            # la page de connexion — aucune organisation requise).
+            # the login page — no organization required).
             from ..service import _WEB_LOCAL
 
             params["my_name_auth"] = _WEB_LOCAL
             params["my_password_auth"] = token
         elif my_name is None and token is not None:
-            # Compte humain de l'organisation (le jeton remplace le mot de
-            # passe humain) — les humains appellent les commandes de compte.
+            # Human account of the organization (the token replaces the
+            # human password) — humans call the account commands.
             from ..validation import human_username_for
 
             human = human_username_for(
@@ -253,7 +253,7 @@ def run_api(config, *, command: str, raw_tokens: list[str], json_out: bool,
     except ApiClientError as exc:
         return emit_error(exc.message, api_code=exc.code)
     except ClientTransportError as exc:
-        return emit_error(f"service indisponible : {exc}", code=3)
+        return emit_error(f"service unavailable: {exc}", code=3)
     # Raw access prints the JSON response (full envelope, scripting).
     import json as json_mod
 

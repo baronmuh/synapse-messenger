@@ -3,7 +3,7 @@
 ``apply`` runs the plan: automatic backup → clean stop of the
 server (and web) → update command → restart. The update
 command is configured via ``update_command`` (config) or the
-variable d'environnement ``SYNAPSE_UPDATE_COMMAND`` ; sans elle, la
+environment variable ``SYNAPSE_UPDATE_COMMAND``; without it, the
 update is explicitly refused (no simulated behavior).
 """
 
@@ -28,7 +28,7 @@ from .common import (
 GROUP = "update"
 
 _EXAMPLES = """\
-Exemples :
+Examples:
   synapse update check                 installed version vs remote channel
   synapse update apply --dry-run       plan without executing anything
   synapse update apply                 backup → stop → update → restart
@@ -62,7 +62,7 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
 
 
 # ---------------------------------------------------------------------------
-# Commandes
+# Commands
 # ---------------------------------------------------------------------------
 
 
@@ -89,7 +89,7 @@ def _update_command(config) -> str | None:  # noqa: ANN001
 def _systemd_unit_exists(unit: str) -> bool:
     """True if the systemd unit is installed (``systemctl cat <unit>``).
 
-    ``SYNAPSE_NO_SYSTEMD=1`` force le mode CLI (utile dans les tests et
+    ``SYNAPSE_NO_SYSTEMD=1`` forces CLI mode (useful in tests and
     for an operator who wants to ignore the local systemd supervision)."""
     if os.environ.get("SYNAPSE_NO_SYSTEMD") == "1":
         return False
@@ -160,7 +160,7 @@ def _systemctl_start(unit: str) -> bool:
 
 def _a2a_cli_restart(config, agent_name: str, port: int) -> bool:
     """Restarts the bridge via the CLI when the file secrets exist
-    (mode hors systemd). Retourne False si les secrets sont absents — dans ce
+    (non-systemd mode). Returns False if the secrets are absent — in that
     case, the operator must restart the bridge manually."""
     secrets_dir = os.environ.get("SYNAPSE_SECRETS_DIR") or _default_paths()["secrets"]
     password_file = os.path.join(secrets_dir, f"a2a-{agent_name}.password")
@@ -192,7 +192,7 @@ def _config_arg_path(config) -> str | None:  # noqa: ANN001
 
 
 def _env_port(name: str, default: int) -> int:
-    """Port depuis l'environnement (``SYNAPSE_WEB_PORT``/``SYNAPSE_A2A_PORT``)."""
+    """Port from the environment (``SYNAPSE_WEB_PORT``/``SYNAPSE_A2A_PORT``)."""
     try:
         return int(os.environ.get(name) or default)
     except ValueError:
@@ -224,9 +224,9 @@ def _cmd_check(args: argparse.Namespace) -> int:
     print(f"Installed version: {local}")
     if payload.get("remote"):
         state = "up to date" if payload["up_to_date"] else "UPDATE AVAILABLE"
-        print(f"Canal distant ({url}) : {payload['remote']} — {state}")
+        print(f"Remote channel ({url}) : {payload['remote']} — {state}")
     elif payload.get("remote_error"):
-        print(f"Canal distant injoignable : {payload['remote_error']}")
+        print(f"Remote channel unreachable: {payload['remote_error']}")
     else:
         print(f"{payload['channel']} — nothing to compare (local installation).")
     return EXIT_OK
@@ -272,7 +272,7 @@ def _cmd_apply(args: argparse.Namespace) -> int:
 
     # Restarted web port: the current web's (pid file), else the
     # resolved port (--port > $SYNAPSE_WEB_PORT > 8080) — tests isolate
-    # leur port par environnement (SPEC_PRODUCTION §10.5).
+    # their port via the environment (SPEC_PRODUCTION §10.5).
     web_port = (read_pid_file(config, "web") or {}).get("port")
     if web_port is None:
         web_port = _env_port("SYNAPSE_WEB_PORT", 8080)
@@ -332,7 +332,7 @@ def _cmd_apply(args: argparse.Namespace) -> int:
     if server_managed:
         if not _systemctl_start(server_unit):
             return emit_error("server restart failed (systemd) — "
-                              "lancez 'systemctl start synapse.service'")
+                              "run 'systemctl start synapse.service'")
     else:
         server_group._cmd_start(service_args)
     if web_managed:
@@ -346,7 +346,7 @@ def _cmd_apply(args: argparse.Namespace) -> int:
                 print(f"  (A2A bridge {unit}: systemd restart failed)")
         elif agent:
             if not _a2a_cli_restart(config, agent, port):
-                print(f"  (passerelle A2A : secrets absents — relancez manuellement : "
+                print(f"  (A2A bridge: secrets missing — restart it manually: "
                       f"synapse a2a start --agent-name {agent} --port {port})")
     print("Update applied.")
     return EXIT_OK
@@ -354,7 +354,7 @@ def _cmd_apply(args: argparse.Namespace) -> int:
 
 def _service_args(args: argparse.Namespace, web_port: int) -> argparse.Namespace:
     """Namespace for the server/web/backup handlers called by
-    ``apply`` : ils lisent des attributs que la sous-commande ``apply`` ne
+    ``apply``: they read attributes that the ``apply`` subcommand
     does not declare (``force``, ``foreground``, ``port``, ``out``, ``dir``…)."""
     return argparse.Namespace(
         config=getattr(args, "config", None),

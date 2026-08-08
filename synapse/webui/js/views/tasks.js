@@ -10,9 +10,9 @@ import { esc, shortId, isDueSoon, timeAgo, stateLabel, STATE_LABELS } from '../f
 import { api } from '../api.js';
 
 const COLUMNS = [
-  ['submitted', 'Soumises', 'var(--color-link)'],
+  ['submitted', 'Submitted', 'var(--color-link)'],
   ['in_progress', 'In progress', 'var(--color-accent)'],
-  ['pending_approval', 'Approbation', 'var(--color-warning)'],
+  ['pending_approval', 'Approval', 'var(--color-warning)'],
   ['completed', 'Completed', 'var(--color-success)'],
   ['failed', 'Failed', 'var(--color-danger)'],
   ['canceled', 'Canceled', 'var(--color-rule-2)'],
@@ -113,9 +113,9 @@ export function render(container) {
     el('div', { class: 'field' },
       el('label', { for: 't-pr' }, 'Priority'),
       el('select', { id: 't-pr', class: 'select', onchange: (e) => { priorityFilter = e.target.value; renderBoard(container); } },
-        el('option', { value: '' }, 'Toutes'),
+        el('option', { value: '' }, 'All'),
         ['low', 'normal', 'high'].map(p => el('option', { value: p, selected: priorityFilter === p ? 'selected' : null },
-          { low: 'Basse', normal: 'Normale', high: 'Haute' }[p])),
+          { low: 'Low', normal: 'Normal', high: 'High' }[p])),
       ),
     ),
     el('span', { class: 'cell-sub' }, `${snap.tasks?.length || 0} tasks visible`),

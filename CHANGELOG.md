@@ -4,6 +4,25 @@ All notable changes to the Synapse project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project follows [SemVer](https://semver.org/).
 
+## [3.1.3] — 2026-08-08 (workflow audit & full English)
+
+### Fixed
+
+- **Onboarding guide**: the `/onboarding` route and the `/` →
+  `/onboarding` redirect (when no organization exists yet) are now
+  served by the web server — previously the page existed but the route
+  was missing on the published branch, producing a "session required"
+  error.
+- **UI bug**: the Tasks tab counter used a French route (`taches`) that
+  never matched the router (`tasks`) — the counter now works.
+- **Login error message**: "session requise" → "session required"
+  (English, matches the actual API).
+- **100% English**: all French docstrings, comments, user-facing error
+  messages and UI labels were translated to English across the codebase
+  (Python service/CLI, web UI, CSS comments, install.sh, agent skills,
+  onboarding guide, tests). API contracts, command names, JSON field
+  names and error codes are unchanged.
+
 ## [3.1.2] — 2026-08-08 (cross-platform support)
 
 ### Added

@@ -1,9 +1,9 @@
 """Opaque, signed pagination cursors.
 
 A cursor is an opaque string containing:
-* un payload JSON (version, commande, agent, filtres, tri, borne de
-  snapshot, last position);
-* une signature HMAC-SHA256 du payload.
+* a JSON payload (version, command, agent, filters, sort, snapshot
+  bound, last position);
+* an HMAC-SHA256 signature of the payload.
 
 The service verifies the signature and the cursor binding to the current
 request (command, agent, filters, ordering). Any invalid, forged or
@@ -32,7 +32,7 @@ def _unb64url(token: str) -> bytes:
     try:
         return base64.urlsafe_b64decode(token + padding)
     except (ValueError, TypeError) as exc:
-        raise ApiError(INVALID_ARGUMENT, "Curseur invalide") from exc
+        raise ApiError(INVALID_ARGUMENT, "Invalid cursor") from exc
 
 
 def encode_cursor(secret_key: bytes, payload: dict) -> str:
@@ -47,27 +47,27 @@ def decode_cursor(secret_key: bytes, cursor: str) -> dict:
     """Decodes and verifies the signature of a cursor.
 
     Raises ``ApiError(INVALID_ARGUMENT)`` if the format or signature are
-    invalides.
+    invalid.
     """
     if not isinstance(cursor, str):
-        raise ApiError(INVALID_ARGUMENT, "Curseur invalide")
+        raise ApiError(INVALID_ARGUMENT, "Invalid cursor")
     try:
         body_b64, signature_b64 = cursor.split(".", 1)
     except ValueError as exc:
-        raise ApiError(INVALID_ARGUMENT, "Curseur invalide") from exc
+        raise ApiError(INVALID_ARGUMENT, "Invalid cursor") from exc
     expected = hmac.new(secret_key, body_b64.encode("ascii"), hashlib.sha256).digest()
     try:
         provided = _unb64url(signature_b64)
     except ApiError:
         raise
     if not hmac.compare_digest(expected, provided):
-        raise ApiError(INVALID_ARGUMENT, "Curseur invalide")
+        raise ApiError(INVALID_ARGUMENT, "Invalid cursor")
     try:
         payload = json.loads(_unb64url(body_b64))
     except (ValueError, ApiError) as exc:
-        raise ApiError(INVALID_ARGUMENT, "Curseur invalide") from exc
+        raise ApiError(INVALID_ARGUMENT, "Invalid cursor") from exc
     if not isinstance(payload, dict) or payload.get("v") != CURSOR_VERSION:
-        raise ApiError(INVALID_ARGUMENT, "Curseur invalide")
+        raise ApiError(INVALID_ARGUMENT, "Invalid cursor")
     return payload
 
 
@@ -106,7 +106,7 @@ def validate_cursor_binding(
     """Verifies that the cursor is bound to the current request.
 
     A reuse with another command, another agent, other
-    filtres ou un autre tri provoque ``INVALID_ARGUMENT``.
+    filters or another sort causes ``INVALID_ARGUMENT``.
     """
     if payload.get("cmd") != command:
         raise ApiError(INVALID_ARGUMENT, "Invalid cursor for this command")

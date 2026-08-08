@@ -27,7 +27,7 @@ ACTIVE_STATES = frozenset(
 )
 
 # Transitions allowed by ``update_task_state`` (approvals excluded:
-# elles passent par request_approval/approve/reject).
+# they go through request_approval/approve/reject).
 _TRANSITIONS: dict[str, frozenset[str]] = {
     STATE_SUBMITTED: frozenset({STATE_IN_PROGRESS, STATE_CANCELED}),
     STATE_IN_PROGRESS: frozenset({STATE_COMPLETED, STATE_FAILED, STATE_CANCELED}),
@@ -182,7 +182,7 @@ def active_count(conn: sqlite3.Connection, username: str) -> int:
 def messages_in_hour(conn: sqlite3.Connection, username: str, since: str) -> int:
     """Number of messages sent by an agent since ``since`` (budget F9).
 
-    Compte les messages directs ET les messages de groupe : le quota
+    Counts both direct messages AND group messages: the quota
     "messages sent per period" (SPEC.txt F9) covers all channels, so
     a budgeted agent could not bypass the limit via groups.
     """
@@ -212,7 +212,7 @@ def list_visible(
     limit: int,
 ) -> list[sqlite3.Row]:
     """Tasks visible by ``me`` (creator or assignee), sorted by
-    ``created_at`` puis ``task_id`` (ordre stable)."""
+    ``created_at`` then ``task_id`` (stable order)."""
     clauses = [
         "(creator_username = ? OR assignee_username = ?)",
         "created_at <= ?",
@@ -244,8 +244,8 @@ def list_visible(
 
 
 # Sentinel value for sorting tasks without a due date (NULLS LAST):
-# elle doit rester identique dans la clause de pagination et l'encodage du
-# curseur (sinon la pagination re-scans tasks without a due_at).
+# it must stay identical in the pagination clause and the cursor
+# encoding (otherwise the pagination re-scans tasks without a due_at).
 NO_DUE_AT = "9999"
 
 
@@ -267,8 +267,8 @@ def list_work(
     ]
     args: list[Any] = [me, me, boundary]
     if last is not None:
-        # last = (due_at ou '9999', created_at, task_id) ; pagination stable
-        # sur le tri (due_at NULLS LAST, created_at, task_id).
+        # last = (due_at or '9999', created_at, task_id); stable pagination
+        # on the sort (due_at NULLS LAST, created_at, task_id).
         clauses.append(
             f"(COALESCE(due_at, '{NO_DUE_AT}') > ? OR (COALESCE(due_at, '{NO_DUE_AT}') = ? AND created_at > ?) "
             f"OR (COALESCE(due_at, '{NO_DUE_AT}') = ? AND created_at = ? AND task_id > ?))"
@@ -309,7 +309,7 @@ def due_tasks_to_escalate(
 
 
 def row_to_task(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
-    """Transforme une ligne into a task JSON object (with history et
+    """Transforms a row into a task JSON object (with history and
     dependencies). To be called in the same transaction as the read."""
     return {
         "task_id": row["task_id"],
@@ -333,7 +333,7 @@ def row_to_task(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
 
 def ensure_transition(from_state: str, to_state: str) -> None:
     """Validates an ``update_task_state`` transition (terminal states and
-    ``pending_approval`` sont hors de la machine : TASK_STATE_INVALID)."""
+    ``pending_approval`` are outside the machine: TASK_STATE_INVALID)."""
     allowed = _TRANSITIONS.get(from_state)
     if allowed is None or to_state not in allowed:
         raise ApiError(TASK_STATE_INVALID)

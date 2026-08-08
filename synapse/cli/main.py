@@ -1,6 +1,6 @@
 """Unified ``synapse`` CLI (SPEC_CLI.md) — command tree and dispatch.
 
-Structure : ``synapse <groupe> <action> [options]`` (maximum 2 niveaux,
+Structure: ``synapse <group> <action> [options]`` (maximum 2 levels,
 decision §7.5). Bare ``synapse`` = idempotent ``server start`` (§7.2).
 Help is in English and documents each group with examples (§5.5).
 """
@@ -20,24 +20,24 @@ _GROUPS = (server, web, org, agent, message, task, group_mod, policy, event,
 _ROOT_HELP = """\
 Synapse — secure messaging for organizations of AI agents.
 
-Usage :
+Usage:
   synapse <group> <action> [options]     structured command
   synapse api <command> [options...]     raw access to any service command
   synapse                                 equivalent to "synapse server start"
 
-Groupes :
+Groups:
   server   server start, stop, status, logs, config
-  web      interface web (start, stop, restart, status, logs)
-  org      organisations (init, list, status, enable, disable, password,
+  web      web interface (start, stop, restart, status, logs)
+  org      organizations (init, list, status, enable, disable, password,
            agents, structure, metrics, audit)
-  agent    comptes agents (create, status, card, budget, observers…)
+  agent    agent accounts (create, status, card, budget, observers…)
   message  messaging (send, inbox, conversation, read, notifications)
   task     tasks (list, create, status, update, approve, transfer, my-work)
-  group    groupes de discussion (create, members, send, messages…)
-  policy   policys (show, set, escalation, delegate, revoke, delegations)
+  group    discussion groups (create, members, send, messages…)
+  policy   policies (show, set, escalation, delegate, revoke, delegations)
   event    event journal (stream, retention)
   api      raw access to ANY service command (evolution)
-  backup   sauvegarde et restauration (create, restore, list)
+  backup   backup and restore (create, restore, list)
   a2a      interoperability bridge (start, stop, status)
   logs     merged server + web logs
   diag     diagnostics (detailed status, doctor)
@@ -47,10 +47,10 @@ Groupes :
 
 General options:
   --config <path>      configuration (else $SYNAPSE_CONFIG, then default)
-  --json                machine JSON output sur les commandes de lecture
-  --password-stdin      lire le(s) mot(s) de passe sur stdin (jamais en argument)
+  --json                machine JSON output on read commands
+  --password-stdin      read the password(s) from stdin (never as an argument)
   --my-name <account>  agent account identity
-  --organization-name   organisation (jeton local ou mot de passe)
+  --organization-name   organization (local token or password)
 
 Exit codes: 0 success; 1 error; 3 service unavailable;
 4 already running (starting an already active service).
@@ -71,14 +71,14 @@ def build_parser() -> argparse.ArgumentParser:
                     formatter_class=argparse.RawDescriptionHelpFormatter)
     # Root options: used by bare "synapse" (= server start, §4.1);
     # subcommands carry their own options (--config resolved
-    # via config ou config_root).
+    # via config or config_root).
     parser.add_argument("--config", default=None, dest="config_root",
                         help="path of the JSON configuration file")
     parser.add_argument("--foreground", action="store_true", dest="fg_root",
                         help="stay in the foreground (bare `synapse` = server start)")
     parser.add_argument("--log-level", choices=["debug", "info", "warning", "error"],
                         default=None, dest="log_root",
-                        help="niveau de journalisation")
+                        help="logging level")
     parser.add_argument("--version", action="store_true", dest="show_version",
                         help="prints the installed version and exits")
     parser.set_defaults(command=None)
@@ -87,7 +87,7 @@ def build_parser() -> argparse.ArgumentParser:
     common = _common_parent()
 
     # "synapse help": general help (decision §7.2 — help stays
-    # disponible sans server).
+    # available without the server).
     help_p = sub.add_parser("help", help="prints the general help", add_help=False)
     help_p.set_defaults(run=_cmd_help)
 
@@ -133,12 +133,12 @@ def _run_daemon(args: argparse.Namespace) -> int:
     if args.daemon_run == "web":
         daemon.run_web_daemon(args.config, args.port, args.log_level)
         return 0
-    # a2a : le mot de passe de l'agent arrive sur stdin (pipe du parent).
+    # a2a: the agent's password arrives on stdin (parent's pipe).
     import sys as _sys
 
     password = _sys.stdin.readline().rstrip("\n")
     if not password:
-        print("synapse _daemon a2a: mot de passe de l'agent absent",
+        print("synapse _daemon a2a: agent password missing",
               file=_sys.stderr)
         return 1
     daemon.run_a2a_daemon(args.config, args.agent_name, args.port, args.token,
@@ -177,7 +177,7 @@ def main(argv: list[str] | None = None) -> int:
             api_idx = i
             break
         if tok in ("--config", "--log-level") and i + 1 < len(argv):
-            i += 2  # saute la valeur de l'option racine
+            i += 2  # skip the root option value
             continue
         i += 1
     if api_idx is not None:
@@ -214,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
         return _run_daemon(args)
 
     if args.command != "api" and unknown:
-        parser.error(f"arguments inattendus : {' '.join(unknown)}")
+        parser.error(f"unexpected arguments: {' '.join(unknown)}")
 
     handler = getattr(args, "run", None)
     if handler is None:
