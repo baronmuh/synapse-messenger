@@ -97,7 +97,7 @@ def test_other_department_manager_denied(fx):
     fx.client.set_agent_department(ALICE, "finance", "manager", ORG_NAME, ORG_PASSWORD)
     fx.client.set_agent_department(BOB, "support", "employee", ORG_NAME, ORG_PASSWORD)
     fx.client.create_task("T1", BOB, ALICE, ALICE_PASSWORD)
-    # alice est manager de finance, pas de support
+    # alice is the finance manager, not support
     with pytest.raises(ApiClientError) as exc:
         fx.client.list_department_tasks("support", ALICE, ALICE_PASSWORD)
     assert exc.value.code == ACCESS_DENIED

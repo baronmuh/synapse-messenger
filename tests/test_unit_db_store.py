@@ -218,7 +218,7 @@ def test_mark_read_conditional_only_first_time(config):
         messages.insert_message(
             conn, message_id="m1", conversation_id=conv,
             client_message_id="c1", sender_username="alice",
-            recipient_username="bob", content="salut", created_at=now_utc(),
+            recipient_username="bob", content="hello", created_at=now_utc(),
         )
         t1 = now_utc()
         messages.mark_read_conditional(conn, "m1", t1)
@@ -264,7 +264,7 @@ def test_row_to_message_helpers(config):
         messages.insert_message(
             conn, message_id="m1", conversation_id=conv,
             client_message_id="c1", sender_username="alice",
-            recipient_username="bob", content="salut", created_at="2026-01-01T00:00:00.000Z",
+            recipient_username="bob", content="hello", created_at="2026-01-01T00:00:00.000Z",
         )
         row = messages.get_message_by_id(conn, "m1")
         assert messages.row_to_message(row)["status"] == "unread"

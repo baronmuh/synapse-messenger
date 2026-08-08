@@ -114,7 +114,7 @@ def test_all_error_codes_reachable(fx, config):
     # becomes RECIPIENT_NOT_FOUND again (v1 semantics preserved)
     fx.client.set_organization_policy(True, True, ORG_NAME, ORG_PASSWORD)
     with pytest.raises(ApiClientError) as exc:
-        fx.client.send_message("ghost", "salut", "cmid-err-1", ALICE, ALICE_PASSWORD)
+        fx.client.send_message("ghost", "hello", "cmid-err-1", ALICE, ALICE_PASSWORD)
     seen.add(exc.value.code)  # RECIPIENT_NOT_FOUND
 
     with pytest.raises(ApiClientError) as exc:
@@ -136,7 +136,7 @@ def test_all_error_codes_reachable(fx, config):
     create_organization(fx.config, ORG2_NAME, ORG2_PASSWORD, ORG2_PASSWORD)
     fx.client.create_agent("dave", "motdepasse-dave-1", "Agent dave", ORG2_NAME, ORG2_PASSWORD)
     with pytest.raises(ApiClientError) as exc:
-        fx.client.send_message("dave", "salut", "cmid-err-policy", ALICE, ALICE_PASSWORD)
+        fx.client.send_message("dave", "hello", "cmid-err-policy", ALICE, ALICE_PASSWORD)
     seen.add(exc.value.code)  # POLICY_DENIED
 
     # INTERNAL_ERROR: direct simulator via the service
@@ -170,7 +170,7 @@ def test_all_error_codes_reachable(fx, config):
     seen.add(exc.value.code)  # TASK_DEPENDENCY_NOT_MET
 
     # QUOTA_EXCEEDED: active-task budget exceeded.
-    fx.client.create_task("Occupe le quota", BOB, ALICE, ALICE_PASSWORD)
+    fx.client.create_task("Occupies the quota", BOB, ALICE, ALICE_PASSWORD)
     fx.client.set_agent_budget(BOB, ORG_NAME, ORG_PASSWORD, max_active_tasks=1)
     with pytest.raises(ApiClientError) as exc:
         fx.client.create_task("Budget plein", BOB, ALICE, ALICE_PASSWORD)

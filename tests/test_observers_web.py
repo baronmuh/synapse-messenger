@@ -87,7 +87,7 @@ def test_observer_reads_snapshot(fx):
 def test_observer_writes_denied(fx):
     _make_observer(fx)
     for command in (
-        lambda: fx.client.send_message(ALICE, "salut", "cmid-obs-1",
+        lambda: fx.client.send_message(ALICE, "hello", "cmid-obs-1",
                                        OBSERVER, OBS_PASSWORD),
         lambda: fx.client.create_task("T", ALICE, OBSERVER, OBS_PASSWORD),
         lambda: fx.client.create_group("g", OBSERVER, OBS_PASSWORD),

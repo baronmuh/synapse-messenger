@@ -408,8 +408,8 @@ def test_constraint_26_policy_denied_before_revealing(fx):
     fx.client.create_agent("dave", "motdepasse-dave-1", "Agent dave", ORG2_NAME, ORG2_PASSWORD)
     # root_org is closed (outgoing refused): same error in both cases
     with pytest.raises(ApiClientError) as exc:
-        fx.client.send_message("dave", "salut", "cmid-c-26a", ALICE, ALICE_PASSWORD)
+        fx.client.send_message("dave", "hello", "cmid-c-26a", ALICE, ALICE_PASSWORD)
     assert exc.value.code == "POLICY_DENIED"
     with pytest.raises(ApiClientError) as exc:
-        fx.client.send_message("nimporte-qui", "salut", "cmid-c-26b", ALICE, ALICE_PASSWORD)
+        fx.client.send_message("nimporte-qui", "hello", "cmid-c-26b", ALICE, ALICE_PASSWORD)
     assert exc.value.code == "POLICY_DENIED"

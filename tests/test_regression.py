@@ -16,12 +16,12 @@ def test_full_lifecycle(fx):
     deactivation, reactivation."""
     fx.client.set_organization_policy(True, True, ORG_NAME, ORG_PASSWORD)
     # alice writes to bob, bob reads then replies
-    m1 = fx.send(ALICE, ALICE_PASSWORD, BOB, "Bonjour Bob", "cmid-rg-1")
+    m1 = fx.send(ALICE, ALICE_PASSWORD, BOB, "Hello Bob", "cmid-rg-1")
     fx.client.read_message(m1["message_id"], BOB, BOB_PASSWORD)
     assert (
         fx.client.get_conversation(ALICE, BOB, BOB_PASSWORD)["reply_status"] == "needs_reply"
     )
-    m2 = fx.send(BOB, BOB_PASSWORD, ALICE, "Bonjour Alice", "cmid-rg-2")
+    m2 = fx.send(BOB, BOB_PASSWORD, ALICE, "Hello Alice", "cmid-rg-2")
     assert m1["conversation_id"] == m2["conversation_id"]
     assert (
         fx.client.get_conversation(ALICE, BOB, BOB_PASSWORD)["reply_status"] == "no_reply_needed"

@@ -17,7 +17,7 @@ from .conftest import ALICE, ALICE_PASSWORD, BOB, BOB_PASSWORD, make_server
 
 def test_send_with_business_reference_roundtrip(fx):
     sent = fx.send(
-        ALICE, ALICE_PASSWORD, BOB, "Rapport mensuel", "cmid-ref-1",
+        ALICE, ALICE_PASSWORD, BOB, "Monthly report", "cmid-ref-1",
         business_reference="facture-2026-08",
     )
     assert sent["business_reference"] == "facture-2026-08"

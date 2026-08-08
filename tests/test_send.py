@@ -17,7 +17,7 @@ POLICY_DENIED = "POLICY_DENIED"
 
 
 def test_send_message_full_shape(fx):
-    sent = fx.send(ALICE, ALICE_PASSWORD, BOB, "Bonjour Bob", "cmid-shape-1")
+    sent = fx.send(ALICE, ALICE_PASSWORD, BOB, "Hello Bob", "cmid-shape-1")
     assert set(sent.keys()) == {
         "message_id",
         "conversation_id",
@@ -58,7 +58,7 @@ def test_send_message_unicode_content(fx):
 
 
 def test_send_message_recipient_normalized(fx):
-    sent = fx.send(ALICE, ALICE_PASSWORD, "BOB", "salut", "cmid-rec-1")
+    sent = fx.send(ALICE, ALICE_PASSWORD, "BOB", "hello", "cmid-rec-1")
     assert sent["recipient_username"] == BOB
 
 
@@ -71,7 +71,7 @@ def test_send_to_self_rejected(fx):
 def test_send_to_unknown_recipient(fx):
     fx.client.set_organization_policy(True, True, ORG_NAME, ORG_PASSWORD)
     with pytest.raises(ApiClientError) as exc:
-        fx.client.send_message("ghost", "salut", "cmid-ghost-1", ALICE, ALICE_PASSWORD)
+        fx.client.send_message("ghost", "hello", "cmid-ghost-1", ALICE, ALICE_PASSWORD)
     assert exc.value.code == RECIPIENT_NOT_FOUND
 
 
@@ -79,14 +79,14 @@ def test_send_to_disabled_recipient(fx):
     fx.client.set_organization_policy(True, True, ORG_NAME, ORG_PASSWORD)
     fx.client.deactivate_agent(BOB, ORG_NAME, ORG_PASSWORD)
     with pytest.raises(ApiClientError) as exc:
-        fx.client.send_message(BOB, "salut", "cmid-dis-1", ALICE, ALICE_PASSWORD)
+        fx.client.send_message(BOB, "hello", "cmid-dis-1", ALICE, ALICE_PASSWORD)
     assert exc.value.code == RECIPIENT_NOT_FOUND
 
 
 def test_send_requires_active_sender(fx):
     fx.client.deactivate_agent(ALICE, ORG_NAME, ORG_PASSWORD)
     with pytest.raises(ApiClientError) as exc:
-        fx.client.send_message(BOB, "salut", "cmid-act-1", ALICE, ALICE_PASSWORD)
+        fx.client.send_message(BOB, "hello", "cmid-act-1", ALICE, ALICE_PASSWORD)
     assert exc.value.code == "AUTH_FAILED"
 
 
@@ -141,14 +141,14 @@ def test_separate_conversations_per_pair(fx):
 
 
 def test_idempotent_reuse_returns_same_message(fx):
-    first = fx.send(ALICE, ALICE_PASSWORD, BOB, "Bonjour", "cmid-ido-1")
-    second = fx.send(ALICE, ALICE_PASSWORD, BOB, "  Bonjour  ", "cmid-ido-1")
+    first = fx.send(ALICE, ALICE_PASSWORD, BOB, "Hello", "cmid-ido-1")
+    second = fx.send(ALICE, ALICE_PASSWORD, BOB, "  Hello  ", "cmid-ido-1")
     assert first["message_id"] == second["message_id"]
-    assert second["content"] == "Bonjour"
+    assert second["content"] == "Hello"
 
 
 def test_idempotent_reuse_same_recipient_different_content(fx):
-    fx.send(ALICE, ALICE_PASSWORD, BOB, "Bonjour", "cmid-ido-2")
+    fx.send(ALICE, ALICE_PASSWORD, BOB, "Hello", "cmid-ido-2")
     with pytest.raises(ApiClientError) as exc:
         fx.client.send_message(BOB, "autre chose", "cmid-ido-2", ALICE, ALICE_PASSWORD)
     assert exc.value.code == MESSAGE_ALREADY_EXISTS
@@ -156,9 +156,9 @@ def test_idempotent_reuse_same_recipient_different_content(fx):
 
 def test_idempotent_reuse_different_recipient(fx):
     fx.client.create_agent("carol",  "motdepasse-carol-1", "Agent de test",  ORG_NAME, ORG_PASSWORD)
-    fx.send(ALICE, ALICE_PASSWORD, BOB, "Bonjour", "cmid-ido-3")
+    fx.send(ALICE, ALICE_PASSWORD, BOB, "Hello", "cmid-ido-3")
     with pytest.raises(ApiClientError) as exc:
-        fx.client.send_message("carol", "Bonjour", "cmid-ido-3", ALICE, ALICE_PASSWORD)
+        fx.client.send_message("carol", "Hello", "cmid-ido-3", ALICE, ALICE_PASSWORD)
     assert exc.value.code == MESSAGE_ALREADY_EXISTS
 
 
@@ -170,24 +170,24 @@ def test_same_client_id_from_different_senders_allowed(fx):
 
 
 def test_idempotent_reuse_after_read_returns_updated_state(fx):
-    first = fx.send(ALICE, ALICE_PASSWORD, BOB, "Bonjour", "cmid-ido-4")
+    first = fx.send(ALICE, ALICE_PASSWORD, BOB, "Hello", "cmid-ido-4")
     fx.client.read_message(first["message_id"], BOB, BOB_PASSWORD)
-    second = fx.send(ALICE, ALICE_PASSWORD, BOB, "Bonjour", "cmid-ido-4")
+    second = fx.send(ALICE, ALICE_PASSWORD, BOB, "Hello", "cmid-ido-4")
     assert second["message_id"] == first["message_id"]
     assert second["status"] == "read"  # current state, not the initial state
 
 
 def test_idempotent_reuse_case_sensitive_client_id(fx):
     """client_message_id is compared exactly, character by character."""
-    m1 = fx.send(ALICE, ALICE_PASSWORD, BOB, "Bonjour", "Cmid-1")
-    m2 = fx.send(ALICE, ALICE_PASSWORD, BOB, "Bonjour", "cmid-1")
+    m1 = fx.send(ALICE, ALICE_PASSWORD, BOB, "Hello", "Cmid-1")
+    m2 = fx.send(ALICE, ALICE_PASSWORD, BOB, "Hello", "cmid-1")
     assert m1["message_id"] != m2["message_id"]
 
 
 def test_idempotent_reuse_case_sensitive_content(fx):
     """The normalized content is compared exactly: any difference (including
     case) with the same key triggers MESSAGE_ALREADY_EXISTS."""
-    fx.send(ALICE, ALICE_PASSWORD, BOB, "Bonjour", "cmid-ido-5")
+    fx.send(ALICE, ALICE_PASSWORD, BOB, "Hello", "cmid-ido-5")
     with pytest.raises(ApiClientError) as exc:
         fx.client.send_message(BOB, "bonjour", "cmid-ido-5", ALICE, ALICE_PASSWORD)
     assert exc.value.code == MESSAGE_ALREADY_EXISTS

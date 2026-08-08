@@ -53,7 +53,7 @@ def test_disabled_account_cannot_authenticate(fx):
         fx.client.get_messages(ALICE, ALICE_PASSWORD)
     assert exc.value.code == AUTH_FAILED
     with pytest.raises(ApiClientError) as exc:
-        fx.client.send_message(BOB, "salut", "cmid-dis-1", ALICE, ALICE_PASSWORD)
+        fx.client.send_message(BOB, "hello", "cmid-dis-1", ALICE, ALICE_PASSWORD)
     assert exc.value.code == AUTH_FAILED
 
 

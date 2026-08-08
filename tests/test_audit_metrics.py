@@ -22,7 +22,7 @@ from .conftest import (
 
 
 def test_audit_records_write_commands(fx):
-    fx.send(ALICE, ALICE_PASSWORD, BOB, "Bonjour", "cmid-aud-1")
+    fx.send(ALICE, ALICE_PASSWORD, BOB, "Hello", "cmid-aud-1")
     fx.client.create_task("Audited task", BOB, ALICE, ALICE_PASSWORD)
     entries = fx.client.get_org_audit(ORG_NAME, ORG_PASSWORD)["entries"]
     commands = [e["command"] for e in entries]

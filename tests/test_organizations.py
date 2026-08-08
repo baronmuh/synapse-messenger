@@ -144,7 +144,7 @@ def test_direction_external_to_external_unrelated(two_orgs):
     create_organization(two_orgs.config, "org_tiers", "motdepasse-org-tiers-1", "motdepasse-org-tiers-1")
     two_orgs.client.create_agent("erin", "motdepasse-erin-1", "Agent erin", "org_tiers", "motdepasse-org-tiers-1")
     with pytest.raises(ApiClientError) as exc:
-        two_orgs.client.send_message("erin", "salut", "cmid-dir-4", "dave", "motdepasse-dave-1")
+        two_orgs.client.send_message("erin", "hello", "cmid-dir-4", "dave", "motdepasse-dave-1")
     assert exc.value.code == POLICY_DENIED
 
 

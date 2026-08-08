@@ -583,7 +583,7 @@ def test_group_full_lifecycle(cli_env):
         proc = run_cli(env, "group", "members", "direction", "--json")
         members = _json(proc)["data"]["members"]
         assert "comptable" in members
-        proc = run_cli(env, "group", "send", "direction", "Bonjour le groupe")
+        proc = run_cli(env, "group", "send", "direction", "Hello group")
         assert proc.returncode == 0, proc.stderr.decode()
         proc = run_cli(env, "group", "messages", "direction", "--json")
         assert len(_json(proc)["data"]["messages"]) == 1

@@ -232,8 +232,8 @@ def test_client_message_id_128_chars_exact(fx):
 def test_idempotence_recipient_case_insensitive(fx):
     """Same client_message_id + same content with the recipient in a different
     case (BOB then bob): the same message is returned (recipient normalized)."""
-    m1 = fx.send(ALICE, ALICE_PASSWORD, "BOB", "salut", "cmid-aud-rc-1")
-    m2 = fx.send(ALICE, ALICE_PASSWORD, "bob", "salut", "cmid-aud-rc-1")
+    m1 = fx.send(ALICE, ALICE_PASSWORD, "BOB", "hello", "cmid-aud-rc-1")
+    m2 = fx.send(ALICE, ALICE_PASSWORD, "bob", "hello", "cmid-aud-rc-1")
     assert m2["message_id"] == m1["message_id"]
     assert m2["recipient_username"] == BOB
     # a content variant with the recipient in a different case remains
@@ -247,12 +247,12 @@ def test_idempotence_recipient_case_insensitive(fx):
 def test_idempotence_replay_after_deactivate_reactivate(fx):
     """Replaying the same client_message_id after a deactivation /
     reactivation cycle of the recipient returns the already-created message."""
-    m1 = fx.send(ALICE, ALICE_PASSWORD, BOB, "salut", "cmid-aud-replay-1")
+    m1 = fx.send(ALICE, ALICE_PASSWORD, BOB, "hello", "cmid-aud-replay-1")
     fx.client.deactivate_agent(BOB, ORG_NAME, ORG_PASSWORD)
     fx.client.reactivate_agent(BOB, ORG_NAME, ORG_PASSWORD)
-    m2 = fx.client.send_message(BOB, "salut", "cmid-aud-replay-1", ALICE, ALICE_PASSWORD)
+    m2 = fx.client.send_message(BOB, "hello", "cmid-aud-replay-1", ALICE, ALICE_PASSWORD)
     assert m2["message_id"] == m1["message_id"]
-    assert m2["content"] == "salut"
+    assert m2["content"] == "hello"
 
 
 def test_idempotence_nfc_equivalent_content(fx):

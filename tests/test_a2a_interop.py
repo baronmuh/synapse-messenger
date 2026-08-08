@@ -81,7 +81,7 @@ def test_a2a_external_client_full_cycle(cli_env):
 
         # --- task delegation (tasks/message) ---
         result = _rpc(conn, "tasks/message", {
-            "message": {"parts": [{"text": "Rapport mensuel"}],
+            "message": {"parts": [{"text": "Monthly report"}],
                         "metadata": {"assignee": "data"}},
         })
         assert result.get("error") is None, result
@@ -100,7 +100,7 @@ def test_a2a_external_client_full_cycle(cli_env):
 
         # --- tracking: tasks/get and tasks/list ---
         result = _rpc(conn, "tasks/get", {"id": task_id}, rpc_id=2)
-        assert result["result"]["title"] == "Rapport mensuel"
+        assert result["result"]["title"] == "Monthly report"
         assert result["result"]["status"]["state"] == "SUBMITTED"
 
         result = _rpc(conn, "tasks/list", {}, rpc_id=3)

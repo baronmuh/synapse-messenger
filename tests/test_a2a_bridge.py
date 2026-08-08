@@ -79,13 +79,13 @@ def test_tasks_message_creates_task(fx):
     bridge, port = _make_bridge(fx)
     try:
         result = _rpc(port, "tasks/message",
-                      {"message": {"parts": [{"text": "Rapport mensuel"}],
+                      {"message": {"parts": [{"text": "Monthly report"}],
                                    "metadata": {"assignee": BOB}}})
         assert "error" not in result
         assert result["result"]["status"]["state"] == "SUBMITTED"
         # the task is visible on the Synapse side
         task = fx.client.get_task(result["result"]["taskId"], ALICE, ALICE_PASSWORD)
-        assert task["title"] == "Rapport mensuel"
+        assert task["title"] == "Monthly report"
     finally:
         bridge.stop()
 

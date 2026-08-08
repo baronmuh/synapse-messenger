@@ -140,13 +140,13 @@ def test_temp_path_inside_storage(config):
 
 
 def test_backup_custom_output_path(fx, config):
-    fx.send(ALICE, ALICE_PASSWORD, "bob", "salut", "cmid-bkout-1")
+    fx.send(ALICE, ALICE_PASSWORD, "bob", "hello", "cmid-bkout-1")
     os.makedirs(config.backup_dir, exist_ok=True)
     custom = os.path.join(config.backup_dir, "personnalise.synbk")
     path = backup(config, output_path=custom)
     assert path == custom
     assert os.path.exists(custom)
-    # le fichier commence par le magic
+    # the file starts with the magic
     with open(custom, "rb") as fh:
         assert fh.read(7) == b"SYNBK\x01\n"
 

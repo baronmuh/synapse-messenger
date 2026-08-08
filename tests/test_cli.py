@@ -60,7 +60,7 @@ def test_cli_agent_flow(fx, config):
         config,
         "api", "send_message",
         "--recipient-username", "bob",
-        "--message", "salut via CLI",
+        "--message", "hello via CLI",
         "--client-message-id", "cmid-cli-1",
         "--my-name", ALICE,
         "--password-stdin",
@@ -80,7 +80,7 @@ def test_cli_agent_flow(fx, config):
     )
     assert proc.returncode == 0, proc.stderr.decode()
     envelope = json.loads(proc.stdout.decode())
-    assert envelope["data"]["messages"][0]["content"] == "salut via CLI"
+    assert envelope["data"]["messages"][0]["content"] == "hello via CLI"
 
 
 def test_cli_help(fx, config):
