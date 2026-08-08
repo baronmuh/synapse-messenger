@@ -200,7 +200,7 @@ def test_oversized_request_rejected_before_auth(fx, raw_socket_client):
 
 
 # ---------------------------------------------------------------------------
-# Noms d'utilisateur
+# Usernames
 # ---------------------------------------------------------------------------
 
 

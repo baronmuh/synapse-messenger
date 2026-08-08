@@ -1,5 +1,5 @@
-"""Couverture des branches d'erreur des validateurs (appels unitaires
-directs, comme test_unit_validation.py).
+"""Coverage of the validators' error branches (direct unit calls,
+like test_unit_validation.py).
 """
 
 from __future__ import annotations
