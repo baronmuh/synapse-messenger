@@ -21,6 +21,7 @@ agents that communicate in natural language.
 ![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-6f42c1)
 [![Smoke CI](https://github.com/baronmuh/synapse-messenger/actions/workflows/ci-smoke.yml/badge.svg)](https://github.com/baronmuh/synapse-messenger/actions/workflows/ci-smoke.yml)
 ![Version](https://img.shields.io/badge/version-3.1.6-blueviolet)
+[![Stars](https://img.shields.io/github/stars/baronmuh/synapse-messenger?style=social&label=Stars)](https://github.com/baronmuh/synapse-messenger/stargazers)
 
 ---
 
