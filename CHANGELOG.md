@@ -4,6 +4,30 @@ All notable changes to the Synapse project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project follows [SemVer](https://semver.org/).
 
+## [3.1.6] — 2026-08-09 (uninstall command, simplified update)
+
+### Added
+
+- **`synapse uninstall`** — complete uninstallation of Synapse (mirror of
+  `install.sh`): stops and removes the systemd units and timers, removes
+  the service account, the configuration (`/etc/synapse`), the data
+  (`/var/lib/synapse`), run, logs and backups (paths from the
+  configuration or the platform defaults), then uninstalls the Python
+  package and the `synapse` command. macOS: `~/.synapse`; Windows:
+  `%LOCALAPPDATA%\Synapse`. Options: `--dry-run` (shows the plan,
+  removes nothing), `--keep-data` (preserves data and backups),
+  `--yes` (confirms without the interactive prompt; stops the running
+  services cleanly first). Refuses while the server is running unless
+  `--yes` is given. On Linux the root-requiring parts re-run with sudo
+  (or print the exact command when sudo is unavailable).
+- **`synapse update`** — check + apply in one step for a non-technical
+  operator. If a new version is available: backup → stop → update →
+  restart, then confirms the new installed version. If already up to
+  date: clear message, exit 0, no action. Options: `--check-only`
+  (equivalent to `update check`), `--yes`, `--dry-run`, `--no-backup`.
+  Reuses the internal logic of `update check`/`update apply` (no
+  duplicated implementation).
+
 ## [3.1.5] — 2026-08-09 (friction reduction — single sources of truth)
 
 ### Changed (behavior preserved)

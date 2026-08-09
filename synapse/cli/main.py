@@ -11,11 +11,11 @@ import argparse
 import sys
 
 from . import a2a, agent, api, backup, diag, event, group as group_mod
-from . import logs, message, org, policy, server, status, task, update, web
+from . import logs, message, org, policy, server, status, task, uninstall, update, web
 from .common import PROG, CliError, Parser
 
 _GROUPS = (server, web, org, agent, message, task, group_mod, policy, event,
-           api, backup, a2a, logs, diag, update, status)
+           api, backup, a2a, logs, diag, update, uninstall, status)
 
 _ROOT_HELP = """\
 Synapse — secure messaging for organizations of AI agents.
@@ -41,7 +41,8 @@ Groups:
   a2a      interoperability bridge (start, stop, status)
   logs     merged server + web logs
   diag     diagnostics (detailed status, doctor)
-  update   updates (check, apply)
+  update   updates (check, apply — bare 'synapse update' = check + apply)
+  uninstall  completely removes Synapse (services, files, package)
   status   global state
   version  installed version (or --version)
 
