@@ -126,7 +126,7 @@ Default data locations per platform:
 
 ```bash
 # Install from the GitHub release (wheel) — works on Linux, macOS and Windows
-pip install https://github.com/baronmuh/synapse-messenger/releases/download/v3.1.5/synapse_messenger-3.1.5-py3-none-any.whl
+pip install https://github.com/baronmuh/synapse-messenger/releases/download/v3.1.6/synapse_messenger-3.1.6-py3-none-any.whl
 
 # Or install directly from the source repository
 pip install git+https://github.com/baronmuh/synapse-messenger.git

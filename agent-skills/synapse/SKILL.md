@@ -41,7 +41,7 @@ skill have been executed and verified against a real server.**
 - Always use this skill first; then load the reference of the
   concerned domain (see "References by domain").
 - Do not use for: server administration (`server`,
-  `web`, `backup`, `update`), nor for actions reserved for humans or
+  `web`, `backup`, `update`, `uninstall`), nor for actions reserved for humans or
   the organization (refused to your account — see Permissions).
 
 ## 1. Connection with your credentials

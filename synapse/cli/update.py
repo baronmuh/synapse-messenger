@@ -10,6 +10,7 @@ update is explicitly refused (no simulated behavior).
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -39,12 +40,26 @@ Examples:
 def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser) -> None:
     p = sub.add_parser(
         GROUP,
-        help="updates (check, apply)",
+        help="updates (check, apply) — bare 'synapse update' = check + apply",
         parents=[common],
         epilog=_EXAMPLES,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    actions = p.add_subparsers(dest="action", required=True)
+    # Bare ``synapse update``: check + apply in one step (simple path
+    # for a non-technical operator). The sub-actions below are the
+    # fine-grained controls.
+    p.add_argument("--check-only", action="store_true",
+                   help="only checks the available version (like 'update check')")
+    p.add_argument("--dry-run", action="store_true",
+                   help="shows the plan without doing anything")
+    p.add_argument("--no-backup", action="store_true",
+                   help="skips the automatic backup (not recommended)")
+    p.add_argument("--yes", action="store_true",
+                   help="applies without the interactive confirmation")
+    p.add_argument("--json", action="store_true",
+                   help="machine JSON output (check)")
+    p.set_defaults(run=_cmd_simple)
+    actions = p.add_subparsers(dest="action", required=False)
 
     a = actions.add_parser("check", parents=[common],
                            help="compares the installed version to the latest published one")
@@ -200,6 +215,75 @@ def _env_port(name: str, default: int) -> int:
         return default
 
 
+def _cmd_simple(args: argparse.Namespace) -> int:
+    """Bare ``synapse update``: check then apply — one step for a
+    non-technical operator. Reuses ``_cmd_check`` and ``_cmd_apply``
+    (no duplicated logic).
+
+    - If ``--check-only``: only the check (like ``update check``).
+    - If already up to date: clear message, exit 0, NO action.
+    - Otherwise: backup → stop → update → restart (like ``update apply``),
+      then confirms the new installed version.
+    """
+    config = resolve_config(args)
+    url = _update_url(config)
+    local = project_version()
+
+    if args.check_only:
+        check_args = argparse.Namespace(**vars(args))
+        check_args.json = getattr(args, "json", False)
+        return _cmd_check(check_args)
+
+    # Check first: what is the remote version?
+    remote_version = None
+    check_error = None
+    if url:
+        try:
+            with urllib.request.urlopen(url, timeout=10) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+            remote_version = payload.get("version")
+        except (OSError, urllib.error.URLError, TimeoutError, ValueError) as exc:
+            check_error = str(exc)
+
+    if check_error:
+        print(f"Remote channel unreachable: {check_error}")
+        print("No update applied.")
+        return EXIT_OK
+
+    if remote_version is None:
+        print("No remote channel configured (SYNAPSE_UPDATE_URL) — "
+              "nothing to compare.")
+        return EXIT_OK
+
+    if remote_version == local:
+        print(f"Already up to date (installed {local}, remote {remote_version}).")
+        return EXIT_OK
+
+    print(f"Update available: {local} → {remote_version}.")
+    if not args.yes:
+        try:
+            answer = input(f"Apply the update now? [y/N]: ").strip().lower()
+        except EOFError:
+            answer = ""
+        if answer not in ("y", "yes"):
+            print("Update canceled.")
+            return EXIT_OK
+
+    # Reuse the full apply path (backup → stop → command → restart).
+    apply_args = argparse.Namespace(**vars(args))
+    apply_args.dry_run = getattr(args, "dry_run", False)
+    apply_args.no_backup = getattr(args, "no_backup", False)
+    code = _cmd_apply(apply_args)
+    if code != EXIT_OK:
+        return code
+
+    # Confirm the new installed version.
+    from .common import project_version as _pv
+
+    print(f"Now installed: {_pv()}")
+    return EXIT_OK
+
+
 def _cmd_check(args: argparse.Namespace) -> int:
     config = resolve_config(args)
     local = project_version()
@@ -212,9 +296,8 @@ def _cmd_check(args: argparse.Namespace) -> int:
         try:
             with urllib.request.urlopen(url, timeout=10) as resp:
                 remote = resp.read().decode("utf-8")
-            import json as json_mod
 
-            data = json_mod.loads(remote)
+            data = json.loads(remote)
             remote_version = data.get("version")
             payload["remote"] = remote_version
             payload["channel"] = url
