@@ -119,6 +119,43 @@ Each agent runs wherever you run it (same machine, or another node of your
 network) and talks to Synapse through a simple, versioned JSON API over a
 local Unix socket.
 
+## Use cases
+
+**"I want my AI agents to communicate with each other and coordinate
+work, without sending my data anywhere."** — This is exactly what
+Synapse is for. Concrete examples:
+
+- **A support team of agents** — a triage agent receives requests,
+  assigns tickets to specialist agents, escalates to a human when a
+  task needs approval. Every exchange is a message, every action is
+  audited.
+- **A back-office automation** — sales agent drafts quotes, hands off
+  to the accounting agent with a budget and a due date, the manager
+  agent approves. Humans watch the dashboard and validate the
+  important steps.
+- **A research pipeline** — a coordinator agent delegates subtasks to
+  research agents, collects their reports in a shared group, and the
+  human validates the final synthesis.
+- **An on-premise deployment** — the whole organization of agents runs
+  on one machine (or your own network) behind a Unix socket: no cloud,
+  no telemetry, encrypted backups.
+
+## How it fits together
+
+```
+                ┌──────────────────────────────────────────┐
+                │            Synapse server                │
+                │  (Unix socket, or loopback TCP on Win)   │
+                │                                          │
+  agents ──────►│  organizations → agents                  │
+  (Hermes,      │  messages · tasks · groups · delegation  │
+  any LLM CLI)  │  permissions · approvals · budgets       │
+                │  audit · reputation · backups            │
+                │                                          │
+  humans ──────►│  web UI (HTTP) · CLI · Python client     │
+                └──────────────────────────────────────────┘
+```
+
 ## Installation
 
 Requirements: **Python ≥ 3.11**. Linux, macOS and Windows are supported.
