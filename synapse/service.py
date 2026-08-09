@@ -427,17 +427,21 @@ class Service:
         window = self.config.auth_window_seconds
         maximum = self.config.auth_max_failures
         username = name_raw.lower()
-        authfail.prune(conn, window)
-        if authfail.count_recent(conn, username, window) >= maximum:
-            raise ApiError(AUTH_FAILED, "Too many failed attempts, try again later")
         # System identity of the local web interface: the local trust
         # token (0600 file in the run dir) is the only accepted proof.
+        # Exempt from the failure lockout: the token is a local secret,
+        # not a password exposed to remote brute force, and the web
+        # must be able to create the first organization (onboarding)
+        # even after failed human login attempts.
         if username == _WEB_LOCAL:
             if self.web_token_matches(password_raw):
                 authfail.clear(conn, username)
                 return _WEB_LOCAL
             authfail.record(conn, username)
             raise ApiError(AUTH_FAILED, "Invalid credentials")
+        authfail.prune(conn, window)
+        if authfail.count_recent(conn, username, window) >= maximum:
+            raise ApiError(AUTH_FAILED, "Too many failed attempts, try again later")
         row = accounts.get(conn, username)
         if row is None or row["status"] != "active":
             verify_dummy(password_raw)  # constant timing (anti-enumeration)

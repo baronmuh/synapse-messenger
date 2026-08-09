@@ -11,29 +11,29 @@
 <link rel="stylesheet" href="/assets/css/base.css">
 <style>
   /* Onboarding — standalone, light, reuses the webui tokens. */
-  body { background: var(--bg, #f5f0e6); color: var(--ink, #1a1a1a); }
+  body { background: var(--color-paper); color: var(--color-ink); }
   .ob-wrap { max-width: 860px; margin: 0 auto; padding: 32px 20px 64px; }
   .ob-hero { text-align: center; padding: 32px 0 8px; }
   .ob-hero h1 { font-size: 2rem; margin: 0 0 8px; }
-  .ob-hero p { color: var(--muted, #555); font-size: 1.05rem; margin: 0; }
-  .ob-section { margin-top: 28px; padding: 20px 24px; background: var(--card, #fff);
-    border: 1px solid var(--line, #e2dccf); border-radius: 12px; }
+  .ob-hero p { color: var(--color-ink-3); font-size: 1.05rem; margin: 0; }
+  .ob-section { margin-top: 28px; padding: 20px 24px; background: var(--color-paper-3);
+    border: 1px solid var(--color-rule-2); border-radius: 12px; }
   .ob-section h2 { margin-top: 0; font-size: 1.25rem; }
   .ob-section ol, .ob-section ul { margin: 8px 0 0; padding-left: 22px; }
   .ob-section li { margin: 6px 0; }
   .ob-query { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .92rem;
-    background: var(--bg-soft, #faf7f0); border: 1px solid var(--line, #e2dccf);
+    background: var(--color-paper-2); border: 1px solid var(--color-rule-2);
     border-radius: 8px; padding: 12px 14px; white-space: pre-wrap; margin: 10px 0; }
   .ob-btn { display: inline-block; margin-top: 12px; padding: 10px 18px;
-    background: var(--accent, #3a5a8c); color: #fff; border-radius: 8px;
+    background: var(--color-accent); color: var(--color-accent-ink); border-radius: 8px;
     text-decoration: none; font-weight: 600; }
   .ob-btn:hover { filter: brightness(1.05); }
   .ob-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 12px; margin-top: 12px; }
-  .ob-step { border: 1px solid var(--line, #e2dccf); border-radius: 10px; padding: 12px; }
+  .ob-step { border: 1px solid var(--color-rule-2); border-radius: 10px; padding: 12px; }
   .ob-step b { display: block; margin-bottom: 4px; }
-  .ob-note { font-size: .92rem; color: var(--muted, #555); margin-top: 10px; }
-  .ob-foot { text-align: center; color: var(--muted, #888); font-size: .85rem;
+  .ob-note { font-size: .92rem; color: var(--color-ink-3); margin-top: 10px; }
+  .ob-foot { text-align: center; color: var(--color-ink-3); font-size: .85rem;
     margin-top: 40px; }
 </style>
 </head>
@@ -82,7 +82,7 @@ work processes, the tools used, the constraints, etc.</div>
     organization, run research, determine which agents, profiles, skills
     and permissions are needed, then <b>present its plan and wait for
     your explicit validation</b> before creating anything.</p>
-    <a class="ob-btn" href="/">Create my first company</a>
+    <a class="ob-btn" href="/login">Create my first company</a>
     <p class="ob-note">Tip: be precise about roles, objectives and
     constraints — the richer your description, the better the proposed
     architecture.</p>
@@ -119,7 +119,7 @@ work processes, the tools used, the constraints, etc.</div>
       <li>Communicate with them (messages, tasks).</li>
       <li>Consult the information of your organization.</li>
     </ul>
-    <a class="ob-btn" href="/" >Go to the login</a>
+    <a class="ob-btn" href="/login">Go to the login</a>
   </div>
 
   <div class="ob-foot">Synapse — local-first, your data stays with you.</div>
