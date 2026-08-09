@@ -120,18 +120,52 @@ Verification point 5.1: `"$SYNAPSE_BASE/venv/bin/synapse" server status --json`
 shows `"state": "running"` and `"socket_ok": true`.
 
 Troubleshooting 5: if it fails, read
-`$SYNAPSE_BASE/logs/*.log`; fix the root cause (port/socket conflicts,
-missing dirs), retry up to 3 times.
+`$SYNAPSE_BASE/logs/*.log`; fix the root cause (a leftover socket file
+in `$SYNAPSE_BASE/run/`, missing dirs), retry up to 3 times. Note: the
+server uses a Unix socket (no network port) on Linux/macOS, and a
+loopback TCP port only on Windows (`transport_port` in the config, 7910
+by default) — that Windows port can conflict too; pick a free one the
+same way as the web port below.
 
 ## Step 6 — Start the web interface
+
+First, pick the web port: use 8080 when it is free, otherwise choose
+the first free port above 8080 (a common conflict — another local web
+service may already listen on 8080; the web interface does NOT change
+port automatically and would fail to start):
+
+```bash
+WEB_PORT=8080
+# check whether 8080 is already used by another process
+if curl -fsS -o /dev/null --max-time 2 http://127.0.0.1:8080/ 2>/dev/null; then
+  echo "port 8080 is already in use by another service"
+  for p in $(seq 8081 8099); do
+    if ! curl -fsS -o /dev/null --max-time 2 "http://127.0.0.1:$p/" 2>/dev/null; then
+      WEB_PORT=$p
+      break
+    fi
+  done
+fi
+echo "using web port: $WEB_PORT"
+export SYNAPSE_WEB_PORT="$WEB_PORT"
+```
+
+Then start the web interface:
 
 ```bash
 "$SYNAPSE_BASE/venv/bin/synapse" web start
 ```
 
 Verification point 6.1: `synapse web status --json` shows running, and
-`curl -fsS -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/` returns
-`200`. (Port may differ if `SYNAPSE_WEB_PORT` is set.)
+`curl -fsS -o /dev/null -w "%{http_code}" "http://127.0.0.1:$WEB_PORT/"` returns
+`200`.
+
+Troubleshooting 6: if `web start` fails with "the web interface did not
+start within 15s", the port may be taken by another process — check
+`ss -tlnp | grep ":$WEB_PORT"` (Linux) or `netstat -ano | findstr
+":$WEB_PORT"` (Windows), then re-run the port-picking block above with a
+different port (or set `SYNAPSE_WEB_PORT=<free>` manually). The exact
+cause is in `$SYNAPSE_BASE/logs/web.error.log`.
 
 ## Step 7 — End-to-end smoke test (proof the installation works)
 
@@ -223,18 +257,20 @@ Verification point 9.1: `ls "$FAMILY_DIR"` shows the umbrella and the
 ## Step 10 — Open the interactive onboarding guide
 
 ```bash
+# In a fresh shell, recover the web port chosen in Step 6:
+WEB_PORT="${SYNAPSE_WEB_PORT:-8080}"
 # The web interface already serves /onboarding when no org exists.
 # Tell the user to open:
-#   http://127.0.0.1:8080/onboarding
+#   http://127.0.0.1:$WEB_PORT/onboarding
 # If the browser does not open automatically, run:
-python3 -m webbrowser http://127.0.0.1:8080/onboarding
+python3 -m webbrowser "http://127.0.0.1:$WEB_PORT/onboarding"
 ```
 
 ## Step 11 — Final report to the user (human-friendly, in the user's language)
 
 Report:
 - what was installed (version, paths: config, data, org password file);
-- the web URL (`http://127.0.0.1:8080/`);
+- the web URL (`http://127.0.0.1:${SYNAPSE_WEB_PORT:-8080}/`);
 - how to start/stop (`synapse server start|stop`, `synapse web start|stop`);
 - that the `synapse` command now works directly in any terminal
   (persistent — nothing to do again);
