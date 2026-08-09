@@ -17,7 +17,6 @@ from .common import (
     emit_error,
     read_password,
     read_web_token,
-    resolve_config,
 )
 
 GROUP = "api"

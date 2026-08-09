@@ -117,7 +117,6 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--config", default=None)
     d.add_argument("--agent-name", required=True)
     d.add_argument("--port", type=int, default=8090)
-    d.add_argument("--token", required=True)
     d.add_argument("--log-level", default=None)
     d.set_defaults(daemon_run="a2a")
 
@@ -133,16 +132,22 @@ def _run_daemon(args: argparse.Namespace) -> int:
     if args.daemon_run == "web":
         daemon.run_web_daemon(args.config, args.port, args.log_level)
         return 0
-    # a2a: the agent's password arrives on stdin (parent's pipe).
+    # a2a: the agent's password and the bridge access token arrive on
+    # stdin (parent's pipe — never as arguments nor environment).
     import sys as _sys
 
     password = _sys.stdin.readline().rstrip("\n")
+    token = _sys.stdin.readline().rstrip("\n")
     if not password:
         print("synapse _daemon a2a: agent password missing",
               file=_sys.stderr)
         return 1
-    daemon.run_a2a_daemon(args.config, args.agent_name, args.port, args.token,
-                          args.log_level, password)
+    if not token:
+        print("synapse _daemon a2a: bridge access token missing",
+              file=_sys.stderr)
+        return 1
+    daemon.run_a2a_daemon(args.config, args.agent_name, args.port,
+                          token, args.log_level, password)
     return 0
 
 

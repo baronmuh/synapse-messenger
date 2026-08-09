@@ -34,16 +34,16 @@ PyPI; real proofs only.
 
 ## Installation
 
-Install the family into the Architect profile (the profile that will
-run the workflow — resolved dynamically, no fixed name):
+Copy the family into the Architect profile:
 
 ```bash
-cp -r synapse_architecte "$HERMES_HOME/skills/"
+cp -r synapse_architecte ~/.hermes/profiles/synapse-architect/skills/
 ```
 
-The umbrella is the entry point of the family.
+The umbrella replaces the former `synapse-org-architect` skill.
 
 ## Status
 
-- Published in this repository (`synapse_architecte/`).
+- Developed in the repo, installed in the `synapse-architect` profile.
+- **Not pushed to GitHub yet** (pending user green light).
 - All content in English.

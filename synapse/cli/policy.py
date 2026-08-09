@@ -17,6 +17,7 @@ from ..client import ApiClientError, Client, ClientTransportError
 from .common import (
     EXIT_OK,
     emit,
+    api_error,
     emit_error,
     normalize_datetime,
     resolve_config,
@@ -131,7 +132,7 @@ def _cmd_show(args: argparse.Namespace) -> int:
     try:
         data = _client(config).get_organization_policy(org, password)
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
     rows = [[k, str(v)] for k, v in sorted(data.items())]
@@ -158,7 +159,7 @@ def _cmd_set(args: argparse.Namespace) -> int:
             incoming, outgoing, org, password
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(
         args, data,
         f"Policies of '{args.org}': incoming external "
@@ -175,7 +176,7 @@ def _cmd_escalation(args: argparse.Namespace) -> int:
         try:
             data = client.get_escalation_policy(org, password)
         except (ApiClientError, ClientTransportError) as exc:
-            return _api_error(exc)
+            return api_error(exc)
         if getattr(args, "json", False):
             return emit(args, data)
         rows = [[k, str(v)] for k, v in sorted(data.items())]
@@ -197,10 +198,10 @@ def _cmd_escalation(args: argparse.Namespace) -> int:
             enabled, due_after_seconds, failed_after_seconds, targets, org, password
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data,
                 f"Escalation policy of '{args.org}' updated "
-                f"(cible : {targets}, retard max : {args.max_hours or 'actuel'} h).")
+                f"(target: {targets}, max delay: {args.max_hours or 'current'} h).")
 
 
 def _cmd_delegate(args: argparse.Namespace) -> int:
@@ -212,7 +213,7 @@ def _cmd_delegate(args: argparse.Namespace) -> int:
             args.task, args.agent, expires, my_name, password
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data,
                 f"Task {args.task} delegated to {args.agent} "
                 f"(due {args.expires}).")
@@ -226,7 +227,7 @@ def _cmd_revoke(args: argparse.Namespace) -> int:
             args.task, args.agent, my_name, password
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data,
                 f"Delegation of task {args.task} to {args.agent} revoked.")
 
@@ -239,7 +240,7 @@ def _cmd_delegations(args: argparse.Namespace) -> int:
             my_name, password, limit=args.limit, cursor=args.cursor
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
     rows = [
@@ -249,11 +250,6 @@ def _cmd_delegations(args: argparse.Namespace) -> int:
     ]
     print(table(rows, ["delegator", "task", "due"]))
     if data.get("next_cursor"):
-        print(f"(page suivante : --cursor {data['next_cursor']})")
+        print(f"(next page: --cursor {data['next_cursor']})")
     return EXIT_OK
 
-
-def _api_error(exc: Exception) -> int:
-    if isinstance(exc, ClientTransportError):
-        return emit_error(f"service indisponible : {exc}", code=3)
-    return emit_error(exc.message, api_code=exc.code)  # type: ignore[attr-defined]

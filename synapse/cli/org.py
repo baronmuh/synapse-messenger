@@ -18,6 +18,7 @@ from .common import (
     EXIT_OK,
     CliError,
     emit,
+    api_error,
     emit_error,
     getpass_get,
     read_password,
@@ -199,7 +200,7 @@ def _cmd_list(args: argparse.Namespace) -> int:
         data = _client(config).list_orgs(my_name, password,
                                          include_disabled=args.all)
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
     rows = [[o["organization_name"]] for o in data.get("organizations", [])]
@@ -222,9 +223,9 @@ def _cmd_status(args: argparse.Namespace) -> int:
     except ApiClientError as exc:
         if exc.code == "AUTH_FAILED":
             return _status_disabled_org(config, args, name, client)
-        return _api_error(exc)
+        return api_error(exc)
     except ClientTransportError as exc:
-        return _api_error(exc)
+        return api_error(exc)
     try:
         metrics = client.get_org_metrics(name, password)
     except (ApiClientError, ClientTransportError):
@@ -301,7 +302,7 @@ def _cmd_disable(args: argparse.Namespace) -> int:
     try:
         data = _client(config).disable_org(args.name, my_name, password)
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data, f"Organization '{args.name}' deactivated (absolute freeze).")
 
 
@@ -319,7 +320,7 @@ def _cmd_password(args: argparse.Namespace) -> int:
             new_password, org, password
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data,
                 f"Password of organization '{args.name}' changed "
                 "(the human delegation follows automatically).")
@@ -333,7 +334,7 @@ def _cmd_agents(args: argparse.Namespace) -> int:
             my_name, password, limit=args.limit, cursor=args.cursor
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
     rows = [[u] for u in data.get("usernames", [])]
@@ -349,13 +350,18 @@ def _cmd_structure(args: argparse.Namespace) -> int:
     try:
         data = _client(config).get_org_structure(org, password)
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
     for dept in data.get("departments", []):
-        print(f"{dept.get('department_name')} ({dept.get('role') or '—'})")
+        print(dept.get("department_name"))
         for member in dept.get("members", []):
-            print(f"  - {member}")
+            # the role is per-member, not per-department
+            print(f"  - {member.get('username')} ({member.get('role') or '—'})")
+    if data.get("unassigned_agents"):
+        print("unassigned agents :")
+        for username in data["unassigned_agents"]:
+            print(f"  - {username}")
     return EXIT_OK
 
 
@@ -365,7 +371,7 @@ def _cmd_metrics(args: argparse.Namespace) -> int:
     try:
         data = _client(config).get_org_metrics(org, password)
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
     rows = [[k, str(v)] for k, v in sorted(data.items())]
@@ -382,7 +388,7 @@ def _cmd_audit(args: argparse.Namespace) -> int:
             command=args.command_filter, limit=args.limit, cursor=args.cursor,
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
     rows = [
@@ -395,9 +401,3 @@ def _cmd_audit(args: argparse.Namespace) -> int:
         print(f"(next page: --cursor {data['next_cursor']})")
     return EXIT_OK
 
-
-def _api_error(exc: Exception) -> int:
-    """API error: JSON envelope + code 1 (refusal) or 3 (transport)."""
-    if isinstance(exc, ClientTransportError):
-        return emit_error(f"service unavailable: {exc}", code=3)
-    return emit_error(exc.message, api_code=exc.code)  # type: ignore[attr-defined]

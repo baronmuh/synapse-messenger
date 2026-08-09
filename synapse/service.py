@@ -17,8 +17,6 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
-import os
-import secrets
 import sqlite3
 import threading
 import time
@@ -508,6 +506,10 @@ class Service:
             return org_name
         if accounts.get(conn, org_name) is not None:
             # An agent cannot authenticate as the organization.
+            # verify_dummy keeps the response time constant (the same
+            # Argon2id cost as every other failure) so that the
+            # existence of an agent account is not revealed by timing.
+            verify_dummy(password_raw)
             raise ApiError(ACCESS_DENIED, "Command reserved for organizations")
         verify_dummy(password_raw)  # constant timing (anti-enumeration)
         authfail.record(conn, key)
@@ -780,12 +782,16 @@ def _human_create_org(service: Service, conn: sqlite3.Connection, p: dict, me: s
     org_name = p["organization_name"]
     human_name = human_username_for(org_name)
     human_hash = human_password_sentinel()  # never verified (delegated to the org)
+    # The Argon2id hash (expensive) runs outside the transaction:
+    # the write lock is not held during the computation (same pattern
+    # as _org_create_agent).
+    org_password_hash = hash_password(p["organization_password"])
     with db.begin_immediate(conn):
         if organizations.get(conn, org_name) is not None:
             raise ApiError(INVALID_ARGUMENT, "Organization name already used")
         if accounts.get(conn, human_name) is not None:
             raise ApiError(INVALID_ARGUMENT, "Human account name already used")
-        organizations.insert(conn, org_name, hash_password(p["organization_password"]))
+        organizations.insert(conn, org_name, org_password_hash)
         accounts.insert(
             conn,
             human_name,
@@ -1244,7 +1250,7 @@ def _get_messages(service: Service, conn: sqlite3.Connection, p: dict, me: str) 
         )
     has_more = len(rows) > limit
     rows = rows[:limit]
-    messages_out = [queries_row_to_message_as_of(r, boundary) for r in rows]
+    messages_out = [messages.row_to_message_as_of(r, boundary) for r in rows]
     next_cursor = None
     if has_more:
         last_row = rows[-1]
@@ -1277,7 +1283,7 @@ def _get_conversation(service: Service, conn: sqlite3.Connection, p: dict, me: s
         )
     has_more = len(rows) > limit
     rows = rows[:limit]
-    messages_out = [queries_row_to_message_as_of(r, boundary) for r in rows]
+    messages_out = [messages.row_to_message_as_of(r, boundary) for r in rows]
     next_cursor = None
     if has_more:
         last_row = rows[-1]
@@ -1429,7 +1435,7 @@ def _check_message_budget(conn: sqlite3.Connection, sender: str) -> None:
         return
     since = now_utc_offset(3600)
     if tasks.messages_in_hour(conn, sender, since) >= budget["max_messages_per_hour"]:
-        raise ApiError(QUOTA_EXCEEDED, "Budget de messages horaire atteint")
+        raise ApiError(QUOTA_EXCEEDED, "Hourly message budget exceeded")
 
 
 def _check_escalations(
@@ -1458,6 +1464,18 @@ def _check_escalations(
         failed_before=failed_before,
     ):
         task_id = row["task_id"]
+        # F9: the escalation must respect the target's active-task
+        # budget. If it is reached, the task stays with the current
+        # assignee (it will be re-evaluated on the next write) — the
+        # escalation must not raise: it runs inside the caller's
+        # transaction and would fail the triggering command.
+        budget = conn.execute(
+            "SELECT max_active_tasks FROM agent_budgets WHERE username = ?",
+            (escalate_to,),
+        ).fetchone()
+        if budget is not None and budget["max_active_tasks"] is not None:
+            if tasks.active_count(conn, escalate_to) >= budget["max_active_tasks"]:
+                continue
         tasks.set_assignee(conn, task_id, escalate_to, now)
         tasks.add_event(conn, task_id, "escalated", escalate_to, "automatic escalation", now)
         task_dict = {"task_id": task_id, "creator_username": row["creator_username"],
@@ -1676,6 +1694,11 @@ def _agent_request_approval(service: Service, conn: sqlite3.Connection, p: dict,
         if row["state"] in tasks.TERMINAL_STATES or row["state"] == tasks.STATE_PENDING_APPROVAL:
             raise ApiError(TASK_STATE_INVALID)
         _require_active_account(conn, p["approver_username"])
+        # F8 human-in-the-loop guardrail: the approver must be a third
+        # party. Self-approval would make the validation a no-op.
+        if p["approver_username"] == me:
+            raise ApiError(INVALID_ARGUMENT,
+                           "The approver must be different from the requester")
         tasks.set_approver(conn, p["task_id"], p["approver_username"], at)
         tasks.set_state(conn, p["task_id"], tasks.STATE_PENDING_APPROVAL, None, at)
         tasks.add_event(conn, p["task_id"], "approval_requested", me,
@@ -1879,21 +1902,39 @@ def _org_set_agent_budget(
         if p["max_active_tasks"] is None and p["max_messages_per_hour"] is None:
             conn.execute("DELETE FROM agent_budgets WHERE username = ?", (p["username"],))
         else:
+            # Partial update: a null value means "not provided", so the
+            # existing limit is preserved (COALESCE) instead of being
+            # silently erased by NULL.
             conn.execute(
                 "INSERT INTO agent_budgets (username, max_active_tasks, "
                 "max_messages_per_hour) VALUES (?, ?, ?) "
                 "ON CONFLICT(username) DO UPDATE SET "
-                "max_active_tasks = excluded.max_active_tasks, "
-                "max_messages_per_hour = excluded.max_messages_per_hour",
+                "max_active_tasks = COALESCE(excluded.max_active_tasks, "
+                "agent_budgets.max_active_tasks), "
+                "max_messages_per_hour = COALESCE(excluded.max_messages_per_hour, "
+                "agent_budgets.max_messages_per_hour)",
                 (p["username"], p["max_active_tasks"], p["max_messages_per_hour"]),
             )
         _audit(conn, organization_name=org_name, at=at, actor_username=org_name,
                command="set_agent_budget", target_type="agent",
                target_username=p["username"], outcome="ok")
+    # Report the values actually stored (a partial update preserves the
+    # other limit via COALESCE — echoing the request would lie about it).
+    stored = conn.execute(
+        "SELECT max_active_tasks, max_messages_per_hour FROM agent_budgets "
+        "WHERE username = ?",
+        (p["username"],),
+    ).fetchone()
+    if stored is None:
+        return {
+            "username": p["username"],
+            "max_active_tasks": None,
+            "max_messages_per_hour": None,
+        }
     return {
         "username": p["username"],
-        "max_active_tasks": p["max_active_tasks"],
-        "max_messages_per_hour": p["max_messages_per_hour"],
+        "max_active_tasks": stored["max_active_tasks"],
+        "max_messages_per_hour": stored["max_messages_per_hour"],
     }
 
 
@@ -2103,6 +2144,15 @@ def _org_get_metrics(service: Service, conn: sqlite3.Connection, p: dict, org_na
             "WHERE accounts.organization_name = ? AND messages.created_at > ?",
             (org_name, now_utc_offset(3600)),
         ).fetchone()["n"]
+        group_messages_hour = conn.execute(
+            "SELECT COUNT(*) AS n FROM group_messages "
+            "JOIN accounts ON accounts.username = group_messages.sender_username "
+            "WHERE accounts.organization_name = ? AND group_messages.created_at > ?",
+            (org_name, now_utc_offset(3600)),
+        ).fetchone()["n"]
+        # Same coverage as the F9 quota (messages_in_hour counts both
+        # channels): the metric must not undercount group traffic.
+        messages_hour = int(messages_hour) + int(group_messages_hour)
     return {
         "organization_name": org_name,
         "total_agents": total_agents,
@@ -2183,6 +2233,10 @@ def _agent_create_group(service: Service, conn: sqlite3.Connection, p: dict, me:
             "INSERT INTO group_members (group_id, username, added_by, added_at) VALUES (?, ?, ?, ?)",
             (group_id, me, me, at),
         )
+        org = _org_of(conn, me)
+        _audit(conn, organization_name=org, at=at, actor_username=me,
+               command="create_group", target_type="group",
+               target_username=group_id, outcome=p["name"])
     return {"group_id": group_id, "name": p["name"], "created_by": me, "created_at": at}
 
 
@@ -2205,10 +2259,15 @@ def _agent_add_group_member(service: Service, conn: sqlite3.Connection, p: dict,
             "VALUES (?, ?, ?, ?)",
             (p["group_id"], p["username"], me, at),
         )
+        org = _org_of(conn, me)
+        _audit(conn, organization_name=org, at=at, actor_username=me,
+               command="add_group_member", target_type="group",
+               target_username=p["group_id"], outcome=p["username"])
     return {"group_id": p["group_id"], "username": p["username"]}
 
 
 def _agent_remove_group_member(service: Service, conn: sqlite3.Connection, p: dict, me: str) -> dict:
+    at = now_utc()
     with db.begin_immediate(conn):
         group = _group_require_member(conn, p["group_id"], me)
         # Only the group creator removes another member; a member can
@@ -2221,6 +2280,10 @@ def _agent_remove_group_member(service: Service, conn: sqlite3.Connection, p: di
             "DELETE FROM group_members WHERE group_id = ? AND username = ?",
             (p["group_id"], p["username"]),
         )
+        org = _org_of(conn, me)
+        _audit(conn, organization_name=org, at=at, actor_username=me,
+               command="remove_group_member", target_type="group",
+               target_username=p["group_id"], outcome=p["username"])
     return {"group_id": p["group_id"], "username": p["username"]}
 
 
@@ -2273,6 +2336,10 @@ def _agent_send_group_message(
             "sender_username, content, created_at) VALUES (?, ?, ?, ?, ?, ?)",
             (message_id, p["group_id"], p["client_message_id"], me, p["message"], at),
         )
+        org = _org_of(conn, me)
+        _audit(conn, organization_name=org, at=at, actor_username=me,
+               command="send_group_message", target_type="group",
+               target_username=p["group_id"], outcome=message_id)
     return {
         "message_id": message_id,
         "group_id": p["group_id"],
@@ -2531,6 +2598,9 @@ def _org_create_observer_account(
             "UPDATE accounts SET is_observer = 1 WHERE username = ?",
             (p["observer_name"],),
         )
+        _audit(conn, organization_name=org_name, at=now_utc(), actor_username=org_name,
+               command="create_observer_account", target_type="agent",
+               target_username=p["observer_name"], outcome="created")
     return {
         "observer_name": p["observer_name"],
         "status": "active",
@@ -2549,6 +2619,9 @@ def _org_revoke_observer_account(
             "UPDATE accounts SET status = 'disabled' WHERE username = ?",
             (p["observer_name"],),
         )
+        _audit(conn, organization_name=org_name, at=now_utc(), actor_username=org_name,
+               command="revoke_observer_account", target_type="agent",
+               target_username=p["observer_name"], outcome="revoked")
     return {"observer_name": p["observer_name"], "status": "disabled"}
 
 
@@ -2645,10 +2718,6 @@ def _agent_get_org_snapshot(
         "conversations": [dict(c) for c in conversations],
         "tasks": [dict(t) for t in tasks],
     }
-
-
-def queries_row_to_message_as_of(row: sqlite3.Row, boundary: str) -> dict:
-    return messages.row_to_message_as_of(row, boundary)
 
 
 _ORG_HANDLERS: dict[str, Callable[..., dict]] = {

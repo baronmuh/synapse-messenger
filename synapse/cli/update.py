@@ -17,6 +17,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from ..platform import default_paths
 from .common import (
     EXIT_OK,
     emit,
@@ -162,7 +163,7 @@ def _a2a_cli_restart(config, agent_name: str, port: int) -> bool:
     """Restarts the bridge via the CLI when the file secrets exist
     (non-systemd mode). Returns False if the secrets are absent — in that
     case, the operator must restart the bridge manually."""
-    secrets_dir = os.environ.get("SYNAPSE_SECRETS_DIR") or _default_paths()["secrets"]
+    secrets_dir = os.environ.get("SYNAPSE_SECRETS_DIR") or default_paths()["secrets"]
     password_file = os.path.join(secrets_dir, f"a2a-{agent_name}.password")
     token_file = os.path.join(secrets_dir, f"a2a-{agent_name}.token")
     if not (os.path.isfile(password_file) and os.path.isfile(token_file)):
@@ -203,7 +204,9 @@ def _cmd_check(args: argparse.Namespace) -> int:
     config = resolve_config(args)
     local = project_version()
     url = _update_url(config)
-    payload = {"installed": local, "remote": None, "up_to_date": True,
+    # up_to_date is None when unknown (no channel configured or the
+    # channel payload has no version) — never a fake "True".
+    payload = {"installed": local, "remote": None, "up_to_date": None,
                "channel": "no remote channel configured (SYNAPSE_UPDATE_URL)"}
     if url:
         try:
@@ -212,9 +215,11 @@ def _cmd_check(args: argparse.Namespace) -> int:
             import json as json_mod
 
             data = json_mod.loads(remote)
-            payload["remote"] = data.get("version")
+            remote_version = data.get("version")
+            payload["remote"] = remote_version
             payload["channel"] = url
-            payload["up_to_date"] = data.get("version") == local
+            if isinstance(remote_version, str):
+                payload["up_to_date"] = remote_version == local
         except (OSError, urllib.error.URLError, TimeoutError,
                 ValueError) as exc:
             payload["remote_error"] = str(exc)
@@ -223,7 +228,10 @@ def _cmd_check(args: argparse.Namespace) -> int:
         return emit(args, payload)
     print(f"Installed version: {local}")
     if payload.get("remote"):
-        state = "up to date" if payload["up_to_date"] else "UPDATE AVAILABLE"
+        if payload["up_to_date"] is None:
+            state = "unknown (the channel payload has no version field)"
+        else:
+            state = "up to date" if payload["up_to_date"] else "UPDATE AVAILABLE"
         print(f"Remote channel ({url}) : {payload['remote']} — {state}")
     elif payload.get("remote_error"):
         print(f"Remote channel unreachable: {payload['remote_error']}")

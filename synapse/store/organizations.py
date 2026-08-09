@@ -2,8 +2,9 @@
 
 An organization is a permanent administrative principal: unique name,
 Argon2id hash of its password, external communication policies.
-It is never deactivated, deleted nor renamed (section 3.1 of the
-specification).
+It is never deleted nor renamed (section 3.1 of the specification);
+it can be deactivated (disable_org, SPEC-WEB §7.2 — reversible
+freeze, data intact).
 """
 
 from __future__ import annotations

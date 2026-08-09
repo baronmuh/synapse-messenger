@@ -11,7 +11,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
-from ..errors import ApiError, TASK_DEPENDENCY_NOT_MET, TASK_STATE_INVALID
+from ..errors import ApiError, TASK_STATE_INVALID
 
 # State machine states (SPEC.txt F5/F8).
 STATE_SUBMITTED = "submitted"

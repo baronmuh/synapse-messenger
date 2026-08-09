@@ -26,8 +26,6 @@ import getpass
 import importlib.metadata
 import json
 import os
-import signal
-import socket
 import sys
 import time
 from datetime import datetime, timezone
@@ -49,7 +47,7 @@ EXIT_RUNNING = 4
 # Project version for PID files and ``update check``. The source
 # of truth is the installed package; in development (not installed), we
 # fall back to the version declared in pyproject.toml.
-_FALLBACK_VERSION = "3.1.2"
+_FALLBACK_VERSION = "3.1.3"
 
 
 class CliError(Exception):
@@ -105,6 +103,18 @@ def resolve_config(args: argparse.Namespace | None = None) -> Config:
         return Config.load(path)
     except ValueError as exc:
         raise CliError(str(exc)) from exc
+
+
+def config_arg_path(args: argparse.Namespace | None = None) -> str:
+    """Absolute config path for daemons (SPEC_CLI §2 resolution order:
+    ``--config``/``--config-root`` > ``$SYNAPSE_CONFIG`` >
+    ``$Synapse_CONFIG``); empty string when nothing was provided."""
+    if args is not None:
+        path = getattr(args, "config", None) or getattr(args, "config_root", None)
+        if path:
+            return os.path.abspath(path)
+    path = os.environ.get("SYNAPSE_CONFIG") or os.environ.get("Synapse_CONFIG")
+    return os.path.abspath(path) if path else ""
 
 
 def run_dir(config: Config) -> str:
@@ -462,6 +472,17 @@ def emit_error(message: str, *, code: int = EXIT_ERROR,
                      ensure_ascii=False))
     print(f"{PROG}: {message}", file=sys.stderr)
     return code
+
+
+def api_error(exc: Exception) -> int:
+    """Maps an API/transport error to the CLI exit contract: transport
+    failures (service down) exit 3, API refusals exit 1 with the API
+    error code in the envelope. Shared by every command group."""
+    from ..client import ClientTransportError
+
+    if isinstance(exc, ClientTransportError):
+        return emit_error(f"service unavailable: {exc}", code=EXIT_UNAVAILABLE)
+    return emit_error(exc.message, api_code=exc.code)  # type: ignore[attr-defined]
 
 
 def table(rows: list[list[str]], headers: list[str] | None = None) -> str:

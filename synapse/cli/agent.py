@@ -10,6 +10,7 @@ from .common import (
     getpass_get,
     EXIT_OK,
     emit,
+    api_error,
     emit_error,
     resolve_config,
     resolve_identity,
@@ -128,6 +129,8 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
                    help="reserved: the API has no monetary budget (see --help)")
     a.add_argument("--max-active-tasks", type=int, default=None)
     a.add_argument("--max-messages-per-hour", type=int, default=None)
+    a.add_argument("--clear", action="store_true",
+                   help="removes all budgets of the agent")
     a.add_argument("--json", action="store_true",
                    help="machine JSON output")
     a.set_defaults(run=_cmd_budget)
@@ -204,8 +207,8 @@ def _cmd_create(args: argparse.Namespace) -> int:
     config = resolve_config(args)
     if args.name.endswith("_humain"):
         return emit_error(
-            f"name refused: the '_humain' suffix is reserved for human accounts "
-            f"(SPEC-WEB)"
+            "name refused: the '_humain' suffix is reserved for human accounts "
+            "(SPEC-WEB)"
         )
     description = args.description or f"Agent {args.name} (created via CLI)"
     if args.password_stdin:
@@ -221,7 +224,7 @@ def _cmd_create(args: argparse.Namespace) -> int:
             can_see_org_agents=args.visible,
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if args.department is not None:
         try:
             _client(config).set_agent_department(
@@ -238,11 +241,11 @@ def _cmd_create(args: argparse.Namespace) -> int:
                         org, password,
                     )
                 except (ApiClientError, ClientTransportError) as retry_exc:
-                    return _api_error(retry_exc)
+                    return api_error(retry_exc)
             else:
-                return _api_error(exc)
+                return api_error(exc)
         except ClientTransportError as exc:
-            return _api_error(exc)
+            return api_error(exc)
     if args.capability:
         try:
             # The card is that of the AUTHENTICATED account: we use the new
@@ -252,7 +255,7 @@ def _cmd_create(args: argparse.Namespace) -> int:
                 args.capability, args.name, new_password, domain=args.domain
             )
         except (ApiClientError, ClientTransportError) as exc:
-            return _api_error(exc)
+            return api_error(exc)
     return emit(args, data, f"Agent '{args.name}' created (state {data.get('status')}).")
 
 
@@ -265,7 +268,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
         card = client.get_agent_card(args.name, my_name, password)
         reputation = client.get_agent_reputation(args.name, my_name, password)
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     payload = {"username": args.name, "description": description,
                "card": card, "reputation": reputation}
     if getattr(args, "json", False):
@@ -297,7 +300,7 @@ def _cmd_description(args: argparse.Namespace) -> int:
             args.name, args.text, org, password
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data, f"Description of agent '{args.name}' replaced.")
 
 
@@ -334,7 +337,7 @@ def _cmd_card(args: argparse.Namespace) -> int:
                 limits=args.limits, estimated_cost=args.estimated_cost,
             )
         except (ApiClientError, ClientTransportError) as exc:
-            return _api_error(exc)
+            return api_error(exc)
         card_public = data.get("card") or data
         state = card_public.get("validation_state") if isinstance(card_public, dict) else None
         return emit(args, data,
@@ -343,7 +346,7 @@ def _cmd_card(args: argparse.Namespace) -> int:
     try:
         data = client.get_agent_card(args.name, my_name, password)
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
     card_public = data.get("card") or data
@@ -369,7 +372,7 @@ def _cmd_department(args: argparse.Namespace) -> int:
             args.name, args.department, args.role, org, password
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data,
                 f"Agent '{args.name}' assigned to department '{args.department}' "
                 f"(role {args.role}).")
@@ -384,7 +387,7 @@ def _cmd_visibility(args: argparse.Namespace) -> int:
             args.name, visible, org, password
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data,
                 f"Agent '{args.name}' {'visible' if visible else 'hidden'} in "
                 "the directory.")
@@ -397,20 +400,26 @@ def _cmd_budget(args: argparse.Namespace) -> int:
             "the API has no monetary budget: budgets are "
             "--max-active-tasks <n> and --max-messages-per-hour <n>"
         )
-    if args.max_active_tasks is None and args.max_messages_per_hour is None:
-        return emit_error(
-            "no budget provided: --max-active-tasks <n> or "
-            "--max-messages-per-hour <n> (both at 0 remove the limits)"
-        )
+    if args.clear:
+        max_active_tasks = None
+        max_messages_per_hour = None
+    else:
+        if args.max_active_tasks is None and args.max_messages_per_hour is None:
+            return emit_error(
+                "no budget provided: --max-active-tasks <n>, "
+                "--max-messages-per-hour <n>, or --clear to remove all limits"
+            )
+        max_active_tasks = args.max_active_tasks
+        max_messages_per_hour = args.max_messages_per_hour
     org, password = resolve_org_auth(config, args)
     try:
         data = _client(config).set_agent_budget(
             args.name, org, password,
-            max_active_tasks=args.max_active_tasks,
-            max_messages_per_hour=args.max_messages_per_hour,
+            max_active_tasks=max_active_tasks,
+            max_messages_per_hour=max_messages_per_hour,
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data, f"Budgets of agent '{args.name}' updated.")
 
 
@@ -428,7 +437,7 @@ def _cmd_password(args: argparse.Namespace) -> int:
             args.name, new_password, org, password
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data, f"Password of agent '{args.name}' changed.")
 
 
@@ -438,7 +447,7 @@ def _cmd_deactivate(args: argparse.Namespace) -> int:
     try:
         data = _client(config).deactivate_agent(args.name, org, password)
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data, f"Agent '{args.name}' deactivated.")
 
 
@@ -448,7 +457,7 @@ def _cmd_reactivate(args: argparse.Namespace) -> int:
     try:
         data = _client(config).reactivate_agent(args.name, org, password)
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data, f"Agent '{args.name}' reactivated.")
 
 
@@ -462,7 +471,7 @@ def _cmd_find(args: argparse.Namespace) -> int:
             name_contains=args.motif, limit=args.limit,
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
     agents = data.get("agents") or data.get("usernames") or []
@@ -492,7 +501,7 @@ def _cmd_create_observer(args: argparse.Namespace) -> int:
             args.name, observer_password, args.description, org, password
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data, f"Observer '{args.name}' created (read-only).")
 
 
@@ -502,7 +511,7 @@ def _cmd_revoke_observer(args: argparse.Namespace) -> int:
     try:
         data = _client(config).revoke_observer_account(args.name, org, password)
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data, f"Observer '{args.name}' revoked.")
 
 
@@ -512,7 +521,7 @@ def _cmd_observers(args: argparse.Namespace) -> int:
     try:
         data = _client(config).list_observers(org, password)
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
     observers = data.get("observers", [])
@@ -524,8 +533,3 @@ def _cmd_observers(args: argparse.Namespace) -> int:
         print(table([[str(o)] for o in observers], ["observers"]))
     return EXIT_OK
 
-
-def _api_error(exc: Exception) -> int:
-    if isinstance(exc, ClientTransportError):
-        return emit_error(f"service unavailable: {exc}", code=3)
-    return emit_error(exc.message, api_code=exc.code)  # type: ignore[attr-defined]

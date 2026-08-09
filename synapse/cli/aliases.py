@@ -102,7 +102,7 @@ def restore_alias_main() -> int:
         else:
             args.append(arg)
     if archive is None:
-        print("synapse-restore : archive manquante", file=sys.stderr)
+        print("synapse-restore : missing archive", file=sys.stderr)
         return 1
     _warn("synapse-restore", f"synapse backup restore {archive} --force")
     return unified_main(["backup", "restore", archive, *args])

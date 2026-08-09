@@ -8,6 +8,7 @@ from ..client import ApiClientError, Client, ClientTransportError
 from .common import (
     EXIT_OK,
     emit,
+    api_error,
     emit_error,
     resolve_config,
     resolve_identity,
@@ -73,7 +74,7 @@ def _cmd_stream(args: argparse.Namespace) -> int:
             my_name, password, limit=args.limit, cursor=args.cursor
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
     events = data.get("events", [])
@@ -82,9 +83,9 @@ def _cmd_stream(args: argparse.Namespace) -> int:
          e.get("by_username", "")]
         for e in events
     ]
-    print(table(rows, ["seq", "type", "horodatage", "acteur"]))
+    print(table(rows, ["seq", "type", "timestamp", "actor"]))
     if data.get("next_cursor"):
-        print(f"(page suivante : --cursor {data['next_cursor']})")
+        print(f"(next page: --cursor {data['next_cursor']})")
     return EXIT_OK
 
 
@@ -94,12 +95,7 @@ def _cmd_retention(args: argparse.Namespace) -> int:
     try:
         data = _client(config).set_event_retention_days(args.days, org, password)
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data,
                 f"Event retention set to {args.days} days.")
 
-
-def _api_error(exc: Exception) -> int:
-    if isinstance(exc, ClientTransportError):
-        return emit_error(f"service indisponible : {exc}", code=3)
-    return emit_error(exc.message, api_code=exc.code)  # type: ignore[attr-defined]

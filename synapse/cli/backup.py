@@ -136,12 +136,14 @@ def _cmd_list(args: argparse.Namespace) -> int:
         for path in sorted(backup_dir.glob("*.synbk"), key=lambda p: p.stat().st_mtime,
                            reverse=True):
             stat = path.stat()
+            # one decryption per archive (the header is read once)
+            header = _header(config, path) or {}
             entries.append({
                 "path": str(path),
                 "name": path.name,
                 "size": stat.st_size,
-                "created_at": _header_date(config, path),
-                "format": _header_format(config, path),
+                "created_at": header.get("created_at"),
+                "format": header.get("format"),
             })
     if getattr(args, "json", False):
         return emit(args, {"backups": entries})
@@ -212,6 +214,11 @@ def _header(config: Config, path: Path) -> dict | None:
     from cryptography.exceptions import InvalidTag
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+    # Read-only operation: never CREATE the backup key here (a simple
+    # `backup list` must not have the side effect of provisioning the
+    # key vault).
+    if not Path(config.backup_key_path).exists():
+        return None
     try:
         data = path.read_bytes()
         if not data.startswith(_MAGIC):

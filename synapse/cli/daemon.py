@@ -157,7 +157,6 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--config", default=None)
     p.add_argument("--agent-name", required=True)
     p.add_argument("--port", type=int, default=8090)
-    p.add_argument("--token", required=True)
     p.add_argument("--log-level", default=None)
 
     args = parser.parse_args(argv)
@@ -166,15 +165,21 @@ def main(argv: list[str] | None = None) -> int:
     elif args.service == "web":
         run_web_daemon(args.config, args.port, args.log_level)
     elif args.service == "a2a":
-        # The agent's password arrives on stdin (the parent reads it and
-        # passes it through the pipe — never as an argument nor an env var).
+        # The agent's password and the bridge access token arrive on
+        # stdin (the parent writes them through the pipe — never as
+        # arguments nor environment variables).
         password = sys.stdin.readline().rstrip("\n")
+        token = sys.stdin.readline().rstrip("\n")
         if not password:
             print("synapse _daemon a2a: agent password missing",
                   file=sys.stderr)
             return 1
-        run_a2a_daemon(args.config, args.agent_name, args.port, args.token,
-                       args.log_level, password)
+        if not token:
+            print("synapse _daemon a2a: bridge access token missing",
+                  file=sys.stderr)
+            return 1
+        run_a2a_daemon(args.config, args.agent_name, args.port,
+                       token, args.log_level, password)
     return 0
 
 
