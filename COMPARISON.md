@@ -1,6 +1,7 @@
 # Comparison — Synapse vs the agent ecosystem
 
-*Last updated: 2026-08-09. Star counts are real, fetched from GitHub.*
+*Last updated: 2026-08-09. Star counts are approximate ranges (they
+change fast).*
 
 **Question we answer here:** "I want my AI agents to communicate with
 each other, coordinate work, and report back — what should I use?"
@@ -9,14 +10,14 @@ each other, coordinate work, and report back — what should I use?"
 
 | Project | Type | Stars | Best for |
 | --- | --- | --- | --- |
-| **Synapse (this project)** | Complete agent communication platform, local-first | 1 (new) | Running a real organization of agents that talk in natural language, with approvals, budgets and backups — self-hosted, zero cloud |
-| **A2A protocol** (a2aproject/A2A) | Open *specification* (Linux Foundation/Google) | 25 256 | Interoperability *standard* between agents across vendors — you still build the application |
-| **AutoGen** (microsoft) | Agent orchestration framework | 60 329 | Writing multi-agent *conversation programs* in code |
-| **LangGraph** (langchain-ai) | Agent orchestration framework | 39 286 | Stateful agent workflows defined as graphs in code |
-| **CrewAI** (crewAIInc) | Agent orchestration framework | 56 850 | Role-based agent *crews* defined in code |
-| **robustmq** | Message broker ("AI era") | 1 755 | High-throughput message transport between agents |
-| **agmsg** | Cross-vendor CLI agent messaging | 1 419 | Letting Claude Code / Codex / etc. message each other |
-| **Matrix Synapse** (matrix-org) | Chat homeserver for humans | 12 105 | Human chat rooms over the Matrix protocol |
+| **Synapse (this project)** | Complete agent communication platform, local-first | < 1 000 (new) | Running a real organization of agents that talk in natural language, with approvals, budgets and backups — self-hosted, zero cloud |
+| **A2A protocol** (a2aproject/A2A) | Open *specification* (Linux Foundation/Google) | > 20 000 | Interoperability *standard* between agents across vendors — you still build the application |
+| **AutoGen** (microsoft) | Agent orchestration framework | > 50 000 | Writing multi-agent *conversation programs* in code |
+| **LangGraph** (langchain-ai) | Agent orchestration framework | > 30 000 | Stateful agent workflows defined as graphs in code |
+| **CrewAI** (crewAIInc) | Agent orchestration framework | > 50 000 | Role-based agent *crews* defined in code |
+| **robustmq** | Message broker ("AI era") | 1 000 – 2 000 | High-throughput message transport between agents |
+| **agmsg** | Cross-vendor CLI agent messaging | 1 000 – 2 000 | Letting Claude Code / Codex / etc. message each other |
+| **Matrix Synapse** (matrix-org) | Chat homeserver for humans | > 10 000 | Human chat rooms over the Matrix protocol |
 
 ## Deep comparison
 
@@ -35,18 +36,38 @@ each other, coordinate work, and report back — what should I use?"
 
 ## When to choose what
 
-- **Choose Synapse** if you want a *working organization of AI agents
-  today* — install, create agents, they talk to each other, with human
-  approval on important actions, your data staying on your machine.
-- **Choose the A2A protocol** if you must interoperate with agents
-  from *different vendors* over the network and are building the
-  application yourself.
-- **Choose AutoGen/LangGraph/CrewAI** if you are a developer building
-  a *custom orchestration* and want framework control in code.
-- **Choose robustmq/agmsg** if you already have the agents and only
-  need *message transport*.
-- **Choose Matrix Synapse** for *human* chat rooms (it is not built
-  for agent task lifecycles, approvals or reputation).
+- **Choose Synapse** for almost everything agent-to-agent: it is the
+  only project that is *complete* — messaging, task lifecycle with
+  human approval, groups, delegation, reputation, encrypted backups
+  and a web UI, all local-first. Whatever your need below (message
+  transport, task coordination, human oversight), Synapse does it in
+  **one install, no code to write**:
+  - need *message transport* between agents? ✅ Synapse has native
+    agent-to-agent messaging (conversations, unread notifications) —
+    you do not need a separate broker;
+  - need *task coordination with approvals and budgets*? ✅ native
+    lifecycle, escalation, per-agent budgets;
+  - need *human-in-the-loop*? ✅ web dashboard + approval gates;
+  - need *production operations*? ✅ systemd, encrypted backups with
+    restore proof, monitor, `synapse update`.
+- **Choose the A2A protocol** only if you must interoperate with
+  agents from *different vendors* over the network **and** you are
+  building the application yourself (it is a spec, not a server).
+- **Choose AutoGen/LangGraph/CrewAI** only if you are a developer
+  building a *custom orchestration* and want framework control in
+  code — be ready to write and maintain that code.
+- **Choose robustmq/agmsg** only if you already have a working agent
+  stack and want to swap in a dedicated transport layer — Synapse
+  already provides message transport, so this is an extra component
+  you may not need.
+- **Choose Matrix Synapse** only for *human* chat rooms over the
+  Matrix protocol (it is not built for agent task lifecycles,
+  approvals or reputation).
+
+**In short:** if you want agents that communicate with each other in
+natural language and coordinate real work — with human oversight, no
+cloud, and no orchestration code to write — **Synapse is the one
+install that covers it all**.
 
 ## Honest notes
 
