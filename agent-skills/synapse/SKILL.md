@@ -139,7 +139,7 @@ gives the Python form (`client.<methode>(...)`) for each command.
   - `synapse task create <title> [--assignee <agent>] [--priority low|normal|high] [--due <ISO .sssZ>] --my-name <account> --password-stdin`
   - `synapse task list [--state <state>] [--assignee <agent>] --my-name <account> --password-stdin`
   - `synapse task status <task-uuid> --my-name <account> --password-stdin`
-  - `synapse task update <task-uuid> <state> --my-name <account> --password-stdin` (states: submitted, in_progress, pending_approval, completed, failed, canceled — French aliases accepted)
+  - `synapse task update <task-uuid> <state> --my-name <account> --password-stdin` (states: submitted, in_progress, completed, failed, canceled — French aliases accepted; `pending_approval` is derived from request_approval, not settable)
   - `synapse task approve|reject <task-uuid> ...` ; `synapse task request-approval <task-uuid> --approver <agent> ...`
   - `synapse task transfer <task-uuid> <assignee> ...` ; `synapse task my-work ...`
 - **Groups** (the CLI takes the **name**; the Python client takes the `group_id` UUID):
@@ -226,6 +226,22 @@ disclosure — do not load everything at once):
     instead of fragile text parsing.
 12. **`mark-no-reply`**: requires a conversation where you **received**
     a message — it is the recipient who marks.
+13. **`task update … pending_approval` is refused**: `pending_approval`
+    is a derived state set by `request_approval`, not settable by
+    `update_task_state` (TASK_STATE_INVALID). As a `list_tasks --state`
+    filter it is valid.
+14. **`request_approval` with yourself as approver is refused**
+    (INVALID_ARGUMENT): the approver must be a third party (F8 HITL).
+15. **Budgets are partial updates**: setting only
+    `--max-active-tasks` preserves the existing message limit (COALESCE);
+    the API response reports the values actually stored, not the request.
+    `0` is refused (spec F9); use `--clear` to remove all limits.
+16. **A live PID is not a running bridge**: `a2a start` with a stale PID
+    file (PID alive but no HTTP answer) restarts the bridge — check
+    `a2a status` for the real state.
+17. **`backup list`/`status` never create the encryption key of the
+    backups**: header reads are read-only; a missing key means "unknown"
+    dates, not a provisioning side effect.
 
 ## Verification Checklist
 

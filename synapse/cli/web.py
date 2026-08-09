@@ -12,6 +12,7 @@ from ..platform import spawn_kwargs
 from .common import (
     EXIT_OK,
     EXIT_UNAVAILABLE,
+    config_arg_path,
     emit,
     emit_error,
     http_get,
@@ -127,14 +128,13 @@ def _cmd_start(args: argparse.Namespace) -> int:
     port = _resolve_web_port(args)
     if args.foreground:
         return _run_web_foreground(config, port, args.log_level)
-    state = service_state(config, "web")
     info = read_pid_file(config, "web")
     if info and info.get("pid") and _pid_alive(info["pid"]):
         print(f"web interface already running (PID {info['pid']})")
         return EXIT_OK
 
     cmd = [sys.executable, "-m", "synapse.cli", "_daemon", "web",
-           "--config", _config_arg(args), "--port", str(port)]
+           "--config", config_arg_path(args), "--port", str(port)]
     if getattr(args, "log_level", None):
         cmd += ["--log-level", args.log_level]
     try:
@@ -162,14 +162,6 @@ def _cmd_start(args: argparse.Namespace) -> int:
     info = read_pid_file(config, "web") or {}
     print(f"web interface started (PID {info.get('pid')}, port {port})")
     return EXIT_OK
-
-
-def _config_arg(args: argparse.Namespace) -> str:
-    path = getattr(args, "config", None) or getattr(args, "config_root", None)
-    if path:
-        return os.path.abspath(path)
-    path = os.environ.get("SYNAPSE_CONFIG") or os.environ.get("Synapse_CONFIG")
-    return os.path.abspath(path) if path else ""
 
 
 def _pid_alive(pid) -> bool:  # noqa: ANN001

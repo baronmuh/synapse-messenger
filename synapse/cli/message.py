@@ -9,6 +9,7 @@ from ..client import ApiClientError, Client, ClientTransportError
 from .common import (
     EXIT_OK,
     emit,
+    api_error,
     emit_error,
     resolve_config,
     resolve_identity,
@@ -117,7 +118,7 @@ def _cmd_send(args: argparse.Namespace) -> int:
             args.recipient, args.text, client_message_id, my_name, password
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(
         args, data,
         f"Message sent to {data.get('recipient_username')} "
@@ -135,16 +136,16 @@ def _cmd_inbox(args: argparse.Namespace) -> int:
             sender_username=args.sender, limit=args.limit, cursor=args.cursor,
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
     rows = [
         [m.get("created_at", ""), m.get("sender_username", ""), m.get("content", "")]
         for m in data.get("messages", [])
     ]
-    print(table(rows, ["horodatage", "de", "message"]))
+    print(table(rows, ["timestamp", "from", "message"]))
     if data.get("next_cursor"):
-        print(f"(page suivante : --cursor {data['next_cursor']})")
+        print(f"(next page: --cursor {data['next_cursor']})")
     return EXIT_OK
 
 
@@ -156,7 +157,7 @@ def _cmd_conversation(args: argparse.Namespace) -> int:
             args.other, my_name, password, limit=args.limit, cursor=args.cursor
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
     print(f"Conversation with '{args.other}' "
@@ -165,9 +166,9 @@ def _cmd_conversation(args: argparse.Namespace) -> int:
         [m.get("created_at", ""), m.get("sender_username", ""), m.get("content", "")]
         for m in data.get("messages", [])
     ]
-    print(table(rows, ["horodatage", "de", "message"]))
+    print(table(rows, ["timestamp", "from", "message"]))
     if data.get("next_cursor"):
-        print(f"(page suivante : --cursor {data['next_cursor']})")
+        print(f"(next page: --cursor {data['next_cursor']})")
     return EXIT_OK
 
 
@@ -177,7 +178,7 @@ def _cmd_read(args: argparse.Namespace) -> int:
     try:
         data = _client(config).read_message(args.message_id, my_name, password)
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data, f"Message {args.message_id} marked as read.")
 
 
@@ -201,7 +202,7 @@ def _cmd_mark_no_reply(args: argparse.Namespace) -> int:
             conversation_id, my_name, password
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data,
                 f"Conversation with '{args.other}' marked as no-reply.")
 
@@ -214,10 +215,10 @@ def _cmd_notifications(args: argparse.Namespace) -> int:
             my_name, password, limit=args.limit
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
-    for section in ("needs_reply", "unread"):
+    for section in ("needs_reply",):
         items = data.get(section, [])
         if not items:
             continue
@@ -227,12 +228,12 @@ def _cmd_notifications(args: argparse.Namespace) -> int:
             for i in items
         ]
         print(table(rows, ["interlocutor", "unread"]))
-    if not data.get("needs_reply") and not data.get("unread"):
+    unread = data.get("unread_by_sender", {}) or {}
+    if unread:
+        print("unread_by_sender :")
+        rows = [[sender, str(count)] for sender, count in unread.items()]
+        print(table(rows, ["interlocutor", "unread"]))
+    if not data.get("needs_reply") and not unread:
         print("no notifications")
     return EXIT_OK
 
-
-def _api_error(exc: Exception) -> int:
-    if isinstance(exc, ClientTransportError):
-        return emit_error(f"service indisponible : {exc}", code=3)
-    return emit_error(exc.message, api_code=exc.code)  # type: ignore[attr-defined]

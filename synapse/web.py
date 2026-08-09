@@ -378,8 +378,13 @@ class _Handler(BaseHTTPRequestHandler):
             if not_found and exc.code == "USER_NOT_FOUND":
                 self._send_json(404, {"error": "agent not found"})
                 return
+            # Business errors (POLICY_DENIED, QUOTA_EXCEEDED,
+            # INVALID_ARGUMENT, RECIPIENT_NOT_FOUND, TASK_STATE_INVALID,
+            # …) are expected API answers, not server failures: they are
+            # relayed as 400 with their message and code so the UI can
+            # distinguish a refused operation from a real outage.
             logger.warning("api %s : %s", self.path, exc.code)
-            self._send_json(500, {"error": "cannot read the state"})
+            self._send_json(400, {"error": exc.message, "code": exc.code})
             return
         except Exception as exc:  # pragma: no cover - safety net
             logger.warning("api %s : %s", self.path, exc)
@@ -772,7 +777,6 @@ def web_main() -> None:  # pragma: no cover
     password) creates a session per user (SPEC-WEB §6).
     """
     import argparse
-    import sys
 
     from .config import Config
 

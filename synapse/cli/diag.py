@@ -66,7 +66,6 @@ def _cmd_status(args: argparse.Namespace) -> int:
     config = resolve_config(args)
     server = service_state(config, "synapse")
     web = _web_state(config)
-    info = read_pid_file(config, "synapse") or {}
     payload = {
         "version": project_version(),
         "config": config.to_dict(),

@@ -8,6 +8,7 @@ from ..client import ApiClientError, Client, ClientTransportError
 from .common import (
     EXIT_OK,
     emit,
+    api_error,
     emit_error,
     normalize_datetime,
     resolve_config,
@@ -66,7 +67,8 @@ def add_parser(sub: argparse._SubParsersAction, common: argparse.ArgumentParser)
 
     a = actions.add_parser("list", parents=[common], help="list the tasks")
     a.add_argument("--state", default=None, choices=_STATES,
-                   help="filter by state (pending, in_progress, completed…)")
+                   help="filter by state (submitted, in_progress, completed, "
+                        "failed, canceled, pending_approval)")
     a.add_argument("--assignee", default=None, help="filter by assignee")
     a.add_argument("--department", default=None,
                    help="tasks of a department (list_department_tasks)")
@@ -192,7 +194,7 @@ def _cmd_list(args: argparse.Namespace) -> int:
                 limit=args.limit, cursor=args.cursor,
             )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
     tasks = data.get("tasks", [])
@@ -228,7 +230,7 @@ def _cmd_create(args: argparse.Namespace) -> int:
             due_at=normalize_datetime(args.due),
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data,
                 f"Task created: {data.get('task_id')} "
                 f"(state {data.get('state')}, assignee {args.assignee})")
@@ -240,7 +242,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
     try:
         data = _client(config).get_task(args.task_id, my_name, password)
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
     rows = [[k, str(v)] for k, v in sorted(data.items())]
@@ -257,7 +259,7 @@ def _cmd_update(args: argparse.Namespace) -> int:
             result=args.result,
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data,
                 f"Task {args.task_id}: state {data.get('state')}")
 
@@ -268,7 +270,7 @@ def _cmd_approve(args: argparse.Namespace) -> int:
     try:
         data = _client(config).approve_task(args.task_id, my_name, password)
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data, f"Task {args.task_id} approved.")
 
 
@@ -280,7 +282,7 @@ def _cmd_reject(args: argparse.Namespace) -> int:
             args.task_id, my_name, password, reason=args.reason
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data, f"Task {args.task_id} rejected.")
 
 
@@ -292,7 +294,7 @@ def _cmd_request_approval(args: argparse.Namespace) -> int:
             args.task_id, args.approver, my_name, password
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data,
                 f"Approval requested for {args.task_id} "
                 f"(approver: {args.approver}).")
@@ -306,7 +308,7 @@ def _cmd_transfer(args: argparse.Namespace) -> int:
             args.task_id, args.assignee, my_name, password, note=args.note
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data,
                 f"Task {args.task_id} transferred to {args.assignee}.")
 
@@ -319,10 +321,10 @@ def _cmd_my_work(args: argparse.Namespace) -> int:
             my_name, password, limit=args.limit, cursor=args.cursor
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
-    tasks = data.get("tasks", [])
+    tasks = data.get("work_items", [])
     rows = [
         [t.get("task_id", ""), t.get("title", ""), t.get("state", ""),
          t.get("due_at", "")]
@@ -333,8 +335,3 @@ def _cmd_my_work(args: argparse.Namespace) -> int:
         print(f"(next page: --cursor {data['next_cursor']})")
     return EXIT_OK
 
-
-def _api_error(exc: Exception) -> int:
-    if isinstance(exc, ClientTransportError):
-        return emit_error(f"service unavailable: {exc}", code=3)
-    return emit_error(exc.message, api_code=exc.code)  # type: ignore[attr-defined]

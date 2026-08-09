@@ -14,3 +14,4 @@ node_modules/
 .hallmark/
 prompt_hallmark_total_redesign.txt
 *.log
+correction-audit-synapse.txt

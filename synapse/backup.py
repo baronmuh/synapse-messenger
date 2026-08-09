@@ -188,6 +188,40 @@ def _check_sqlite_integrity(db_path: str) -> int:
     return tables
 
 
+# Application tables expected in a valid backup (schema of db.py).
+# A backup whose structure misses one of them is not restorable.
+_EXPECTED_TABLES = frozenset({
+    "organizations", "accounts", "conversations", "messages", "reply_state",
+    "auth_failures", "agent_cards", "tasks", "task_dependencies",
+    "task_events", "events", "org_settings", "org_escalation_policy",
+    "agent_budgets", "audit_log", "departments", "memberships", "groups",
+    "group_members", "group_messages", "delegations",
+})
+
+
+def _check_schema(db_path: str) -> None:
+    """Checks that every expected application table exists — PRAGMA
+    integrity_check alone proves structural health of the SQLite file,
+    not that the schema of a working installation is present (a backup
+    of a truncated/foreign database could pass it)."""
+    check = sqlite3.connect(db_path)
+    try:
+        present = {
+            row[0] for row in check.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' "
+                "AND name NOT LIKE 'sqlite_%'"
+            )
+        }
+        missing = _EXPECTED_TABLES - present
+        if missing:
+            raise BackupError(
+                "Corrupted backup (missing table(s): "
+                + ", ".join(sorted(missing)) + ")"
+            )
+    finally:
+        check.close()
+
+
 # ---------------------------------------------------------------------------
 # Restore
 # ---------------------------------------------------------------------------
@@ -221,6 +255,10 @@ def _restore(config: Config, backup_path: str) -> None:
         try:
             Path(tmp_path).write_bytes(db_bytes)
             _check_sqlite_integrity(tmp_path)
+            # Same schema gate as verify: restoring a database whose
+            # schema is not a working Synapse installation would
+            # silently replace the storage with a broken one.
+            _check_schema(tmp_path)
         except BaseException:
             try:
                 os.unlink(tmp_path)
@@ -336,6 +374,7 @@ def _verify(config: Config, backup_path: str,
         Path(db_file).write_bytes(db_bytes)
         os.chmod(db_file, 0o600)
         tables = _check_sqlite_integrity(db_file)
+        _check_schema(db_file)
     finally:
         try:
             os.unlink(db_file)

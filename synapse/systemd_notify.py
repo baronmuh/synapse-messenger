@@ -20,7 +20,6 @@ from __future__ import annotations
 import os
 import socket
 import threading
-import time
 
 _DEFAULT_WATCHDOG_INTERVAL = 10.0  # WatchdogSec=30 in the units (×3 margin)
 

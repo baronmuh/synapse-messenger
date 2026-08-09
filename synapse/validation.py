@@ -422,9 +422,11 @@ def validate_task_state(raw: Any) -> str | None:
     if raw is None:
         return None
     if raw not in TASK_STATES:
+        # pending_approval is a derived state (set by request_approval),
+        # not settable by update_task_state: it is not listed here.
         raise _invalid(
             "state must be one of: submitted, in_progress, completed, failed, "
-            "canceled, pending_approval"
+            "canceled"
         )
     return raw
 

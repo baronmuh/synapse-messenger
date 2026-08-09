@@ -91,7 +91,6 @@ class Client:
         return response.get("data") or {}
 
     def _transact(self, payload: bytes) -> dict:
-        from . import platform as _platform
         from . import transport as _transport
 
         if self._transport == _transport.TRANSPORT_TCP:

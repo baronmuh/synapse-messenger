@@ -13,6 +13,7 @@ from .common import (
     getpass_get,
     EXIT_OK,
     EXIT_UNAVAILABLE,
+    config_arg_path,
     emit,
     emit_error,
     http_get,
@@ -116,22 +117,30 @@ def _cmd_start(args: argparse.Namespace) -> int:
 
     info = read_pid_file(config, "a2a")
     if info and _alive(info.get("pid")):
-        print(f"A2A bridge already running (PID {info['pid']})")
-        return EXIT_OK
+        # The PID is alive, but the bridge must actually answer: a
+        # zombie process or a foreign process holding the PID file
+        # would otherwise report a fake "running".
+        if _a2a_responding(config, _resolve_a2a_port(args)):
+            print(f"A2A bridge already running (PID {info['pid']})")
+            return EXIT_OK
+        print(f"stale A2A PID file (PID {info.get('pid')}) — starting the bridge")
 
     if args.foreground:
         return _run_foreground(config, args, password, token)
 
     cmd = [sys.executable, "-m", "synapse.cli", "_daemon", "a2a",
-           "--config", _config_arg(args), "--agent-name", args.agent_name,
-           "--port", str(_resolve_a2a_port(args)), "--token", token]
+           "--config", config_arg_path(args), "--agent-name", args.agent_name,
+           "--port", str(_resolve_a2a_port(args))]
     try:
         proc = subprocess.Popen(
             cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL, **spawn_kwargs(),
         )
         if proc.stdin is not None:
-            proc.stdin.write((password + "\n").encode("utf-8"))
+            # Both secrets travel through the pipe (never as arguments
+            # nor environment variables): agent password, then the
+            # bridge access token.
+            proc.stdin.write((password + "\n" + token + "\n").encode("utf-8"))
             proc.stdin.close()
     except OSError as exc:
         return emit_error(f"cannot start the A2A bridge: {exc}")
@@ -154,14 +163,6 @@ def _cmd_start(args: argparse.Namespace) -> int:
     print(f"A2A bridge started (PID {info.get('pid')}, port {args.port}, "
           f"agent {args.agent_name})")
     return EXIT_OK
-
-
-def _config_arg(args: argparse.Namespace) -> str:
-    path = getattr(args, "config", None) or getattr(args, "config_root", None)
-    if path:
-        return os.path.abspath(path)
-    path = os.environ.get("SYNAPSE_CONFIG") or os.environ.get("Synapse_CONFIG")
-    return os.path.abspath(path) if path else ""
 
 
 def _alive(pid) -> bool:  # noqa: ANN001

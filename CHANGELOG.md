@@ -4,6 +4,42 @@ All notable changes to the Synapse project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project follows [SemVer](https://semver.org/).
 
+## [3.1.4] — 2026-08-09 (refactorisation & performance audit)
+
+### Changed (refactorisation — behavior preserved)
+
+- **Dead code removed**: unused imports (service.py `os`/`secrets`,
+  cli/common.py `signal`/`socket`, store/tasks.py
+  `TASK_DEPENDENCY_NOT_MET`, client.py `_platform` local import,
+  web.py `sys`, systemd_notify.py `time`), unused locals
+  (cli/diag.py `info`, cli/web.py `state`), a redundant f-string in
+  cli/agent.py and a trivial indirection wrapper in service.py
+  (`queries_row_to_message_as_of` → direct `messages.row_to_message_as_of`).
+- **Duplication eliminated**: the identical `_api_error` helper (7
+  copies: agent, event, group, message, org, policy, task) is now one
+  shared `api_error()` in cli/common.py; the daemon config-path
+  resolution (`_config_arg`, 2 copies: a2a, web) is one shared
+  `config_arg_path()` in cli/common.py.
+- **Fixed**: a latent `NameError` in `update` `_a2a_cli_restart`
+  (called an undefined `_default_paths()` whenever
+  `SYNAPSE_SECRETS_DIR` was unset — the default case). Now falls back
+  to `platform.default_paths()`; regression test added.
+- **i18n consistency**: the last remaining French user-facing error
+  message ("Budget de messages horaire atteint") is now
+  "Hourly message budget exceeded".
+
+### Performance audit (measure → identify → fix → verify → guard)
+
+- Profiled on a realistic dataset (3000 messages, 2000 tasks, 500
+  group messages): every hot query already uses an index
+  (EXPLAIN QUERY PLAN); connection pooling per thread is already in
+  place (documented in db.py). Candidate indexes for
+  `list_org_conversations` and `get_org_audit` measured neutral or off
+  the real query path → **reverted, none kept** (per the
+  measure-first rule).
+- **Guard added**: `test_hot_query_indexes_present` protects the
+  indexes the hot queries rely on against future schema changes.
+
 ## [3.1.3] — 2026-08-08 (workflow audit & full English)
 
 ### Fixed

@@ -1,7 +1,7 @@
 {
   "name": "synapse-webui-dom-check",
   "private": true,
-  "description": "Real DOM verification of the Synapse web interface (jsdom + real backend). Phase 4.",
+  "description": "Vérification DOM réelle de l'interface web Synapse (jsdom + backend réel). Phase 4.",
   "scripts": {
     "verify": "node verify.mjs"
   },

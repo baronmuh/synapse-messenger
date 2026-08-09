@@ -372,10 +372,22 @@ def main(argv: list[str] | None = None) -> int:
                              "configuration ou SYNAPSE_ALERT_COMMAND)")
     args = parser.parse_args(argv)
 
-    config = Config.load(args.config)
+    # Single config resolution, matching the CLI convention
+    # (--config > $SYNAPSE_CONFIG > $Synapse_CONFIG > platform default):
+    # the same path feeds Config.load AND the status command, so the
+    # monitor checks the directories of the service it interrogates.
+    from synapse.platform import default_paths
+
+    config_path = (
+        args.config
+        or os.environ.get("SYNAPSE_CONFIG")
+        or os.environ.get("Synapse_CONFIG")
+        or default_paths()["config"]
+    )
+
+    config = Config.load(config_path)
     opts = {
-        "config_path": args.config or os.environ.get("SYNAPSE_CONFIG")
-        or os.environ.get("Synapse_CONFIG") or "/etc/synapse/config.json",
+        "config_path": config_path,
         "backup_max_age_hours": _env_float(
             "SYNAPSE_MONITOR_BACKUP_MAX_AGE_HOURS", DEFAULT_BACKUP_MAX_AGE_HOURS),
         "disk_warn_percent": _env_float(

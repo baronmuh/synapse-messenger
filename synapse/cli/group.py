@@ -13,6 +13,7 @@ from ..client import ApiClientError, Client, ClientTransportError
 from .common import (
     EXIT_OK,
     emit,
+    api_error,
     emit_error,
     resolve_config,
     resolve_identity,
@@ -23,7 +24,7 @@ GROUP = "group"
 
 _EXAMPLES = """\
 Examples:
-  synapse group create direction --description "Pilotage"
+  synapse group create direction
   synapse group members direction --json
   synapse group add-member direction comptable
   synapse group remove-member direction comptable
@@ -158,7 +159,7 @@ def _cmd_create(args: argparse.Namespace) -> int:
     try:
         data = _client(config).create_group(args.name, my_name, password)
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     return emit(args, data,
                 f"Group '{args.name}' created ({data.get('group_id')}).")
 
@@ -250,7 +251,7 @@ def _cmd_list(args: argparse.Namespace) -> int:
             my_name, password, limit=args.limit, cursor=args.cursor
         )
     except (ApiClientError, ClientTransportError) as exc:
-        return _api_error(exc)
+        return api_error(exc)
     if getattr(args, "json", False):
         return emit(args, data)
     groups = data.get("groups", [])
@@ -266,10 +267,5 @@ def _cmd_list(args: argparse.Namespace) -> int:
 def _group_error(exc: Exception) -> int:
     if isinstance(exc, CliGroupError):
         return emit_error(exc.message)
-    return _api_error(exc)
+    return api_error(exc)
 
-
-def _api_error(exc: Exception) -> int:
-    if isinstance(exc, ClientTransportError):
-        return emit_error(f"service unavailable: {exc}", code=3)
-    return emit_error(exc.message, api_code=exc.code)  # type: ignore[attr-defined]
