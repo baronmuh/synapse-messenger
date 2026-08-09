@@ -160,6 +160,13 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/onboarding":
             self._serve_static("onboarding.html")
             return
+        if path == "/login":
+            # Explicit login/create page: served without the onboarding
+            # gate so the first organization can be created from the web
+            # (the onboarding buttons point here — a direct link to "/"
+            # would loop back to /onboarding while no org exists).
+            self._serve_static("index.html")
+            return
         if path in ("/", "/index.html"):
             # Onboarding gate: when no organization exists yet, send the
             # user to the interactive guide instead of the login screen.

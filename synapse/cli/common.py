@@ -47,7 +47,7 @@ EXIT_RUNNING = 4
 # Project version for PID files and ``update check``. The source
 # of truth is the installed package; in development (not installed), we
 # fall back to the version declared in pyproject.toml.
-_FALLBACK_VERSION = "3.1.3"
+_FALLBACK_VERSION = "3.1.4"
 
 
 class CliError(Exception):

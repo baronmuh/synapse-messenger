@@ -4,7 +4,28 @@ All notable changes to the Synapse project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project follows [SemVer](https://semver.org/).
 
-## [3.1.4] — 2026-08-09 (refactorisation & performance audit)
+## [3.1.4] — 2026-08-09 (refactorisation, performance audit & onboarding fixes)
+
+### Fixed (onboarding flow — deep analysis, real-server proofs)
+
+- **`/login` route**: with 0 organization, `/` redirects to `/onboarding`,
+  and the onboarding buttons pointed to `/` → infinite loop: the
+  create-org form was unreachable during installation. Added an
+  explicit `/login` route (served without the onboarding gate) and
+  pointed the onboarding buttons there.
+- **Onboarding theme tokens**: the page used undefined CSS variables
+  (`--bg`, `--ink`, `--card`…) instead of the real `--color-*` tokens —
+  the design-system theme never applied. Fixed to the actual tokens.
+- **Lockout exemption for the local web identity**: the failure lockout
+  (`_authenticate`) also applied to `_WEB_LOCAL` — a few mistyped
+  passwords made first-organization creation impossible ("Too many
+  failed attempts"). `_WEB_LOCAL` (local 0600 trust token) is now
+  exempt; human accounts keep the anti-bruteforce protection.
+- **Note on "401 session required"**: verified by inspecting the
+  published wheels — v3.1.1/v3.1.2 lack the `/onboarding` route and
+  `onboarding.html`; v3.1.3 serves `/onboarding` 200 without a session
+  (proven by fresh-venv install of the published wheel). Upgrading to
+  ≥ v3.1.3 fixes the 401.
 
 ### Changed (refactorisation — behavior preserved)
 

@@ -33,7 +33,7 @@ const errors = [];
     ['workflow 5 steps', doc.querySelectorAll('.ob-step').length === 5],
     ['example query', !!doc.querySelector('.ob-query')],
     ['explicit validation', /I APPROVE THIS PLAN/.test(doc.body.textContent)],
-    ['login button', !!doc.querySelector('a.ob-btn[href="/"]')],
+    ['login button', !!doc.querySelector('a.ob-btn[href="/login"]')],
     ['create-organization button', /Create my first company/.test(doc.body.textContent)],
   ];
 
