@@ -60,7 +60,7 @@ export function render(root) {
     btnCreate.classList.toggle('is-active', create);
     errorBox.hidden = true;
     form.onsubmit = null;
-    insertMode(create ? renderCreateFields() : renderLoginFields());
+    insertMode(create ? renderCreateFields() : renderLoginFields(switchMode));
   };
   btnLogin.onclick = () => switchMode(false);
   btnCreate.onclick = () => switchMode(true);
@@ -69,7 +69,7 @@ export function render(root) {
 
 /* --- "Sign in" mode: select an existing organization --- */
 
-function renderLoginFields() {
+function renderLoginFields(switchMode) {
   const select = el('select', {
     name: 'organization_name', class: 'login-input login-select', required: true,
     'aria-label': 'Organization', id: 'login-org',
@@ -86,7 +86,7 @@ function renderLoginFields() {
     submitLogin(btn, select);
   };
 
-  loadOrganizations(select, btn);
+  loadOrganizations(select, btn, switchMode);
   return [
     el('label', { class: 'login-label', for: 'login-org' }, 'Organization'),
     select,
@@ -95,13 +95,17 @@ function renderLoginFields() {
 }
 
 /** Fills the dropdown with the active organizations. */
-async function loadOrganizations(select, btn) {
+async function loadOrganizations(select, btn, onNoOrg) {
   try {
     const orgs = await api.listOrgs();
     if (!orgs.length) {
+      // No organization yet: jump straight to the creation form —
+      // there is nothing to sign in to, a second click on
+      // "Create an organization" would be pure friction.
       select.replaceChildren(el('option', { value: '', selected: true },
         'No organization available'));
       setError('No active organization on this service — create one.');
+      if (onNoOrg) onNoOrg(true);
       return;
     }
     select.replaceChildren(
