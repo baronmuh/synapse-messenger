@@ -16,6 +16,8 @@ from .common import (
     emit,
     emit_error,
     http_get,
+    level_int,
+    pid_alive,
     read_pid_file,
     read_web_token,
     remove_pid_file,
@@ -129,7 +131,7 @@ def _cmd_start(args: argparse.Namespace) -> int:
     if args.foreground:
         return _run_web_foreground(config, port, args.log_level)
     info = read_pid_file(config, "web")
-    if info and info.get("pid") and _pid_alive(info["pid"]):
+    if info and info.get("pid") and pid_alive(info["pid"]):
         print(f"web interface already running (PID {info['pid']})")
         return EXIT_OK
 
@@ -164,12 +166,6 @@ def _cmd_start(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def _pid_alive(pid) -> bool:  # noqa: ANN001
-    from .common import pid_alive as _alive
-
-    return _alive(pid)
-
-
 def _web_responding(config, port: int) -> bool:  # noqa: ANN001
     code, _ = http_get(port, "/api/orgs")
     return code == 200 and read_pid_file(config, "web") is not None
@@ -182,7 +178,7 @@ def _run_web_foreground(config, port: int, log_level: str | None) -> int:
     from .daemon import _install_stop_event
 
     setup_logging(config, verbose=True, log_name="web.log",
-                  error_log_name="web.error.log", level=_level_int(log_level))
+                  error_log_name="web.error.log", level=level_int(log_level))
     web = SynapseWebUI(config, port=port)
     write_pid_file(config, "web", {"command": "web", "port": port})
     stop_event = _install_stop_event()
@@ -195,14 +191,6 @@ def _run_web_foreground(config, port: int, log_level: str | None) -> int:
         web.stop()
         remove_pid_file(config, "web")
     return EXIT_OK
-
-
-def _level_int(value: str | None) -> int:
-    import logging as _logging
-
-    if value is None:
-        return _logging.INFO
-    return getattr(_logging, value.upper())
 
 
 def _cmd_stop(args: argparse.Namespace) -> int:
@@ -226,7 +214,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
     config = resolve_config(args)
     info = read_pid_file(config, "web") or {}
     pid = info.get("pid")
-    alive = _pid_alive(pid)
+    alive = pid_alive(pid)
     port = info.get("port") or 8080
     code, status = http_get(port, "/api/status")
     http_ok = code == 200

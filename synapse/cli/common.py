@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import getpass
-import importlib.metadata
 import json
 import os
 import sys
@@ -33,6 +32,7 @@ from pathlib import Path
 
 from ..config import Config
 from ..validation import human_username_for
+from ..version import project_version
 
 PROG = "synapse"
 
@@ -43,11 +43,6 @@ EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_UNAVAILABLE = 3
 EXIT_RUNNING = 4
-
-# Project version for PID files and ``update check``. The source
-# of truth is the installed package; in development (not installed), we
-# fall back to the version declared in pyproject.toml.
-_FALLBACK_VERSION = "3.1.4"
 
 
 class CliError(Exception):
@@ -74,13 +69,8 @@ class Parser(argparse.ArgumentParser):
         self.exit(EXIT_ERROR, f"{self.prog}: error: {message}\n")
 
 
-def project_version() -> str:
-    """Installed package version (falls back to pyproject in development)."""
-    try:
-        return importlib.metadata.version("synapse-messenger")
-    except importlib.metadata.PackageNotFoundError:
-        return _FALLBACK_VERSION
-
+# project_version is imported from ..version (single source of truth:
+# pyproject.toml — see synapse/version.py).
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -349,6 +339,19 @@ def pid_alive(pid: int | None) -> bool:
     from ..platform import process_alive
 
     return process_alive(pid)
+
+
+def level_int(value: str | None) -> int:
+    """Converts a logging level name (or None) to its int constant.
+
+    Single source of truth for the ``--log-level`` parsing shared by
+    the server, a2a and web CLIs.
+    """
+    import logging as _logging
+
+    if value is None:
+        return _logging.INFO
+    return getattr(_logging, value.upper())
 
 
 def send_sigterm(pid: int) -> bool:

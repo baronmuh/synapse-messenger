@@ -17,6 +17,7 @@ from .common import (
     colorize,
     emit,
     http_get,
+    pid_alive,
     project_version,
     read_pid_file,
     read_web_token,
@@ -114,7 +115,7 @@ def _web_state(config) -> dict:  # noqa: ANN001
     """Web state: live PID AND HTTP responds (no Unix socket)."""
     info = read_pid_file(config, "web") or {}
     pid = info.get("pid")
-    alive = pid is not None and _pid_alive(pid)
+    alive = pid is not None and pid_alive(pid)
     port = info.get("port") or 8080
     code, status = http_get(port, "/api/status")
     if not alive:
@@ -125,12 +126,6 @@ def _web_state(config) -> dict:  # noqa: ANN001
         state = "degraded"
     return {"state": state, "pid": pid, "pid_file": info, "http": code,
             "status": status}
-
-
-def _pid_alive(pid) -> bool:  # noqa: ANN001
-    from .common import pid_alive
-
-    return pid_alive(pid)
 
 
 def _state_label(state: str) -> str:

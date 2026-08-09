@@ -15,6 +15,7 @@ from .common import (
     CliError,
     emit,
     emit_error,
+    level_int,
     read_pid_file,
     remove_pid_file,
     resolve_config,
@@ -119,7 +120,7 @@ def _run_server_foreground(config: Config, log_level: str | None) -> int:
     import signal as signal_mod
     import threading
 
-    setup_logging(config, verbose=True, level=_level_int(log_level))
+    setup_logging(config, verbose=True, level=level_int(log_level))
     write_pid_file(config, "synapse", {"command": "server"})
     server = SynapseServer(config)
 
@@ -135,14 +136,6 @@ def _run_server_foreground(config: Config, log_level: str | None) -> int:
     finally:
         remove_pid_file(config, "synapse")
     return EXIT_OK
-
-
-def _level_int(value: str | None) -> int:
-    import logging as _logging
-
-    if value is None:
-        return _logging.INFO
-    return getattr(_logging, value.upper())
 
 
 def _start_detached(config: Config, args: argparse.Namespace) -> int:

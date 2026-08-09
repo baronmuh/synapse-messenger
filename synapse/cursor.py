@@ -18,7 +18,7 @@ import hmac
 import json
 from typing import Any
 
-from .errors import ApiError, INVALID_ARGUMENT
+from .errors import ApiError, INVALID_ARGUMENT, INVALID_ARGUMENT_CURSOR, INVALID_ARGUMENT_CURSOR_AGENT, INVALID_ARGUMENT_CURSOR_COMMAND, INVALID_ARGUMENT_CURSOR_FILTERS, INVALID_ARGUMENT_CURSOR_SORT
 
 CURSOR_VERSION = 1
 
@@ -32,7 +32,7 @@ def _unb64url(token: str) -> bytes:
     try:
         return base64.urlsafe_b64decode(token + padding)
     except (ValueError, TypeError) as exc:
-        raise ApiError(INVALID_ARGUMENT, "Invalid cursor") from exc
+        raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_CURSOR) from exc
 
 
 def encode_cursor(secret_key: bytes, payload: dict) -> str:
@@ -50,24 +50,24 @@ def decode_cursor(secret_key: bytes, cursor: str) -> dict:
     invalid.
     """
     if not isinstance(cursor, str):
-        raise ApiError(INVALID_ARGUMENT, "Invalid cursor")
+        raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_CURSOR)
     try:
         body_b64, signature_b64 = cursor.split(".", 1)
     except ValueError as exc:
-        raise ApiError(INVALID_ARGUMENT, "Invalid cursor") from exc
+        raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_CURSOR) from exc
     expected = hmac.new(secret_key, body_b64.encode("ascii"), hashlib.sha256).digest()
     try:
         provided = _unb64url(signature_b64)
     except ApiError:
         raise
     if not hmac.compare_digest(expected, provided):
-        raise ApiError(INVALID_ARGUMENT, "Invalid cursor")
+        raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_CURSOR)
     try:
         payload = json.loads(_unb64url(body_b64))
     except (ValueError, ApiError) as exc:
-        raise ApiError(INVALID_ARGUMENT, "Invalid cursor") from exc
+        raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_CURSOR) from exc
     if not isinstance(payload, dict) or payload.get("v") != CURSOR_VERSION:
-        raise ApiError(INVALID_ARGUMENT, "Invalid cursor")
+        raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_CURSOR)
     return payload
 
 
@@ -109,10 +109,10 @@ def validate_cursor_binding(
     filters or another sort causes ``INVALID_ARGUMENT``.
     """
     if payload.get("cmd") != command:
-        raise ApiError(INVALID_ARGUMENT, "Invalid cursor for this command")
+        raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_CURSOR_COMMAND)
     if payload.get("user") != username:
-        raise ApiError(INVALID_ARGUMENT, "Invalid cursor for this agent")
+        raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_CURSOR_AGENT)
     if payload.get("sort") != sort:
-        raise ApiError(INVALID_ARGUMENT, "Invalid cursor for this sort")
+        raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_CURSOR_SORT)
     if payload.get("filters") != (filters or {}):
-        raise ApiError(INVALID_ARGUMENT, "Invalid cursor for these filters")
+        raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_CURSOR_FILTERS)
