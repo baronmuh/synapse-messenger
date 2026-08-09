@@ -155,7 +155,55 @@ command, so no password is needed):
 "$SYNAPSE_BASE/venv/bin/synapse" agent deactivate "$A2"
 ```
 
-## Step 8 — Install the Architect skill family (turns this profile into the Architect)
+## Step 8 — Make the `synapse` command available in the user's terminal (PERSISTENT)
+
+The venv binaries are only reachable by their full path
+(`$SYNAPSE_BASE/venv/bin/synapse`) unless the venv is activated. So the
+user can type `synapse ...` directly in their terminal (e.g.
+`synapse server status`, `synapse update`, `synapse uninstall`), create
+a user-scoped symlink in a directory that is already on the PATH, and
+make that directory part of the PATH **persistently** (one time, then
+every new terminal works automatically):
+
+```bash
+# 1) create the symlink (one time)
+mkdir -p "$HOME/.local/bin"
+ln -sf "$SYNAPSE_BASE/venv/bin/synapse" "$HOME/.local/bin/synapse"
+
+# 2) make sure ~/.local/bin is on the PATH PERSISTENTLY
+#    (only needed if it is not already in the shell's rc file)
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) : ;;                       # already on the PATH
+  *) export PATH="$HOME/.local/bin:$PATH"            # current shell
+     echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"   # persistent
+     ;;
+esac
+
+# Windows (PowerShell, one time):
+#   New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\Microsoft\WindowsApps"
+#   New-Item -ItemType SymbolicLink -Force -Path "$env:LOCALAPPDATA\Microsoft\WindowsApps\synapse" -Target "$SYNAPSE_BASE\venv\Scripts\synapse.exe"
+```
+
+Verification point 8.1: in a **NEW terminal window** (or after
+`hash -r` / `rehash`), `command -v synapse` resolves to the symlink and
+`synapse --version` prints the installed version — WITHOUT any
+re-activation. This is the persistent proof: the user does not have to
+do anything again in future terminals.
+
+```bash
+command -v synapse
+synapse --version
+```
+
+Troubleshooting 8: if `command -v synapse` finds nothing in a new
+terminal, the rc file edit did not apply — check the shell's rc
+(`$HOME/.bashrc`, `$HOME/.zshrc`, or `$HOME/.profile` depending on the
+shell) contains the `export PATH="$HOME/.local/bin:$PATH"` line, and
+that the symlink exists (`ls -l "$HOME/.local/bin/synapse"`). The
+venv activation fallback (`source "$SYNAPSE_BASE/venv/bin/activate"`)
+is per-session only and must NOT replace the persistent setup above.
+
+## Step 9 — Install the Architect skill family (turns this profile into the Architect)
 
 The profile that runs this procedure becomes the **Synapse Architect**
 — the agent the user will talk to for everything else.
@@ -169,10 +217,10 @@ tar -xzf /tmp/syn-main.tar.gz -C /tmp
 cp -r /tmp/synapse-messenger-main/synapse_architecte/* "$FAMILY_DIR/"
 ```
 
-Verification point 8.1: `ls "$FAMILY_DIR"` shows the umbrella and the
+Verification point 9.1: `ls "$FAMILY_DIR"` shows the umbrella and the
 6 category skills (01..06 + references + templates).
 
-## Step 9 — Open the interactive onboarding guide
+## Step 10 — Open the interactive onboarding guide
 
 ```bash
 # The web interface already serves /onboarding when no org exists.
@@ -182,12 +230,14 @@ Verification point 8.1: `ls "$FAMILY_DIR"` shows the umbrella and the
 python3 -m webbrowser http://127.0.0.1:8080/onboarding
 ```
 
-## Step 10 — Final report to the user (human-friendly, in the user's language)
+## Step 11 — Final report to the user (human-friendly, in the user's language)
 
 Report:
 - what was installed (version, paths: config, data, org password file);
 - the web URL (`http://127.0.0.1:8080/`);
 - how to start/stop (`synapse server start|stop`, `synapse web start|stop`);
+- that the `synapse` command now works directly in any terminal
+  (persistent — nothing to do again);
 - that this profile is now the **Architect** (how to use it: the
   onboarding guide explains the request format);
 - the organization name and that its password is in
