@@ -29,6 +29,14 @@ and the project follows [SemVer](https://semver.org/).
 
 ### Changed (refactorisation — behavior preserved)
 
+- **Single source of truth for the version**: new `synapse/version.py`
+  reads `pyproject.toml` (installed metadata first, source checkout
+  fallback). The hard-coded `_FALLBACK_VERSION` in cli/common.py is
+  gone — a version bump now touches exactly ONE file (pyproject.toml).
+- **Centralized error messages**: all 60 `ApiError(code, "hard-coded
+  message")` calls now use named constants defined in
+  `synapse/errors.py` (40 contextual variants + the `_MESSAGES` dict).
+  Changing a message = editing ONE file.
 - **Dead code removed**: unused imports (service.py `os`/`secrets`,
   cli/common.py `signal`/`socket`, store/tasks.py
   `TASK_DEPENDENCY_NOT_MET`, client.py `_platform` local import,
@@ -40,7 +48,10 @@ and the project follows [SemVer](https://semver.org/).
   copies: agent, event, group, message, org, policy, task) is now one
   shared `api_error()` in cli/common.py; the daemon config-path
   resolution (`_config_arg`, 2 copies: a2a, web) is one shared
-  `config_arg_path()` in cli/common.py.
+  `config_arg_path()` in cli/common.py; the identical `_level_int`
+  (3 copies: server, a2a, web) is one shared `level_int()`; the
+  `_pid_alive` wrappers (diag, web) now call `common.pid_alive`
+  directly.
 - **Fixed**: a latent `NameError` in `update` `_a2a_cli_restart`
   (called an undefined `_default_paths()` whenever
   `SYNAPSE_SECRETS_DIR` was unset — the default case). Now falls back

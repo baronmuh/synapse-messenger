@@ -12,7 +12,7 @@ import sqlite3
 import uuid
 from typing import Any
 
-from ..errors import ApiError, MESSAGE_ALREADY_EXISTS
+from ..errors import ApiError, MESSAGE_ALREADY_EXISTS, MESSAGE_ALREADY_EXISTS_CLIENT_ID
 
 _MESSAGE_FIELDS = (
     "message_id, conversation_id, client_message_id, sender_username, "
@@ -219,7 +219,4 @@ def row_to_message_as_of(row: sqlite3.Row, boundary: str) -> dict[str, Any]:
 
 
 def raise_message_already_exists() -> None:
-    raise ApiError(
-        MESSAGE_ALREADY_EXISTS,
-        "client_message_id already used with a different recipient or content",
-    )
+    raise ApiError(MESSAGE_ALREADY_EXISTS, MESSAGE_ALREADY_EXISTS_CLIENT_ID)

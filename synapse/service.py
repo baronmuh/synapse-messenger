@@ -43,6 +43,41 @@ from .errors import (
     USERNAME_ALREADY_EXISTS,
     USER_NOT_FOUND,
     ApiError,
+    ACCESS_DENIED_CAN_SEE_ORG_AGENTS,
+    ACCESS_DENIED_GROUP_CREATOR,
+    ACCESS_DENIED_HUMAN_COMMANDS,
+    ACCESS_DENIED_WEB_AND_HUMAN,
+    ACCESS_DENIED_WEB_LOCAL_SCOPE,
+    ACCESS_DENIED_HUMAN_NO_DEACTIVATE,
+    ACCESS_DENIED_HUMAN_NO_MODIFY,
+    ACCESS_DENIED_HUMAN_NO_PASSWORD,
+    ACCESS_DENIED_HUMAN_ONLY_ORG,
+    ACCESS_DENIED_MANAGER_ROLE,
+    ACCESS_DENIED_OBSERVER_OR_HUMAN,
+    ACCESS_DENIED_OBSERVER_READONLY,
+    ACCESS_DENIED_ORG_COMMANDS,
+    AUTH_FAILED_TOO_MANY,
+    INVALID_ARGUMENT_CONV_NO_RECEIVED,
+    INVALID_ARGUMENT_DEPT_EXISTS,
+    INVALID_ARGUMENT_EXPIRES_FUTURE,
+    INVALID_ARGUMENT_HUMAN_AUTO,
+    INVALID_ARGUMENT_HUMAN_NAME_RESERVED,
+    INVALID_ARGUMENT_HUMAN_NAME_USED,
+    INVALID_ARGUMENT_ORG_DEACTIVATED,
+    INVALID_ARGUMENT_ORG_NAME_USED,
+    INVALID_ARGUMENT_APPROVER_SAME,
+    INVALID_ARGUMENT_CLIENT_TASK_ID_USED,
+    INVALID_ARGUMENT_OTHER_USERNAME_SAME,
+    INVALID_ARGUMENT_RECIPIENT_SAME,
+    INVALID_ARGUMENT_UNKNOWN_ORG,
+    QUOTA_EXCEEDED_DEPTH,
+    QUOTA_EXCEEDED_MESSAGE_BUDGET,
+    QUOTA_EXCEEDED_TASK_BUDGET,
+    RECIPIENT_NOT_FOUND_ACTIVE,
+    TASK_STATE_INVALID_COMPLETED_TRANSFER,
+    USER_NOT_FOUND_DEPT_UNKNOWN,
+    USER_NOT_FOUND_NO_CARD,
+
 )
 from .security import hash_password, human_password_sentinel, load_or_create_key, verify_dummy, verify_password
 from .store import accounts, audit, authfail, cards, events, messages, organizations, queries, tasks
@@ -310,14 +345,13 @@ class Service:
             meta["username"] = user
             row = accounts.get(conn, user)
             if row is not None and bool(row["is_observer"]) and command not in _OBSERVER_READ_COMMANDS:
-                raise ApiError(ACCESS_DENIED, "Observer account is read-only")
+                raise ApiError(ACCESS_DENIED, ACCESS_DENIED_OBSERVER_READONLY)
             if command == "list_orgs":
                 # Reserved for the local web identity (_web_local) and to
                 # human accounts: lists the active organizations for
                 # the selection login screen (SPEC-WEB D5 amended).
                 if user != _WEB_LOCAL and (row is None or row["principal_type"] != "human"):
-                    raise ApiError(ACCESS_DENIED,
-                                   "Command reserved for the web interface and human accounts")
+                    raise ApiError(ACCESS_DENIED, ACCESS_DENIED_WEB_AND_HUMAN)
                 return _human_list_orgs(self, conn, params, web_local=(user == _WEB_LOCAL))
             if user == _WEB_LOCAL:
                 # The local web identity (local trust token) has two
@@ -328,13 +362,12 @@ class Service:
                 # matches no real account: nothing else.
                 if command == "create_org":
                     return _human_create_org(self, conn, params, user)
-                raise ApiError(ACCESS_DENIED,
-                               "Local web identity reserved for list_orgs and create_org")
+                raise ApiError(ACCESS_DENIED, ACCESS_DENIED_WEB_LOCAL_SCOPE)
             if command in _HUMAN_HANDLERS:
                 # Commands reserved for human accounts (SPEC-WEB): management
                 # of organizations and reading of the organization content.
                 if row is None or row["principal_type"] != "human":
-                    raise ApiError(ACCESS_DENIED, "Command reserved for human accounts")
+                    raise ApiError(ACCESS_DENIED, ACCESS_DENIED_HUMAN_COMMANDS)
                 data = _HUMAN_HANDLERS[command](self, conn, params, user)
                 self._audit_action(conn, command, params, actor=user, org_name=_org_of(conn, user))
                 return data
@@ -438,22 +471,22 @@ class Service:
                 authfail.clear(conn, username)
                 return _WEB_LOCAL
             authfail.record(conn, username)
-            raise ApiError(AUTH_FAILED, "Invalid credentials")
+            raise ApiError(AUTH_FAILED)
         authfail.prune(conn, window)
         if authfail.count_recent(conn, username, window) >= maximum:
-            raise ApiError(AUTH_FAILED, "Too many failed attempts, try again later")
+            raise ApiError(AUTH_FAILED, AUTH_FAILED_TOO_MANY)
         row = accounts.get(conn, username)
         if row is None or row["status"] != "active":
             verify_dummy(password_raw)  # constant timing (anti-enumeration)
             authfail.record(conn, username)
-            raise ApiError(AUTH_FAILED, "Invalid credentials")
+            raise ApiError(AUTH_FAILED)
         org_row = organizations.get(conn, row["organization_name"])
         if org_row is None or not bool(org_row["enabled"]):
             # Organization deactivated or not found (SPEC-WEB §4.3):
             # no account of the organization can authenticate.
             verify_dummy(password_raw)
             authfail.record(conn, username)
-            raise ApiError(AUTH_FAILED, "Invalid credentials")
+            raise ApiError(AUTH_FAILED)
         if row["principal_type"] == "human":
             # Human account (SPEC-WEB §5.2): the password is the one of
             # the organization, never copied — the verification is delegated to the
@@ -462,12 +495,12 @@ class Service:
             if not (self._cached_password_ok(username, org_row["password_hash"], password_raw)
                     or self.web_token_matches(password_raw)):
                 authfail.record(conn, username)
-                raise ApiError(AUTH_FAILED, "Invalid credentials")
+                raise ApiError(AUTH_FAILED)
             authfail.clear(conn, username)
             return username
         if not self._cached_password_ok(username, row["password_hash"], password_raw):
             authfail.record(conn, username)
-            raise ApiError(AUTH_FAILED, "Invalid credentials")
+            raise ApiError(AUTH_FAILED)
         authfail.clear(conn, username)
         return username
 
@@ -493,7 +526,7 @@ class Service:
         key = f"org:{org_name}"
         authfail.prune(conn, window)
         if authfail.count_recent(conn, key, window) >= maximum:
-            raise ApiError(AUTH_FAILED, "Too many failed attempts, try again later")
+            raise ApiError(AUTH_FAILED, AUTH_FAILED_TOO_MANY)
         row = organizations.get(conn, org_name)
         if row is not None:
             if not bool(row["enabled"]):
@@ -501,11 +534,11 @@ class Service:
                 # authentication fails, data intact.
                 verify_dummy(password_raw)
                 authfail.record(conn, key)
-                raise ApiError(AUTH_FAILED, "Invalid credentials")
+                raise ApiError(AUTH_FAILED)
             if not (self._cached_password_ok(key, row["password_hash"], password_raw)
                     or self.web_token_matches(password_raw)):
                 authfail.record(conn, key)
-                raise ApiError(AUTH_FAILED, "Invalid credentials")
+                raise ApiError(AUTH_FAILED)
             authfail.clear(conn, key)
             return org_name
         if accounts.get(conn, org_name) is not None:
@@ -514,10 +547,10 @@ class Service:
             # Argon2id cost as every other failure) so that the
             # existence of an agent account is not revealed by timing.
             verify_dummy(password_raw)
-            raise ApiError(ACCESS_DENIED, "Command reserved for organizations")
+            raise ApiError(ACCESS_DENIED, ACCESS_DENIED_ORG_COMMANDS)
         verify_dummy(password_raw)  # constant timing (anti-enumeration)
         authfail.record(conn, key)
-        raise ApiError(AUTH_FAILED, "Invalid credentials")
+        raise ApiError(AUTH_FAILED)
 
     # ------------------------------------------------------------------
     # Pagination
@@ -585,11 +618,11 @@ def _org_create_agent(service: Service, conn: sqlite3.Connection, p: dict, org_n
     # The Argon2id hash (expensive) runs outside the transaction:
     # the write lock is not held during the computation.
     if is_reserved_human_username(p["username"]):
-        raise ApiError(INVALID_ARGUMENT, "This name is reserved for the organization's human account")
+        raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_HUMAN_NAME_RESERVED)
     if p["principal_type"] == "human":
         # SPEC-WEB §5: human accounts are created automatically with
         # their organization (never by create_agent).
-        raise ApiError(INVALID_ARGUMENT, "Human accounts are created automatically")
+        raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_HUMAN_AUTO)
     password_hash = hash_password(p["password"])
     with db.begin_immediate(conn):
         if accounts.get(conn, p["username"]) is not None:
@@ -620,7 +653,7 @@ def _org_deactivate_agent(service: Service, conn: sqlite3.Connection, p: dict, o
         if row["principal_type"] == "human":
             # SPEC-WEB §5.5: the human account cannot be deactivated
             # individually (the freeze happens at the organization level).
-            raise ApiError(ACCESS_DENIED, "The human account cannot be deactivated")
+            raise ApiError(ACCESS_DENIED, ACCESS_DENIED_HUMAN_NO_DEACTIVATE)
         if row["status"] == "disabled":
             return {"username": p["username"], "status": "disabled"}
         accounts.set_status(conn, p["username"], "disabled")
@@ -641,7 +674,7 @@ def _org_change_password(service: Service, conn: sqlite3.Connection, p: dict, or
     # (SPEC-WEB §5.2): it has no password of its own to change.
     member = _org_require_member(conn, p["username"], org_name)
     if member["principal_type"] == "human":
-        raise ApiError(ACCESS_DENIED, "The human account has no password of its own")
+        raise ApiError(ACCESS_DENIED, ACCESS_DENIED_HUMAN_NO_PASSWORD)
     password_hash = hash_password(p["new_password"])  # outside the transaction (expensive Argon2)
     with db.begin_immediate(conn):
         accounts.set_password_hash(conn, p["username"], password_hash)
@@ -731,7 +764,7 @@ def _org_change_agent_description(
     with db.begin_immediate(conn):
         member = _org_require_member(conn, p["username"], org_name)
         if member["principal_type"] == "human":
-            raise ApiError(ACCESS_DENIED, "The human account cannot be modified")
+            raise ApiError(ACCESS_DENIED, ACCESS_DENIED_HUMAN_NO_MODIFY)
         conn.execute(
             "UPDATE accounts SET description = ? WHERE username = ?",
             (p["description"], p["username"]),
@@ -792,9 +825,9 @@ def _human_create_org(service: Service, conn: sqlite3.Connection, p: dict, me: s
     org_password_hash = hash_password(p["organization_password"])
     with db.begin_immediate(conn):
         if organizations.get(conn, org_name) is not None:
-            raise ApiError(INVALID_ARGUMENT, "Organization name already used")
+            raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_ORG_NAME_USED)
         if accounts.get(conn, human_name) is not None:
-            raise ApiError(INVALID_ARGUMENT, "Human account name already used")
+            raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_HUMAN_NAME_USED)
         organizations.insert(conn, org_name, org_password_hash)
         accounts.insert(
             conn,
@@ -818,13 +851,13 @@ def _human_disable_org(service: Service, conn: sqlite3.Connection, p: dict, me: 
     me_org = _org_of(conn, me)
     target = p["organization_name"]
     if target != me_org:
-        raise ApiError(ACCESS_DENIED, "A human only manages their own organization")
+        raise ApiError(ACCESS_DENIED, ACCESS_DENIED_HUMAN_ONLY_ORG)
     with db.begin_immediate(conn):
         row = organizations.get(conn, target)
         if row is None:
-            raise ApiError(INVALID_ARGUMENT, "Unknown organization")
+            raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_UNKNOWN_ORG)
         if not bool(row["enabled"]):
-            raise ApiError(INVALID_ARGUMENT, "The organization is already deactivated")
+            raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_ORG_DEACTIVATED)
         conn.execute(
             "UPDATE organizations SET enabled = 0 WHERE organization_name = ?", (target,)
         )
@@ -908,7 +941,7 @@ def _human_get_org_conversation(
         if conn.execute(
             "SELECT 1 FROM conversations WHERE conversation_id = ?", (conv_id,)
         ).fetchone() is None:
-            raise ApiError(CONVERSATION_NOT_FOUND, "Conversation not found")
+            raise ApiError(CONVERSATION_NOT_FOUND)
         visible = conn.execute(
             "SELECT 1 FROM messages m "
             "WHERE m.conversation_id = ? AND ("
@@ -919,7 +952,7 @@ def _human_get_org_conversation(
             (conv_id, org_name, org_name),
         ).fetchone()
         if visible is None:
-            raise ApiError(CONVERSATION_NOT_FOUND, "Conversation not found")
+            raise ApiError(CONVERSATION_NOT_FOUND)
     filters: dict[str, Any] = {"conversation_id": conv_id}
     last, boundary = service._pagination(p, me, "get_org_conversation", _SORT_ASC, filters)
     clauses = ["conversation_id = ?", "created_at <= ?"]
@@ -963,7 +996,7 @@ def _org_approve_agent_card(
         _org_require_member(conn, p["username"], org_name)
         card = cards.get(conn, p["username"])
         if card is None:
-            raise ApiError(USER_NOT_FOUND, "This agent has no card to validate")
+            raise ApiError(USER_NOT_FOUND, USER_NOT_FOUND_NO_CARD)
         cards.approve(conn, username=p["username"], approved_by=org_name, approved_at=now_utc())
         row = cards.get(conn, p["username"])
     assert row is not None
@@ -1017,7 +1050,7 @@ def _list_org_agents(service: Service, conn: sqlite3.Connection, p: dict, me: st
         row = accounts.get(conn, me)
         assert row is not None  # authenticated agent, therefore existing
         if not row["can_see_org_agents"]:
-            raise ApiError(ACCESS_DENIED, "Permission can_see_org_agents required")
+            raise ApiError(ACCESS_DENIED, ACCESS_DENIED_CAN_SEE_ORG_AGENTS)
         rows = accounts.list_by_org(
             conn, row["organization_name"], limit + 1, last[0] if last else None, boundary,
             active_only=True,
@@ -1124,7 +1157,7 @@ def _agent_find_agents(service: Service, conn: sqlite3.Connection, p: dict, me: 
         row = accounts.get(conn, me)
         assert row is not None  # authenticated agent, therefore existing
         if not row["can_see_org_agents"]:
-            raise ApiError(ACCESS_DENIED, "Permission can_see_org_agents required")
+            raise ApiError(ACCESS_DENIED, ACCESS_DENIED_CAN_SEE_ORG_AGENTS)
         rows = cards.search(
             conn,
             org_name=row["organization_name"],
@@ -1151,7 +1184,7 @@ def _send_message(service: Service, conn: sqlite3.Connection, p: dict, me: str) 
     recipient = p["recipient_username"]
     content = p["message"]
     if recipient == me:
-        raise ApiError(INVALID_ARGUMENT, "The recipient must be different from the sender")
+        raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_RECIPIENT_SAME)
     with db.begin_immediate(conn):
         sender = accounts.get(conn, me)
         assert sender is not None  # authenticated agent, therefore existing
@@ -1268,7 +1301,7 @@ def _get_messages(service: Service, conn: sqlite3.Connection, p: dict, me: str) 
 def _get_conversation(service: Service, conn: sqlite3.Connection, p: dict, me: str) -> dict:
     other = p["other_username"]
     if other == me:
-        raise ApiError(INVALID_ARGUMENT, "other_username must be different from the authenticated agent")
+        raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_OTHER_USERNAME_SAME)
     limit = p["limit"]
     filters = {"other_username": other}
     last, boundary = service._pagination(p, me, "get_conversation", _SORT_ASC, filters)
@@ -1342,10 +1375,10 @@ def _mark_conversation_no_reply(service: Service, conn: sqlite3.Connection, p: d
     with db.begin_immediate(conn):
         conv = messages.get_conversation_by_id(conn, p["conversation_id"])
         if conv is None:
-            raise ApiError(INVALID_ARGUMENT, "Conversation not found or without a received message")
+            raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_CONV_NO_RECEIVED)
         last = queries.last_received_message(conn, conv["conversation_id"], me)
         if last is None:
-            raise ApiError(INVALID_ARGUMENT, "Conversation not found or without a received message")
+            raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_CONV_NO_RECEIVED)
         messages.set_no_reply(conn, conv["conversation_id"], me, last["message_id"], now_utc())
     return {
         "conversation_id": conv["conversation_id"],
@@ -1415,7 +1448,7 @@ def _require_active_account(conn: sqlite3.Connection, username: str) -> None:
     if row is None:
         raise ApiError(USER_NOT_FOUND)
     if row["status"] != "active":
-        raise ApiError(RECIPIENT_NOT_FOUND, "The account must be active")
+        raise ApiError(RECIPIENT_NOT_FOUND, RECIPIENT_NOT_FOUND_ACTIVE)
 
 
 def _check_task_budget(conn: sqlite3.Connection, assignee: str) -> None:
@@ -1427,7 +1460,7 @@ def _check_task_budget(conn: sqlite3.Connection, assignee: str) -> None:
     if budget is None or budget["max_active_tasks"] is None:
         return
     if tasks.active_count(conn, assignee) >= budget["max_active_tasks"]:
-        raise ApiError(QUOTA_EXCEEDED, "Active task budget exceeded")
+        raise ApiError(QUOTA_EXCEEDED, QUOTA_EXCEEDED_TASK_BUDGET)
 
 
 def _check_message_budget(conn: sqlite3.Connection, sender: str) -> None:
@@ -1439,7 +1472,7 @@ def _check_message_budget(conn: sqlite3.Connection, sender: str) -> None:
         return
     since = now_utc_offset(3600)
     if tasks.messages_in_hour(conn, sender, since) >= budget["max_messages_per_hour"]:
-        raise ApiError(QUOTA_EXCEEDED, "Hourly message budget exceeded")
+        raise ApiError(QUOTA_EXCEEDED, QUOTA_EXCEEDED_MESSAGE_BUDGET)
 
 
 def _check_escalations(
@@ -1551,17 +1584,14 @@ def _agent_create_task(service: Service, conn: sqlite3.Connection, p: dict, me: 
                            command="create_task", target_type="task",
                            target_username=existing["task_id"], outcome="idempotent")
                     return tasks.row_to_task(conn, existing)
-                raise ApiError(
-                    INVALID_ARGUMENT,
-                    "client_task_id already used for another task",
-                )
+                raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_CLIENT_TASK_ID_USED)
         _require_active_account(conn, p["assignee_username"])
         _check_task_budget(conn, p["assignee_username"])
         for dep in p["depends_on"]:
             if tasks.get(conn, dep) is None:
                 raise ApiError(INVALID_ARGUMENT, f"The dependent task {dep} does not exist")
         if _dependency_depth(conn, p["depends_on"], MAX_DEPENDENCY_DEPTH) > MAX_DEPENDENCY_DEPTH:
-            raise ApiError(QUOTA_EXCEEDED, "Maximum dependency depth exceeded")
+            raise ApiError(QUOTA_EXCEEDED, QUOTA_EXCEEDED_DEPTH)
         task_id = messages.new_uuid()
         tasks.insert(
             conn,
@@ -1672,7 +1702,7 @@ def _agent_transfer_task(service: Service, conn: sqlite3.Connection, p: dict, me
         _require_active_account(conn, p["assignee_username"])
         _check_task_budget(conn, p["assignee_username"])
         if row["state"] in tasks.TERMINAL_STATES:
-            raise ApiError(TASK_STATE_INVALID, "A completed task cannot be transferred")
+            raise ApiError(TASK_STATE_INVALID, TASK_STATE_INVALID_COMPLETED_TRANSFER)
         tasks.set_assignee(conn, p["task_id"], p["assignee_username"], at)
         tasks.add_event(conn, p["task_id"], "transferred", me, p["note"], at)
         updated = tasks.get(conn, p["task_id"])
@@ -1701,8 +1731,7 @@ def _agent_request_approval(service: Service, conn: sqlite3.Connection, p: dict,
         # F8 human-in-the-loop guardrail: the approver must be a third
         # party. Self-approval would make the validation a no-op.
         if p["approver_username"] == me:
-            raise ApiError(INVALID_ARGUMENT,
-                           "The approver must be different from the requester")
+            raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_APPROVER_SAME)
         tasks.set_approver(conn, p["task_id"], p["approver_username"], at)
         tasks.set_state(conn, p["task_id"], tasks.STATE_PENDING_APPROVAL, None, at)
         tasks.add_event(conn, p["task_id"], "approval_requested", me,
@@ -1953,7 +1982,7 @@ def _org_create_department(
             (org_name, p["department_name"]),
         ).fetchone()
         if exists is not None:
-            raise ApiError(INVALID_ARGUMENT, "This department already exists")
+            raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_DEPT_EXISTS)
         conn.execute(
             "INSERT INTO departments (organization_name, department_name, created_at) "
             "VALUES (?, ?, ?)",
@@ -1975,7 +2004,7 @@ def _org_set_agent_department(
             (org_name, p["department_name"]),
         ).fetchone()
         if dept is None:
-            raise ApiError(USER_NOT_FOUND, "Department unknown in this organization")
+            raise ApiError(USER_NOT_FOUND, USER_NOT_FOUND_DEPT_UNKNOWN)
         conn.execute(
             "INSERT INTO memberships (username, organization_name, department_name, "
             "role, created_at) VALUES (?, ?, ?, ?, ?) "
@@ -2049,7 +2078,7 @@ def _agent_list_department_tasks(
             (me, p["department_name"]),
         ).fetchone()
         if membership is None or membership["role"] != "manager":
-            raise ApiError(ACCESS_DENIED, "Manager role required for this department")
+            raise ApiError(ACCESS_DENIED, ACCESS_DENIED_MANAGER_ROLE)
         # The scope is limited to one's own organization: the subquery
         # filters by organization_name, otherwise a same-named department of another
         # organization would expose its tasks to the manager (isolation
@@ -2254,10 +2283,7 @@ def _agent_add_group_member(service: Service, conn: sqlite3.Connection, p: dict,
         # rules as a send (outgoing of the adder, incoming of the org of the
         # member), otherwise the isolation by policies would be neutralizable.
         if not _external_comm_allowed(conn, me, p["username"]):
-            raise ApiError(
-                POLICY_DENIED,
-                "External communication denied by the organization policy",
-            )
+            raise ApiError(POLICY_DENIED)
         conn.execute(
             "INSERT OR IGNORE INTO group_members (group_id, username, added_by, added_at) "
             "VALUES (?, ?, ?, ?)",
@@ -2279,7 +2305,7 @@ def _agent_remove_group_member(service: Service, conn: sqlite3.Connection, p: di
         # the group"). Without this restriction, any member could exclude
         # the others — including the creator — from their own channel.
         if me != group["created_by"] and me != p["username"]:
-            raise ApiError(ACCESS_DENIED, "Only the group creator removes a member")
+            raise ApiError(ACCESS_DENIED, ACCESS_DENIED_GROUP_CREATOR)
         conn.execute(
             "DELETE FROM group_members WHERE group_id = ? AND username = ?",
             (p["group_id"], p["username"]),
@@ -2330,10 +2356,7 @@ def _agent_send_group_message(
             if member_row["username"] != me and not _external_comm_allowed(
                 conn, me, member_row["username"]
             ):
-                raise ApiError(
-                    POLICY_DENIED,
-                    "External communication denied by the organization policy",
-                )
+                raise ApiError(POLICY_DENIED)
         message_id = messages.new_uuid()
         conn.execute(
             "INSERT INTO group_messages (message_id, group_id, client_message_id, "
@@ -2513,7 +2536,7 @@ def _agent_create_delegation(
         row, _ = _task_visible_or_404(conn, p["task_id"], me)
         _require_active_account(conn, p["delegatee_username"])
         if p["expires_at"] <= at:
-            raise ApiError(INVALID_ARGUMENT, "expires_at must be in the future")
+            raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_EXPIRES_FUTURE)
         conn.execute(
             "INSERT INTO delegations (delegator_username, delegatee_username, task_id, "
             "expires_at, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -2653,7 +2676,7 @@ def _agent_get_org_snapshot(
         row = accounts.get(conn, me)
         assert row is not None
         if not (bool(row["is_observer"]) or row["principal_type"] == "human"):
-            raise ApiError(ACCESS_DENIED, "Observer or human account required")
+            raise ApiError(ACCESS_DENIED, ACCESS_DENIED_OBSERVER_OR_HUMAN)
         org = row["organization_name"]
         agents = conn.execute(
             "SELECT username, description, status, principal_type, is_observer "

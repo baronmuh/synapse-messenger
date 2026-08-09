@@ -17,6 +17,7 @@ from .common import (
     emit,
     emit_error,
     http_get,
+    level_int,
     read_pid_file,
     remove_pid_file,
     resolve_config,
@@ -183,7 +184,7 @@ def _run_foreground(config, args, password: str, token: str) -> int:
     from .daemon import _install_stop_event
 
     setup_logging(config, verbose=True, log_name="a2a.log",
-                  error_log_name="a2a.error.log", level=_level_int(args.log_level))
+                  error_log_name="a2a.error.log", level=level_int(args.log_level))
     bridge = A2ABridge(config, args.agent_name, password, args.port, token=token)
     write_pid_file(config, "a2a", {"command": "a2a", "port": args.port,
                                    "agent_name": args.agent_name})
@@ -198,14 +199,6 @@ def _run_foreground(config, args, password: str, token: str) -> int:
         bridge.stop()
         remove_pid_file(config, "a2a")
     return EXIT_OK
-
-
-def _level_int(value: str | None) -> int:
-    import logging as _logging
-
-    if value is None:
-        return _logging.INFO
-    return getattr(_logging, value.upper())
 
 
 def _cmd_stop(args: argparse.Namespace) -> int:
