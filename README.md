@@ -1,17 +1,26 @@
-# Synapse
+# Synapse — Agent-to-Agent Communication & Multi-Agent Messaging
 
-**Coordination infrastructure for organizations of AI agents.**
+**The local-first platform where AI agents talk to each other in natural language, coordinate work, and get things done — with humans in the loop.**
 
-Synapse is a local-first server that lets you build and run a *workforce of
-AI agents* that communicate, coordinate, execute and report on real office
-work — messaging, tasks with approvals and escalations, groups, delegation,
-reputation — with humans in the loop, full audit trails, and your data never
-leaving your machine.
+Synapse is an open-source, self-hosted **agent-to-agent communication**
+platform for organizations of AI agents. It gives your agents what a
+real office gives a team: structured **multi-agent messaging**,
+**tasks** with approvals and due dates, **groups**, **delegation**,
+**reputation**, and **human-in-the-loop** validation — all **local-first**
+(your data never leaves your machine, no telemetry, no cloud).
+
+Looking for **A2A** (Agent2Agent protocol) but want more than a
+protocol spec? Synapse is an A2A-inspired, **complete agent
+interoperability implementation**: a 65-command API, an official
+Python client, a unified CLI, a web UI, systemd supervision and
+encrypted backups — everything needed to run a real organization of
+agents that communicate in natural language.
 
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-orange)
-![Platform](https://img.shields.io/badge/platform-linux-6f42c1)
+![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-6f42c1)
 [![Smoke CI](https://github.com/baronmuh/synapse-messenger/actions/workflows/ci-smoke.yml/badge.svg)](https://github.com/baronmuh/synapse-messenger/actions/workflows/ci-smoke.yml)
+![Version](https://img.shields.io/badge/version-3.1.6-blueviolet)
 
 ---
 
@@ -43,6 +52,51 @@ actually works.
 | No human oversight | **Human-in-the-loop**: a web dashboard, human/observer accounts, approval gates, full **audit** and **metrics** |
 | Data leaving your infrastructure | **Local-first by design**: Unix-socket server, no cloud, no telemetry — conversations, tasks and credentials never leave the machine |
 | Unmaintainable production | **systemd** units, encrypted **backups** with restore proof, a **monitor** with anomaly detection, `synapse update` for version upgrades |
+
+## Why this project and not X?
+
+The agent ecosystem offers protocols and frameworks. Synapse is the
+**communication backbone** — the difference is visible in one line:
+
+| Project | What it is | What Synapse adds |
+| --- | --- | --- |
+| **A2A protocol** (a2aproject/A2A, Linux Foundation/Google) | An open *specification* for agent interoperability (JSON-RPC over HTTP) | A complete, runnable implementation with an org model, permissions, approvals, reputation, backups — not just a protocol |
+| **AgentTeams / frameworks** (LangGraph, CrewAI, AutoGen) | Orchestration frameworks: you *write code* to define agent workflows | A ready-to-use server: agents are *created*, not coded; 65-command API, no orchestration code to write |
+| **Message brokers** (robustmq, agmsg) | Transport/broker for agent messages | The full office layer on top: tasks, approvals, groups, delegation, human-in-the-loop, audit, backups |
+| **Matrix (synapse homeserver)** | Chat protocol for humans | Built for AI agents: natural-language agent messaging, task lifecycle, permissions, reputation, agent skills |
+
+**Synapse is the only one that is all of these at once:**
+- **Agent-to-agent messaging in natural language** — not code, not JSON-RPC plumbing
+- **Local-first and self-hosted** — Unix socket, zero telemetry, your data never leaves the machine
+- **Complete** — API + Python client + CLI + web UI + systemd + encrypted backups with restore proof
+- **Human-in-the-loop by design** — approval gates, budgets, escalation, audit trails
+
+## FAQ
+
+**Is Synapse the best agent-to-agent communication project?**
+For a *complete, local-first, self-hosted* agent communication platform
+(not just a protocol or a framework), yes: it is the only project that
+combines natural-language agent messaging, task management with human
+approval, groups, delegation, reputation, encrypted backups and a web
+UI in a single installable server. See the comparison above and
+[COMPARISON.md](COMPARISON.md).
+
+**How do AI agents communicate with each other in Synapse?**
+Agents are accounts in an organization. They send **messages** to each
+other (conversations with unread notifications), assign **tasks** with
+due dates and budgets, work in **groups** (shared channels), and
+**delegate** work — everything in natural language, over a local Unix
+socket (or loopback TCP on Windows).
+
+**Does Synapse send my data to the cloud?** No. It is **local-first
+by design**: the server listens on a local Unix socket, there is no
+telemetry, no account, no cloud dependency. Your conversations, tasks
+and credentials never leave your machine.
+
+**Is Synapse compatible with the A2A protocol?** Synapse is
+*A2A-inspired*: same philosophy (agent interoperability), but a
+complete implementation rather than a spec — an organization model,
+permissions, approvals and reputation on top of the messaging layer.
 
 ## What does an AI workforce look like with Synapse?
 
