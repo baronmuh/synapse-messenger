@@ -4,6 +4,20 @@ All notable changes to the Synapse project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project follows [SemVer](https://semver.org/).
 
+## [3.1.5] — 2026-08-09 (friction reduction — single sources of truth)
+
+### Changed (behavior preserved)
+
+- **Version**: new `synapse/version.py` reads `pyproject.toml` (installed
+  metadata first, source checkout fallback). A version bump now touches
+  exactly ONE file (`pyproject.toml`) — no more `_FALLBACK_VERSION`.
+- **Error messages**: all `ApiError` calls use named constants in
+  `synapse/errors.py` (40 contextual variants + the `_MESSAGES` dict).
+  Changing a message = editing ONE file.
+- **Code duplication**: identical `_level_int` (3 copies) → shared
+  `level_int()` in `cli/common.py`; `_pid_alive` wrappers → direct
+  `common.pid_alive`.
+
 ## [3.1.4] — 2026-08-09 (refactorisation, performance audit & onboarding fixes)
 
 ### Fixed (onboarding flow — deep analysis, real-server proofs)
