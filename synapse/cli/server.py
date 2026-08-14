@@ -9,7 +9,7 @@ import sys
 
 from ..config import Config
 from ..client import ApiClientError, Client, ClientTransportError
-from ..platform import spawn_kwargs
+from ..platform import default_paths, spawn_kwargs
 from .common import (
     EXIT_OK,
     CliError,
@@ -174,8 +174,13 @@ def _start_detached(config: Config, args: argparse.Namespace) -> int:
         cfg_path = args.config_root
     else:
         cfg_path = _config_path_from_env()
+    if not cfg_path:
+        # Same resolution as Config.load: fall back to the platform default
+        # config path. Never None — a None entry in cmd would crash Popen
+        # with a TypeError instead of failing cleanly.
+        cfg_path = default_paths()["config"]
     cmd = [sys.executable, "-m", "synapse.cli", "_daemon", "server",
-           "--config", os.path.abspath(cfg_path) if cfg_path else cfg_path]
+           "--config", os.path.abspath(cfg_path)]
     if getattr(args, "log_level", None):
         cmd += ["--log-level", args.log_level]
     # Parent watch (auditor F1): the daemon exits when the process that

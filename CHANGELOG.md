@@ -4,6 +4,18 @@ All notable changes to the Synapse project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project follows [SemVer](https://semver.org/).
 
+## [3.1.8] — 2026-08-14
+
+### Fixed
+
+- **Daemon start crash when no config is found** — `synapse server start`
+  without `--config` and without `Synapse_CONFIG`/`SYNAPSE_CONFIG` put a
+  `None` entry in the spawned command and crashed with
+  `TypeError: expected str, bytes or os.PathLike object, not NoneType`.
+  The config path now falls back to the platform default (same resolution
+  as `Config.load`), so the daemon fails with a clean error message
+  instead of a traceback.
+
 ## [3.1.7] — 2026-08-14
 
 ### Fixed
