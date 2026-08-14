@@ -118,19 +118,6 @@ def _systemd_unit_exists(unit: str) -> bool:
         return False
 
 
-def _systemd_active(unit: str) -> bool:
-    """True if the systemd unit is active (``systemctl is-active``)."""
-    if os.environ.get("SYNAPSE_NO_SYSTEMD") == "1":
-        return False
-    try:
-        result = subprocess.run(["systemctl", "-q", "is-active", unit],
-                                stdout=subprocess.DEVNULL,
-                                stderr=subprocess.DEVNULL, timeout=10)
-        return result.returncode == 0
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-
-
 def _a2a_instances() -> list[str]:
     """ACTIVE instances of the ``synapse-a2a@.service`` template."""
     if os.environ.get("SYNAPSE_NO_SYSTEMD") == "1":
@@ -262,7 +249,7 @@ def _cmd_simple(args: argparse.Namespace) -> int:
     print(f"Update available: {local} → {remote_version}.")
     if not args.yes:
         try:
-            answer = input(f"Apply the update now? [y/N]: ").strip().lower()
+            answer = input("Apply the update now? [y/N]: ").strip().lower()
         except EOFError:
             answer = ""
         if answer not in ("y", "yes"):
@@ -333,17 +320,7 @@ def _cmd_apply(args: argparse.Namespace) -> int:
     web_managed = _systemd_unit_exists(web_unit)
     a2a_instances = _a2a_instances() if server_managed else []
 
-    plan = ["1. automatic backup (synapse backup create)",
-            "2. clean web stop (systemd or CLI)",
-            "3. A2A bridge stop (if active)",
-            "4. clean server stop (systemd or CLI)",
-            f"5. update command: {command or '(not configured)'}",
-            "6. server restart (systemd or CLI)",
-            "7. web restart (systemd or CLI)",
-            "8. A2A bridge restart (if active)"]
-    print("Update plan:")
-    for step in plan:
-        print(f"  {step}")
+    _print_update_plan(command)
     if args.dry_run:
         print("(--dry-run: no changes made)")
         return EXIT_OK
@@ -357,28 +334,72 @@ def _cmd_apply(args: argparse.Namespace) -> int:
           "'synapse backup restore <archive> --force'.")
 
     from . import backup as backup_group
-    from . import server as server_group
-    from . import web as web_group
-    from .common import read_pid_file
 
-    # Restarted web port: the current web's (pid file), else the
-    # resolved port (--port > $SYNAPSE_WEB_PORT > 8080) — tests isolate
-    # their port via the environment (SPEC_PRODUCTION §10.5).
-    web_port = (read_pid_file(config, "web") or {}).get("port")
-    if web_port is None:
-        web_port = _env_port("SYNAPSE_WEB_PORT", 8080)
-    service_args = _service_args(args, web_port)
+    service_args = _service_args(args, _apply_web_port(config))
 
     if not args.no_backup:
         code = backup_group._cmd_create(service_args)
         if code != EXIT_OK:
             return emit_error("backup failed — update canceled")
 
-    # Stops: web, A2A bridge, server. Under systemd, systemctl (a
-    # CLI stop would be countered by Restart=on-failure); otherwise CLI.
+    a2a_stopped, error = _stop_services(config, service_args, server_managed,
+                                        web_managed, a2a_instances)
+    if error is not None:
+        return error
+    error = _run_update_command(command)
+    if error is not None:
+        return error
+    error = _restart_services(config, service_args, server_managed, web_managed,
+                              a2a_stopped)
+    if error is not None:
+        return error
+    print("Update applied.")
+    return EXIT_OK
+
+
+def _print_update_plan(command: str | None) -> None:
+    """The 8-step update plan (SPEC_CLI §4.16)."""
+    plan = ["1. automatic backup (synapse backup create)",
+            "2. clean web stop (systemd or CLI)",
+            "3. A2A bridge stop (if active)",
+            "4. clean server stop (systemd or CLI)",
+            f"5. update command: {command or '(not configured)'}",
+            "6. server restart (systemd or CLI)",
+            "7. web restart (systemd or CLI)",
+            "8. A2A bridge restart (if active)"]
+    print("Update plan:")
+    for step in plan:
+        print(f"  {step}")
+
+
+def _apply_web_port(config) -> int:  # noqa: ANN001
+    """Port for the restarted web: the current web's (pid file), else
+    the resolved port (--port > $SYNAPSE_WEB_PORT > 8080) — tests
+    isolate their port via the environment (SPEC_PRODUCTION §10.5)."""
+    from .common import read_pid_file
+
+    web_port = (read_pid_file(config, "web") or {}).get("port")
+    if web_port is None:
+        web_port = _env_port("SYNAPSE_WEB_PORT", 8080)
+    return web_port
+
+
+def _stop_services(config, service_args: argparse.Namespace,
+                   server_managed: bool, web_managed: bool,
+                   a2a_instances: list[str]) -> tuple[list[tuple[str, str, int]], int | None]:
+    """Stops web, A2A bridge and server before the update. Under
+    systemd, systemctl is used (a CLI stop would be countered by
+    Restart=on-failure); otherwise the CLI stops. Returns the list of
+    stopped A2A bridges (unit|agent, agent, port) for the restart phase
+    and None — or ([], error) when a hard stop failure aborts the
+    update (emit_error already printed)."""
+    from . import server as server_group
+    from . import web as web_group
+    from .common import read_pid_file
+
     if web_managed:
-        if not _systemctl_stop(web_unit):
-            return emit_error("web stop failed (systemd) — update canceled")
+        if not _systemctl_stop("synapse-web.service"):
+            return [], emit_error("web stop failed (systemd) — update canceled")
     else:
         code = web_group._cmd_stop(service_args)
         if code not in (EXIT_OK,):
@@ -402,13 +423,18 @@ def _cmd_apply(args: argparse.Namespace) -> int:
                                     a2a_info.get("port") or 8090))
 
     if server_managed:
-        if not _systemctl_stop(server_unit):
-            return emit_error("server stop failed (systemd) — update canceled")
+        if not _systemctl_stop("synapse.service"):
+            return [], emit_error("server stop failed (systemd) — update canceled")
     else:
         code = server_group._cmd_stop(service_args)
         if code != EXIT_OK:
-            return emit_error("server stop failed — update canceled")
+            return [], emit_error("server stop failed — update canceled")
+    return a2a_stopped, None
 
+
+def _run_update_command(command: str) -> int | None:
+    """Runs the configured update command; None on success, else the
+    error code (emit_error already printed)."""
     try:
         result = subprocess.run(command, shell=True, check=False)
         if result.returncode != 0:
@@ -418,16 +444,25 @@ def _cmd_apply(args: argparse.Namespace) -> int:
             )
     except OSError as exc:
         return emit_error(f"cannot run the update command: {exc}")
+    return None
 
-    # Restarts: server, web, A2A bridge.
+
+def _restart_services(config, service_args: argparse.Namespace,
+                      server_managed: bool, web_managed: bool,
+                      a2a_stopped: list[tuple[str, str, int]]) -> int | None:
+    """Restarts server, web and the stopped A2A bridges; None on
+    success, else the error code (emit_error already printed)."""
+    from . import server as server_group
+    from . import web as web_group
+
     if server_managed:
-        if not _systemctl_start(server_unit):
+        if not _systemctl_start("synapse.service"):
             return emit_error("server restart failed (systemd) — "
                               "run 'systemctl start synapse.service'")
     else:
         server_group._cmd_start(service_args)
     if web_managed:
-        if not _systemctl_start(web_unit):
+        if not _systemctl_start("synapse-web.service"):
             print("  (web: systemd restart failed — see systemctl status)")
     else:
         web_group._cmd_start(service_args)
@@ -439,8 +474,7 @@ def _cmd_apply(args: argparse.Namespace) -> int:
             if not _a2a_cli_restart(config, agent, port):
                 print(f"  (A2A bridge: secrets missing — restart it manually: "
                       f"synapse a2a start --agent-name {agent} --port {port})")
-    print("Update applied.")
-    return EXIT_OK
+    return None
 
 
 def _service_args(args: argparse.Namespace, web_port: int) -> argparse.Namespace:

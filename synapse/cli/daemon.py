@@ -12,20 +12,99 @@ Each daemon:
 
 Startup errors go to stderr (captured by the parent, which
 detects failure via a timeout on the socket/PID file).
+
+Parent watch (auditor F1, 2026-08-11): a daemon whose invoker exported
+``SYNAPSE_WATCH_PARENT=1`` receives the invoker's PID (and start time)
+in its environment and exits when that process disappears — so a
+pytest worker killed mid-test can never orphan its daemon. Production
+never sets the variable: detached services keep their usual lifetime.
 """
 
 from __future__ import annotations
 
 import argparse
 import logging
+import os
 from .. import platform
 import sys
 import threading
+import time
+from typing import Callable
 
 from ..config import Config
 from .common import remove_pid_file, write_pid_file
 
 logger = logging.getLogger("synapse.cli.daemon")
+
+# Poll interval of the parent-watch thread.
+_WATCH_POLL_SECONDS = 1.0
+
+
+def watch_parent_env() -> dict | None:
+    """Daemon environment additions when the invoker asked for parent-watch.
+
+    Test harnesses export ``SYNAPSE_WATCH_PARENT=1`` so that a daemon
+    started by a pytest worker exits when that worker is killed (no
+    orphaned daemons — auditor F1). Production never sets the variable:
+    detached services keep their usual lifetime. Returns ``None`` when
+    the watch was not requested; otherwise a dict carrying the invoker's
+    PID and start time (the start time defeats PID reuse).
+    """
+    if os.environ.get("SYNAPSE_WATCH_PARENT") != "1":
+        return None
+    pid = os.getppid()
+    return {
+        "SYNAPSE_DAEMON_PARENT_PID": str(pid),
+        "SYNAPSE_DAEMON_PARENT_START": _process_starttime(pid) or "",
+    }
+
+
+def _process_starttime(pid: int) -> str | None:
+    """The ``starttime`` field of ``/proc/<pid>/stat``, or ``None``."""
+    try:
+        with open(f"/proc/{pid}/stat", encoding="utf-8") as fh:
+            stat = fh.read()
+    except OSError:
+        return None
+    # The comm field may contain spaces/parens: split after the last ')'.
+    # starttime is field 22 (index 19 after the state field).
+    rest = stat.rsplit(")", 1)[-1].split()
+    return rest[19] if len(rest) > 19 else None
+
+
+def _parent_gone(pid: int, start: str | None) -> bool:
+    """True when the watched parent is gone (or its identity changed)."""
+    if not os.path.isdir(f"/proc/{pid}"):
+        return True
+    return bool(start) and _process_starttime(pid) != start
+
+
+def _install_parent_watch(on_parent_dead: Callable[[], None]) -> None:
+    """Starts the parent-watch thread when the daemon was asked to watch.
+
+    Reads ``SYNAPSE_DAEMON_PARENT_PID``/``SYNAPSE_DAEMON_PARENT_START``
+    (injected by the CLI when the invoker exported ``SYNAPSE_WATCH_PARENT``)
+    and calls ``on_parent_dead`` as soon as that process disappears — a
+    killed test worker can never orphan the daemon, even on SIGKILL
+    (no atexit/finally runs in that case). POSIX-only (/proc); on
+    Windows the watch is skipped.
+    """
+    pid_s = os.environ.get("SYNAPSE_DAEMON_PARENT_PID")
+    if not pid_s or platform.is_windows():  # pragma: no cover - POSIX-only
+        return
+    try:
+        pid = int(pid_s)
+    except ValueError:
+        return
+    start = os.environ.get("SYNAPSE_DAEMON_PARENT_START") or None
+
+    def _watch() -> None:
+        while not _parent_gone(pid, start):
+            time.sleep(_WATCH_POLL_SECONDS)
+        logger.info("daemon: watched parent %d is gone — shutting down", pid)
+        on_parent_dead()
+
+    threading.Thread(target=_watch, name="parent-watch", daemon=True).start()
 
 
 def _load_config(path: str | None) -> Config:
@@ -34,13 +113,6 @@ def _load_config(path: str | None) -> Config:
     except ValueError as exc:
         print(f"synapse: {exc}", file=sys.stderr)
         sys.exit(1)
-
-
-def _install_shutdown_handlers(stop_fn) -> None:  # noqa: ANN001
-    def _shutdown(_signum, _frame) -> None:  # noqa: ANN001
-        threading.Thread(target=stop_fn, daemon=True).start()
-
-    platform.install_stop_handlers(_shutdown)
 
 
 def _install_stop_event() -> threading.Event:
@@ -68,7 +140,7 @@ def run_server_daemon(config_path: str | None, log_level: str | None) -> None:
     server = SynapseServer(config)
     shutdown_thread: threading.Thread | None = None
 
-    def _shutdown(_signum, _frame) -> None:  # noqa: ANN001
+    def _request_stop(_signum=None, _frame=None) -> None:
         nonlocal shutdown_thread
         # The cleanup (socket + web token) runs in this thread. The main
         # thread must join it before exiting, otherwise the process can
@@ -76,7 +148,10 @@ def run_server_daemon(config_path: str | None, log_level: str | None) -> None:
         shutdown_thread = threading.Thread(target=server.stop, daemon=False)
         shutdown_thread.start()
 
-    platform.install_stop_handlers(_shutdown)
+    platform.install_stop_handlers(_request_stop)
+    # A killed test worker must never orphan the daemon (auditor F1):
+    # when the invoker asked for parent-watching, exit with the parent.
+    _install_parent_watch(lambda: _request_stop(None, None))
     try:
         # READY + WATCHDOG heartbeats under systemd; no-op outside systemd.
         with watchdog_context():
@@ -99,6 +174,7 @@ def run_web_daemon(config_path: str | None, port: int, log_level: str | None) ->
     web = SynapseWebUI(config, port=port)
     write_pid_file(config, "web", {"command": "web", "port": port})
     stop_event = _install_stop_event()
+    _install_parent_watch(stop_event.set)
     try:
         with watchdog_context():
             web.start()
@@ -122,6 +198,7 @@ def run_a2a_daemon(config_path: str | None, agent_name: str, port: int,
     write_pid_file(config, "a2a", {"command": "a2a", "port": port,
                                    "agent_name": agent_name})
     stop_event = _install_stop_event()
+    _install_parent_watch(stop_event.set)
     try:
         with watchdog_context():
             bridge.start()

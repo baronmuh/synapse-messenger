@@ -205,9 +205,17 @@ def _check_dirs(config: Config) -> dict:
 
 
 def _check_socket(config: Config) -> dict:
-    if not socket_responds(config):
-        return _check("socket", "FAIL", "transport endpoint not responding (server stopped?)")
-    return _check("socket", "OK", "present and responding")
+    # Same bounded retry as require_service: a freshly started daemon has
+    # a bind->listen window where the socket file exists but does not
+    # accept yet; a single probe would false-FAIL a healthy service.
+    deadline = time.time() + 1.0
+    while True:
+        if socket_responds(config):
+            return _check("socket", "OK", "present and responding")
+        if time.time() >= deadline:
+            break
+        time.sleep(0.05)
+    return _check("socket", "FAIL", "transport endpoint not responding (server stopped?)")
 
 
 def _check_web_token(config: Config) -> dict:

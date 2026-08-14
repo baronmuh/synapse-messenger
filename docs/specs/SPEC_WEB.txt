@@ -1,0 +1,855 @@
+# SPEC-WEB — Interface web humaine, comptes humains, gestion des organisations
+
+> Document d'amendement à `SPEC.txt` (partie B — spécification API v2, et
+> partie A — vision F18/F19). **STATUT : proposition détaillée, non
+> implémentée** ; document de référence pour l'implémentation. Décisions
+> actées le 2026-08-05 (discussion utilisateur). Les sections marquées
+> « DÉCISION » sont tranchées ; « À ACTER » appelle un arbitrage.
+
+---
+
+## 0. Décisions actées
+
+| # | Point | Décision |
+|---|---|---|
+| D1 | Conversations avec contenu | **OUI (option B)** — le compte d'accès web de l'organisation (l'humain) lit toutes les conversations de son organisation, contenu compris |
+| D2 | Changement d'organisation | **OUI** — re-connexion avec les identifiants d'une autre organisation |
+| D3 | Gestion orgs/agents | **OUI** — CRUD avec **désactivation** (jamais de suppression) ; création d'organisation depuis le web : **OUI**, réservée à un compte humain |
+| D4 | Compte humain | **OUI** — auto-créé à la création de l'organisation ; mot de passe = celui de l'organisation ; usage : web uniquement ; l'humain est le seul accès web |
+| D5 | Clé web | **SUPPRIMÉE** — remplacée par un écran de connexion par SÉLECTION (liste déroulante des organisations actives, amendé 2026-08-06) et des sessions par utilisateur ; la clé statique disparaît de l'expérience et du serveur |
+
+---
+
+## 1. Architecture cible (vue d'ensemble)
+
+```
+Navigateur (humain)
+   │  HTTP localhost (127.0.0.1)
+   ▼
+synapse-web ──────────────── serveur de sessions (login/logout, TTL, rate-limit)
+   │  │                     └─ ne détient aucun secret au démarrage
+   │  └─ API socket (client Synapse)
+   ▼
+synapse-server (socket Unix, inchangé) ── SQLite
+   └─ nouveaux contrats : create_org, disable_org, list_org_conversations,
+      get_org_conversation, list_orgs ; principal_type 'human' ;
+      enable_org = procédure locale
+      auth humaine déléguée au mot de passe d'organisation (API socket) ;
+      le web s'authentifie par jeton de confiance local (R6.5, amendé)
+```
+
+Principes :
+
+- P1. **Le web est un client Synapse comme un autre** (F18, conservé) : il ne lit
+  jamais la base directement, il appelle l'API socket avec des identifiants.
+- P2. **Le web est exclusivement humain** : l'écran de connexion (amendé
+  2026-08-06) n'accepte plus aucun identifiant saisi — sélection de
+  l'organisation dans une liste déroulante, connexion par jeton de confiance
+  local (R6.5). Aucun identifiant d'agent ni d'observateur n'est accepté ;
+  les agents n'ont pas le mot de passe d'org ni le jeton web : c'est le
+  contrôle anti-agent réel (voir §9-I9, compromis R6.9 documenté).
+- P3. **La session porte l'identité de l'humain et les pouvoirs de l'org** :
+  le jeton de confiance local (en mémoire de session uniquement) sert à la
+  fois à s'authentifier en tant qu'humain (messagerie) et en tant
+  qu'organisation (gestion des comptes, des orgs).
+- P4. **Aucune donnée sensible hors mémoire** : mot de passe d'org jamais en
+  localStorage, jamais dans les logs, jamais dans l'URL.
+- P5. **Aucune suppression définitive** : orgs et comptes se désactivent, ne se
+  suppriment pas (données conservées, adresses permanentes).
+- P6. **Isolation par organisation conservée** : chaque humain ne voit que ce
+  qui appartient à SON organisation (lecture de contenu incluse, §2).
+
+---
+
+## 2. Point 1 — Consultation des conversations avec contenu (D1)
+
+### 2.1 Comportement attendu
+
+Depuis l'interface web connectée en tant qu'humain d'une organisation :
+
+- une vue « Conversations » liste les conversations de l'organisation
+  (métadonnées : participants, volume, dernier échange, non-lus) ;
+- ouvrir une conversation affiche **l'intégralité des messages avec leur
+  contenu**, dans l'ordre chronologique, avec pagination (limite/cursor) ;
+- la vue est organisée par un **switch [Agent ↔ Agent | Humain ↔ Agent]**
+  (décision utilisateur 2026-08-06) :
+  * **Agent ↔ Agent** : les conversations **entre agents uniquement**
+    (aucun humain participant). **Lecture seule** — aucun composeur, aucun
+    envoi possible. Affichage de messagerie : alternance gauche/droite des
+    deux interlocuteurs (le premier participant à gauche, le second à
+    droite), noms, timestamps, en-tête et liste montrant les deux noms
+    (« a ↔ b ») ;
+  * **Humain ↔ Agent** : les conversations où l'humain courant participe.
+    Même présentation, plus un **composeur d'envoi** (réponse depuis le
+    compte humain, envoi au nom de l'humain, §5) ;
+- les conversations **externes** (avec une autre organisation) sont listées et
+  lisibles : les messages écrits par l'autre organisation sont visibles
+  (décision D1, symétrique des deux côtés).
+- **Gestion des messages non lus** (comportement de messagerie) : un message
+  reçu destiné à l'humain est marqué « non lu » tant que la conversation
+  n'est pas consultée ; l'ouverture de la conversation le marque lu ; le
+  compteur (badge de la liste, compteur de la sidebar) est mis à jour
+  immédiatement ; l'état lu persiste après rechargement.
+
+### 2.2 Composants concernés
+
+- `synapse/service.py` — deux nouvelles commandes de lecture (contrats §7) ;
+- `synapse/web.py` — route `/api/conversation` : marque lu les messages
+  destinés à l'humain à la consultation (read_message idempotent) et invalide
+  le cache de la liste (badge à zéro immédiatement) ;
+- `synapse/webui/js/views/conversations.js` — vue « Conversations » : switch
+  AA/HA, liste + détail (messagerie), composeur (HA uniquement), gestion des
+  non lus, rafraîchissement fluide ;
+- `synapse/webui/js/api.js` — appels aux nouvelles commandes ;
+- `synapse/validation.py` — validation des paramètres ;
+- `synapse/helpdoc.py` — documentation des nouvelles commandes.
+
+### 2.3 Règles de fonctionnement
+
+- R2.1. **Portée** : l'humain lit les conversations où au moins un participant
+  appartient à son organisation. Jamais les conversations internes d'une AUTRE
+  organisation.
+- R2.2. **Autorisation** : `principal_type='human'` ET appartenance à l'org
+  concernée. Les agents (même de la même org) n'y ont pas accès : un agent ne
+  lit que ses propres messages (règle existante inchangée).
+- R2.3. **L'observateur historique reste métadonnées-seules** (F18 inchangé).
+  La capacité de lecture avec contenu est portée par l'humain, pas par
+  l'observateur. (Si un besoin « supervision avec contenu » émergeait pour
+  l'observateur, ce serait un second amendement explicite — non acté.)
+- R2.4. **Le contenu n'est jamais dans le snapshot pollé** (3 s) : la liste
+  des conversations (métadonnées) peut être dans le snapshot étendu, mais le
+  contenu est chargé à la demande via `get_org_conversation`.
+- R2.5. **Non-divulgation inter-agents conservée** : ces commandes ne
+  divulgue jamais de contenu à un agent non participant.
+- R2.6. L'audit de ces lectures est tracé (F11) : `get_org_conversation`
+  journalise « lecture de contenu » (conversation_id, acteur, pas le contenu).
+- R2.7. **Filtrage du switch** : côté interface, « Humain ↔ Agent » =
+  conversations dont l'humain courant est participant ; « Agent ↔ Agent » =
+  conversations sans humain participant. Le filtrage est local (les données
+  restent celles de l'organisation — cohérent multi-organisations : chaque
+  humain ne voit que les conversations de sa propre organisation).
+- R2.8. **Bascule de mode** : si la conversation ouverte n'appartient pas au
+  nouveau mode, elle est désélectionnée (retour à la liste du mode).
+- R2.9. **Non lus** : le marquage lu ne concerne que les messages dont
+  l'humain est le **destinataire** (`recipient = humain AND read_at IS NULL`) ;
+  la lecture d'une conversation Agent ↔ Agent ne marque rien (l'humain n'y est
+  jamais destinataire) ; l'état `read_at` est persistant en base.
+- R2.10. **Rafraîchissement fluide** : le rafraîchissement périodique compare
+  les données par empreinte (ids, compteurs, horodatages) ; si rien n'a
+  changé, **le DOM n'est pas reconstruit** — ni « Chargement… », ni
+  clignotement, ni perte de scroll/sélection. Le re-rendu n'a lieu que quand
+  le contenu change réellement (nouveau message, non-lu).
+- R2.11. Conversation ouverte pendant la réception de nouveaux messages : les
+  nouveaux messages destinés à l'humain sont marqués lu à la lecture suivante
+  du détail (la conversation étant ouverte, ils apparaissent lus — cohérent
+  avec une messagerie classique).
+
+### 2.4 Dépendances avec l'existant
+
+- Le modèle de messages actuel est suffisant (messages : expéditeur,
+  destinataire, conversation_id, contenu, read_at). Aucun changement de schéma.
+- La pagination cursor/limit existe (get_messages) — réutilisée.
+- Le snapshot actuel expose déjà les conversations en métadonnées (paires,
+  volume, dernier échange) — la liste est une extension.
+- `read_message` (marquage lu idempotent, réservé au destinataire) existe et
+  est réutilisé pour les non lus de l'humain.
+
+### 2.5 Modifications nécessaires
+
+1. `create_org` (nouveau) — voir §7.
+2. `list_org_conversations` (nouveau) — liste paginée des conversations de l'org.
+3. `get_org_conversation` (nouveau) — messages avec contenu, paginés.
+4. Vue web « Conversations » : switch [Agent ↔ Agent | Humain ↔ Agent],
+   messagerie (alternance gauche/droite, timestamps), composeur HA, non lus
+   (marquage à la consultation), rafraîchissement fluide (empreinte).
+5. `test_*` : autorisation (agent refusé, autre org refusée, humain OK),
+   pagination, contenu inter-org, audit, non lus (badge → lu), switch (lecture
+   seule AA / composeur HA), stabilité du DOM (pas de re-rendu sans changement).
+
+### 2.6 Cas particuliers
+
+- C2.1. Conversation avec une org désactivée : lisible (lecture seule), envoi
+  refusé (destinataire désactivé, règle existante `RECIPIENT_NOT_FOUND`).
+- C2.2. Conversation sans messages (créée par erreur) : liste vide propre.
+- C2.3. L'humain lit un message qu'il a lui-même envoyé : cohérent (il est
+  participant).
+- C2.4. Pagination profonde (très longues conversations) : même mécanique que
+  l'inbox (cursor opaque, limite 1-100).
+- C2.5. Conversation Agent ↔ Agent à un seul message : aucune alternance
+  possible (un seul interlocuteur a parlé) — les bulles s'affichent d'un seul
+  côté, sans erreur.
+- C2.6. Plusieurs messages non lus arrivent pendant qu'une conversation est
+  ouverte : marquage lu idempotent à chaque lecture du détail ; une course
+  (message déjà lu/révoqué) n'est pas bloquante.
+- C2.7. Rechargement de la page : l'état lu est persistant (read_at en base) —
+  les messages déjà consultés restent lus.
+
+---
+
+## 3. Point 2 — Changement d'organisation (D2)
+
+### 3.1 Comportement attendu
+
+- L'interface propose « Changer d'organisation » : déconnexion puis écran de
+  connexion par sélection (liste déroulante des organisations actives).
+- Après connexion, toute la vue (données, conversations, gestion) reflète la
+  nouvelle organisation.
+
+### 3.2 Règles
+
+- R3.1. Un principal appartient à UNE organisation (immuable, règle existante)
+  : pas de compte multi-org, donc **pas de bascule sans reconnexion**.
+- R3.2. La session en cours est détruite au changement ; aucune donnée de la
+  précédente organisation ne subsiste en mémoire (P4).
+- R3.3. Deux onglets sur deux organisations différentes : deux sessions
+  indépendantes (pas de partage).
+
+### 3.3 Composants et modifications
+
+- `synapse/web.py` — `/api/login`, `/api/logout`, `/api/session` (§6) ;
+- `synapse/webui/js/` — écran de connexion, gestion de session côté client.
+
+### 3.4 Cas particuliers
+
+- C3.1. Mot de passe d'org incorrect : message générique (aucune révélation
+  d'existence), compté dans le rate-limit (§6).
+- C3.2. Orgs homonymes insensibles à la casse : la normalisation existante
+  (`normalize_organization_name`) s'applique.
+
+---
+
+## 4. Point 3 — Gestion des organisations et des agents (D3)
+
+### 4.1 Comportement attendu
+
+Depuis le web (connecté en humain d'une organisation) :
+
+- **Agents** : créer, modifier (description, visibilité, carte, département,
+  rôle), désactiver/réactiver. Jamais supprimer (D3).
+- **Organisations** : créer une nouvelle organisation ; désactiver/réactiver
+  SA PROPRE organisation. Jamais supprimer. Jamais en modifier le nom.
+
+### 4.2 Règles
+
+- R4.1. **Création d'organisation** : réservée à un compte `human` (D3).
+  La nouvelle organisation reçoit : nom, mot de passe (saisis par l'humain),
+  politiques par défaut (entrant/sortant externes interdits), et son compte
+  humain auto-créé (D4).
+- R4.2. **Création locale conservée** : la première organisation se crée
+  toujours par `synapse-init-org` (règle existante). Le web crée les
+  organisations SUIVANTES. Il n'existe pas d'organisation sans humain.
+- R4.3. **Désactivation d'organisation** : gèle l'organisation — échec
+  d'authentification de tous ses comptes (humain, agents, observateurs) et de
+  l'org elle-même ; envois entrants/sortants refusés (destinataires
+  désactivés). Les données sont conservées intactes. Réactivation : restaure
+  tout (les comptes retrouvent leur état antérieur).
+- R4.4. **L'humain ne peut pas être désactivé individuellement** (l'accès web
+  de l'org en dépend) ; le gel se fait au niveau de l'organisation.
+- R4.5. **Isolation** : un humain ne gère que SA propre organisation. Il peut
+  en créer d'autres (R4.1), mais ne peut ni les voir, ni les modifier.
+- R4.6. Toute action de gestion est audité (F11) : acteur, cible, commande.
+
+### 4.3 Dépendances avec l'existant
+
+- `create_agent`, statut `active/disabled`, départements, cartes, politiques :
+  tout existe et s'utilise via l'authentification d'organisation — le web les
+  appelle avec `organization_name_auth`/`organization_password_auth` (P3).
+- **`create_org` n'existe PAS côté API** (vérifié) : la création est
+  exclusivement locale (`synapse-init-org`). C'est un nouveau contrat (§7),
+  pas un simple appel.
+
+### 4.4 Modifications nécessaires
+
+1. `create_org` et `disable_org` (nouveaux, §7) ; `enable_org` = procédure locale
+   (`synapse-init-org --enable`, §7.2/I15).
+2. Vue web « Agents » : formulaire de création, édition, désactivation
+   (bouton avec confirmation), réactivation.
+3. Vue web « Organisation » : panneau de gestion (politiques existantes) +
+   « Créer une organisation » + « Désactiver cette organisation ».
+4. `install.py` : auto-création du compte humain à l'init (D4) — la création
+   locale d'org doit produire le MÊME état que `create_org`.
+
+### 4.5 Cas particuliers
+
+- C4.1. Désactiver sa propre organisation : autorisé ; la session est
+  immédiatement invalide (déconnexion).
+- C4.2. Créer une organisation dont le nom existe déjà : `INVALID_ARGUMENT`
+  (ou code dédié, §7) — aucune révélation d'information.
+- C4.3. Mot de passe de la nouvelle organisation : mêmes règles que
+  l'existant (≥ 12 caractères, validation `validate_org_password`).
+- C4.4. Réactiver une organisation n'ayant jamais été désactivée : refus
+  propre (`INVALID_ARGUMENT`), pas d'erreur silencieuse.
+- C4.5. Agents d'une org désactivée : leur authentification échoue
+  (`AUTH_FAILED`) ; leurs messages et tâches restent intacts.
+
+---
+
+## 5. Point 4 — Compte humain (D4)
+
+### 5.1 Comportement attendu
+
+- À la création d'une organisation (locale OU web), un compte humain est
+  auto-créé : il représente l'humain de cette organisation.
+- L'humain est un principal de messagerie complet : il envoie et reçoit des
+  messages avec les agents de son organisation (et l'externe selon les
+  politiques).
+- Depuis le web, l'humain discute avec les agents (vues Conversations, §2) et
+  gère l'organisation (§4).
+- Distinction claire agents/humains : champ `principal_type` — 'agent'
+  (défaut) ou 'human' (déjà prévu par `validate_principal_type`, référencé
+  F19).
+
+### 5.2 Règles
+
+- R5.1. **Nommage** : username dérivé déterministe `{organization_name}_humain`
+  (normalisation existante ; les noms d'org et d'usernames partagent le même
+  charset). Le suffixe `_humain` est **réservé** : `create_agent` refuse tout
+  username se terminant par `_humain` (collision impossible).
+- R5.2. **Authentification** : le mot de passe de l'humain EST le mot de passe
+  de l'organisation. À l'authentification, un compte `human` est vérifié
+  contre le hash du mot de passe de SON organisation (délégation — pas de
+  copie du hash, pas de dérive possible). Décision D4.
+- R5.3. **Usage web** : la connexion web n'accepte que les identifiants
+  d'organisation (§6). L'humain « vit » dans le web ; son existence côté API
+  (socket) reste possible par construction (c'est un compte), mais aucun
+  client n'en a l'usage : la possession du mot de passe d'org EST la
+  condition — elle implique déjà tous les pouvoirs (§9-I3).
+- R5.4. **Visibilité** : l'humain est un compte comme les autres dans
+  l'annuaire (les agents peuvent le trouver et lui écrire). Il n'a pas besoin
+  de `can_see_org_agents` (il lit l'org par rôle, §2).
+- R5.5. **Non désactivable individuellement** (R4.4) ; gel par l'organisation.
+- R5.6. L'humain n'a pas de carte d'agent (F2 concerne les agents) ; ses
+  commandes de gestion passent par l'auth d'organisation (P3).
+
+### 5.3 Dépendances avec l'existant
+
+- `principal_type` existe en base (colonne, défaut 'agent') et la validation
+  accepte déjà 'human' — l'échafaudage F19 est partiellement présent.
+- L'installation (`install.py`) crée l'org : y ajouter la création du humain.
+- `create_org` (web) : crée org + humain dans la même transaction.
+
+### 5.4 Modifications nécessaires
+
+1. `install.py` — auto-création du humain à l'init (avec mot de passe d'org).
+2. `create_org` — idem pour les orgs créées depuis le web.
+3. `service.py` — chemin d'authentification : déléguer la vérification du
+   password d'un compte `human` à son organisation (§5.2 R5.2).
+4. `validation.py` — réservation du suffixe `_humain` ; `create_org` ;
+   valeur 'human' actée pour `principal_type` dans les réponses.
+5. Web : badge « humain » dans l'annuaire, vue de conversation, profil.
+
+### 5.5 Cas particuliers
+
+- C5.1. Org dont le nom dérivé dépasserait la longueur max d'username :
+  `normalize_organization_name` borne déjà les noms d'org (64) ; le dérivé
+  `{org}_humain` reste sous la limite d'username (à vérifier à
+  l'implémentation, règle : refuser la création si dépassement).
+- C5.2. Le humain d'une org désactivée ne peut pas se connecter (R4.3).
+- C5.3. Un agent tente de créer un compte `..._humain` : refus (R5.1).
+- C5.4. Changement du mot de passe d'org : **aucune commande n'existe
+  aujourd'hui** — la rotation est impossible (§9-I6). À acter séparément.
+
+---
+
+## 6. Point 5 — Sessions web (remplacement de la clé, D5 amendé : connexion par sélection)
+
+### 6.1 Comportement attendu
+
+- Premier accès : écran de connexion **par sélection** — une liste déroulante
+  des organisations ACTIVES, un bouton « Se connecter ». **Aucune saisie
+  d'identifiants** (décision utilisateur 2026-08-06).
+- L'utilisateur choisit son organisation, clique « Se connecter » et est
+  connecté automatiquement ; l'interface est fluide, aucune clé à saisir.
+- Déconnexion explicite possible ; expiration après inactivité.
+
+### 6.2 Contrats HTTP
+
+| Route | Méthode | Corps | Résultat |
+|---|---|---|---|
+| `/api/orgs` | GET | — | 200 `{organizations: [{organization_name}]}` — organisations ACTIVES, **publique** (l'écran de connexion n'a pas de session) ; servie par l'identité web locale |
+| `/api/login` | POST | `{organization_name}` | 200 `{organization_name, human_username, expires_in}` + cookie de session ; 401 générique si l'organisation est inconnue ou désactivée ; un `organization_password` éventuellement envoyé est **ignoré** |
+| `/api/logout` | POST | — | 200, session détruite |
+| `/api/session` | GET | — | 200 `{organization_name, human_username, expires_at}` ; 401 si absente/expirée |
+| `/api/*` (toutes les autres) | — | — | exigent la session (401 sinon) |
+
+### 6.3 Règles de fonctionnement
+
+- R6.1. **Jeton de session** : 32 octets aléatoires (CSPRNG), stocké côté
+  serveur en mémoire (org, humain, créé, dernier usage, expiration), transmis
+  au navigateur en cookie `HttpOnly; SameSite=Strict; Path=/` (le web est
+  localhost, pas de TLS — le cookie n'est jamais envoyé hors localhost par
+  construction réseau).
+- R6.2. **Expiration** : inactivité 15 min (configurable) ; aucune
+  prolongation automatique après expiration ; déconnexion à l'expiration.
+- R6.3. **Rate-limit de connexion** : 5 échecs / 15 min par organisation +
+  verrouillage 15 min ; les échecs sont les logins d'organisations inconnues
+  ou désactivées (plus aucun mot de passe à vérifier) ; compteur en mémoire ;
+  événements d'échec audités.
+- R6.4. **La clé statique `X-Synapse-Token` et le compte observateur fixé au
+  démarrage disparaissent** : `synapse-web` démarre sans aucun secret
+  (`--observer-name`/`--password-stdin` retirés).
+- R6.5. **Jeton de confiance LOCAL (remplace le mot de passe d'org pour le
+  web)** : le serveur génère un jeton aléatoire au démarrage, le garde en
+  mémoire et l'écrit dans le run dir (`web_token`, permissions 0600) ; il est
+  retiré à l'arrêt propre. Le web le lit au démarrage et s'authentifie auprès
+  du service **sans aucun mot de passe** — l'humain n'a jamais à le saisir,
+  il ne transite ni dans le corps HTTP ni dans le navigateur.
+- R6.6. **Identité web locale `_web_local`** : la commande `list_orgs`
+  (65e commande, liste les organisations actives) est réservée à l'identité
+  web locale et aux comptes humains — jamais aux agents (`ACCESS_DENIED`).
+  `_web_local` n'a AUCUN autre pouvoir : toute autre commande est refusée.
+- R6.7. Le jeton local remplace le mot de passe d'organisation pour les
+  comptes humains et les commandes d'organisation (le web agit au nom de
+  l'organisation sélectionnée) ; il ne s'applique **jamais** aux comptes
+  agents.
+- R6.8. Sessions simultanées : max 3 par organisation (au-delà, la plus
+  ancienne est révoquée).
+- R6.9. **Compromis de sécurité ASSUMÉ et documenté** : la suppression de la
+  saisie abaisse la barrière anti-agent locale — tout processus du même
+  utilisateur qui lit `web_token` (0600) peut agir comme l'interface web.
+  L'accès reste limité au poste (le web n'écoute que sur 127.0.0.1) et à
+  l'utilisateur du service (SPEC.txt §20.7).
+
+### 6.4 Composants et modifications
+
+- `synapse/service.py` — commande `list_orgs` (+65e), identité `_web_local`,
+  jeton local accepté pour humains et commandes d'org (jamais les agents) ;
+- `synapse/server.py` — écriture/retrait du jeton `web_token` (0600) au
+  démarrage/arrêt ;
+- `synapse/web.py` — route publique `GET /api/orgs`, login par sélection ;
+- `synapse/webui/js/` — écran de connexion à liste déroulante, état de
+  session, déconnexion ;
+- `synapse/config.py` — nouvelle config web (session_ttl, login_max_attempts,
+  login_lockout, port, max_sessions) ;
+- `tests/test_spec_web_d6.py` — 15 tests dédiés (jeton, list_orgs, limites) ;
+  `tests/test_webui.py`, `tests/test_security_audit_2026.py` — adaptation.
+
+### 6.5 Cas particuliers
+
+- C6.1. Session expirée pendant qu'une vue est ouverte : retour automatique à
+  l'écran de connexion avec message « session expirée ».
+- C6.2. Deux onglets : deux sessions indépendantes (R3.3) — pas de conflit.
+- C6.3. L'organisation est désactivée pendant une session : la session est
+  invalidée à la prochaine requête (R4.3) ; elle disparaît aussi de la liste
+  déroulante (seules les organisations actives sont proposées).
+- C6.4. Redémarrage du serveur web : toutes les sessions sont perdues
+  (mémoire) — reconnexion requise (comportement documenté).
+- C6.5. Redémarrage du service : le jeton local est régénéré (le fichier
+  `web_token` est réécrit) — le web en cours relit le fichier à son prochain
+  login ; s'il est absent (service arrêté), le login répond 503 « service
+  local non prêt ».
+
+---
+
+## 7. Nouveaux contrats API (détail pour l'implémentation)
+
+> Style identique à la partie B de SPEC.txt : enveloppe v2, champs nommés,
+> `INVALID_ARGUMENT` sur champ inconnu/absent/mauvais type, 1 MiB max.
+
+### 7.1 `create_org` — création d'une organisation par un humain
+
+- Authentification : **compte humain** (`my_name_auth` = username humain,
+  `my_password_auth` = mot de passe d'org). Les agents et observateurs :
+  `ACCESS_DENIED`.
+- Paramètres : `organization_name` (normalisé), `organization_password`
+  (≥ 12 caractères, mêmes règles que l'init).
+- Comportement : crée l'organisation (politiques par défaut : entrant/sortant
+  externes interdits), crée le compte humain dérivé (D4), journalise (F11).
+- Erreurs : `INVALID_ARGUMENT` (nom/mot de passe invalides ou organisation
+  existante — message générique, pas de révélation), `ACCESS_DENIED`.
+- Cas particulier : la création échoue atomiquement (org + humain dans la même
+  transaction).
+
+### 7.2 `disable_org` (API) / `enable_org` (procédure locale) — gel / dégel
+
+- Authentification : **compte humain** de la cible, ou authentification
+  d'organisation (les deux pouvoirs sont dans la session, P3). Cible : sa
+  propre organisation uniquement.
+- Paramètres : `organization_name` (cible).
+- Comportement de `disable_org` : flag `enabled=0` sur l'organisation ; toute
+  authentification (comptes et org) échoue ; les envois vers/par l'org sont
+  refusés ; données intactes. `enable_org` : procédure locale
+  (`synapse-init-org --enable <org>` + mot de passe d'org) — flag `enabled=1`,
+  restauration (décision I15 actée : la réactivation est une décision
+  d'administrateur système, pas une commande réseau).
+- Erreurs : `INVALID_ARGUMENT` (déjà désactivée / déjà activée), `ACCESS_DENIED`.
+- Audit : les deux commandes sont journalisées.
+
+### 7.3 `list_org_conversations` — liste des conversations de l'organisation
+
+- Authentification : compte humain de l'organisation.
+- Paramètres : `limit` (1-100), `cursor` (opaque, optionnel).
+- Retour : `{conversations: [{conversation_id, participants: [..],
+  message_count, unread_count, last_message_at, last_message_preview?}],
+  next_cursor}`.
+- Règle : métadonnées uniquement (R2.4) ; `last_message_preview` : décision
+  d'implémentation (préférence : sans contenu, volume + horodatage suffisent).
+- Erreurs : `ACCESS_DENIED` (non-humain), pagination invalide.
+
+### 7.4 `get_org_conversation` — lecture d'une conversation avec contenu
+
+- Authentification : compte humain de l'organisation.
+- Paramètres : `conversation_id`, `limit` (1-100), `cursor` (optionnel).
+- Retour : `{conversation_id, participants, messages: [{message_id,
+  sender_username, recipient_username, created_at, content, read_at}],
+  next_cursor}`.
+- Règles : portée org (R2.1) ; audit de lecture (R2.6) ; contenu jamais servi
+  à un agent non participant.
+- Erreurs : `ACCESS_DENIED` (non-humain / autre org), `CONVERSATION_NOT_FOUND`
+  (non-divulgation si hors portée).
+
+### 7.5 Récapitulatif des changements de surface API
+
+- Nouvelles commandes API : `create_org`, `disable_org`,
+  `list_org_conversations`, `get_org_conversation`, `change_agent_description`
+  → **58 → 65 commandes** (`enable_org` n'est pas une commande API ; `list_orgs` ajouté par l'amendement D5 ;
+  `change_agent_description` couvre « modifier un agent », D3).
+  (mise à jour : help, `test_compliance` contrainte 1, SPEC.txt §1, compteurs).
+
+---
+
+## 8. Composants modifiés (vue par fichier)
+
+| Fichier | Modification |
+|---|---|
+| `synapse/service.py` | 5 nouvelles commandes ; auth humaine déléguée à l'org (R5.2) ; vérification org `enabled` à l'auth |
+| `synapse/db.py` | schéma : colonne `enabled` sur `organizations` (défaut 1) ; (aucun changement pour `principal_type`, déjà présent) |
+| `synapse/validation.py` | `create_org` ; réservation suffixe `_humain` ; valeur 'human' actée |
+| `synapse/install.py` | auto-création du compte humain à l'init (même code que `create_org`) |
+| `synapse/web.py` | suppression jeton statique + observer au démarrage ; login/logout/session ; rate-limit ; cookies |
+| `synapse/config.py` | config web (session_ttl, login_max_attempts, login_lockout, max_sessions) |
+| `synapse/helpdoc.py` | 6 nouvelles entrées help (dont list_orgs) |
+| `synapse/store/*.py` | requêtes org (conversations avec contenu, portée org) |
+| `synapse/webui/` | écran de connexion par sélection ; vue Conversations (switch Agent ↔ Agent / Humain ↔ Agent, messagerie, non lus, rafraîchissement fluide) ; vues Agents/Organisation étendues ; badge humain ; gestion de session |
+| `tests/` | tests sessions (remplacent le jeton) ; autorisations humain ; create_org/disable_org ; contenu ; non lus ; switch AA/HA ; compteur 65 commandes |
+| `install.sh` | (inchangé, hormis le compte humain via install.py) |
+
+---
+
+## 9. Analyse d'impact — ambiguïtés, incohérences, problèmes, incidents
+
+Pour chaque point : (1) problème, (2) pourquoi, (3) impact, (4) meilleure
+solution, (5) modifications des spécifications existantes.
+
+### I1. « La commande de création d'organisation existe déjà » — FAUX
+
+1. **Problème** : la création d'organisation n'existe pas côté API ; elle est
+   exclusivement locale (`synapse-init-org`, install.py). Le web ne peut pas
+   créer d'org en l'état.
+2. **Pourquoi** : SPEC.txt partie B §3.1 : « créée exclusivement par la
+   procédure locale d'installation, jamais par une commande réseau ».
+3. **Impact** : sans nouvel amendement, le point D3 (création web) est
+   impossible ; croire le contraire mènerait à une implémentation cherchant
+   une commande inexistante.
+4. **Solution** : nouvelle commande `create_org` (§7.1), réservée à un compte
+   humain, dans la même transaction que la création du humain.
+5. **Modifs spec** : SPEC.txt §3.1 amendé — « la PREMIÈRE organisation est
+   créée par la procédure locale ; les suivantes peuvent l'être par un compte
+   humain via `create_org` ».
+
+### I2. Option B (contenu) vs contraintes « jamais de contenu » et F18
+
+1. **Problème** : contradiction formelle. SPEC.txt partie B §3.1 :
+   « l'organisation n'accède jamais au contenu des messages » ; F18 : le
+   snapshot observateur est métadonnées-seules. La décision D1 donne au
+   compte humain la lecture de TOUT le contenu de l'org.
+2. **Pourquoi** : la vision initiale réservait le contenu aux participants ;
+   le besoin utilisateur (voir « précisément les messages échangés ») étend la
+   lecture au niveau organisation.
+3. **Impact** : le mot de passe d'organisation devient une clé de lecture de
+   tout le contenu (interne ET externe de l'org). Changement de posture de
+   confidentialité majeur ; à documenter comme tel (pas de demi-mesure).
+4. **Solution** : amendement explicite et borné — le contenu est lisible par
+   (a) les participants (existant), (b) le compte humain de l'organisation.
+   Jamais par l'auth d'organisation elle-même, jamais par un agent non
+   participant, jamais par une autre organisation. L'observateur reste
+   métadonnées-seules (R2.3).
+5. **Modifs spec** : partie B §3.1 (contrainte « jamais au contenu ») précisée
+   — « sauf le compte humain de l'organisation (SPEC-WEB §2) » ; F18 annoté.
+
+### I3. « Le compte humain uniquement accessible via web » n'est pas contraignable à l'API
+
+1. **Problème** : l'humain est un compte ordinaire sur le socket ; un
+   processus avec le mot de passe d'org peut agir en son nom via le CLI/API.
+2. **Pourquoi** : le web et le socket utilisent le même canal d'authentification ;
+   « accessible via web uniquement » est une règle d'usage, pas une propriété
+   technique vérifiable.
+3. **Impact** : faible en pratique — le mot de passe d'org donne déjà tous les
+   pouvoirs (création de comptes, etc.) ; l'impersonation de l'humain n'ajoute
+   aucun pouvoir. Mais la formulation « uniquement via web » crée une fausse
+   attente de cloisonnement.
+4. **Solution** : documenter la règle comme usage (le login web n'accepte QUE
+   les identifiants d'org, R6) et acter que le mot de passe d'org EST le
+   secret racine. Ne pas ajouter de mécanisme d'exclusion socket (complexité
+   pour zéro gain de sécurité).
+5. **Modifs spec** : SPEC-WEB §5.2 R5.3 reformulée comme règle d'usage + note.
+
+### I4. Unicité globale des usernames vs un humain par organisation
+
+1. **Problème** : « un nom d'utilisateur unique globalement » (partie B §3.2).
+   Le nom « humain » ne peut exister qu'une fois sur tout le service → une
+   seule organisation pourrait avoir son humain.
+2. **Pourquoi** : l'auto-création par organisation exige un nom par org ; un
+   nom fixe entre en collision.
+3. **Impact** : sans résolution, les organisations 2..N n'ont pas de humain
+   (ou l'implémentation casse l'unicité).
+4. **Solution** : username dérivé `{organization_name}_humain` (unique car les
+   noms d'org sont uniques) + réservation du suffixe `_humain` (R5.1).
+5. **Modifs spec** : §5.2 R5.1 ; partie B §3.2 — note sur les noms réservés.
+
+### I5. Désactivation d'organisation vs « organisations permanentes »
+
+1. **Problème** : SPEC.txt partie B §3.1 : « permanentes : aucune commande ne
+   peut les désactiver, les supprimer ou les renommer ». D3 acte la
+   désactivation.
+2. **Pourquoi** : le besoin de gestion introduit un état « gelé ».
+3. **Impact** : si mal bornée, la désactivation pourrait ressembler à une
+   suppression (perte perçue) ou casser l'isolation (comptes encore actifs).
+4. **Solution** : amendement précis — la permanence (pas de suppression, pas
+   de renommage) est conservée ; `disable_org`/`enable_org` ajoutent un état
+   réversible qui gèle l'authentification et la messagerie sans toucher aux
+   données (R4.3, §7.2).
+5. **Modifs spec** : partie B §3.1 et contrainte 24 amendées (état
+   désactivé/réversible documenté).
+
+### I6. Aucune rotation du mot de passe d'organisation
+
+1. **Problème** : le mot de passe d'org est désormais saisi dans un
+   navigateur (login web) et sert de secret racine + secret humain ; aucune
+   commande ne permet de le changer.
+2. **Pourquoi** : la spec d'origine n'en prévoyait pas (création locale,
+   exposition minimale) ; l'exposition web augmente la surface.
+3. **Impact** : un mot de passe compromis est compromis à vie ; le web en
+   augmente la probabilité d'exposition (machine partagée, capture).
+4. **Solution** : ajouter `change_org_password` (nouvelle commande, auth org
+   + ancien mot de passe), qui re-hash l'org ET le chemin humain délégué
+   (aucune copie à synchroniser grâce à R5.2). À acter comme périmètre v1 ou
+   v1.1 — recommandé v1.
+5. **Modifs spec** : partie B §3.1 (rotation possible) ; SPEC-WEB §5.5 C5.4.
+
+### I7. L'observateur devient-il obsolète ?
+
+1. **Problème** : le web est désormais humain-only (D4/D5) ; l'observateur
+   n'est plus le compte d'accès web. Son rôle futur est flou.
+2. **Pourquoi** : l'humain couvre (et dépasse) la lecture observateur, avec le
+   contenu en plus.
+3. **Impact** : risque de double chemin de supervision, de confusion dans la
+   doc, et d'effort perdu ; les anciens tests/tools observateur restent
+   valides (API), mais plus utilisés par le web.
+4. **Solution** : conserver l'observateur pour la supervision API/CLI
+   (métadonnées, F18 inchangé), documenter que l'interface web utilise
+   l'humain. Ne pas lui donner le contenu (R2.3) sauf décision contraire
+   explicite.
+5. **Modifs spec** : F18 annoté (l'interface web utilise désormais le compte
+   humain ; l'observateur reste disponible côté API).
+
+### I8. Sécurité du login web (bruteforce, sessions, CSRF)
+
+1. **Problème** : un endpoint HTTP local de connexion expose le mot de passe
+   d'org à un essai répété ; les sessions doivent être robustes.
+2. **Pourquoi** : 127.0.0.1 est atteignable par tout processus local ; le
+   navigateur est la frontière.
+3. **Impact** : bruteforce local du mot de passe d'org = compromission
+   totale (racine) ; sessions faibles = vol de session par un processus local.
+4. **Solution** : rate-limit + verrouillage (R6.3), tokens de session 32
+   octets CSPRNG, cookie HttpOnly/SameSite=Strict, TTL d'inactivité, audit
+   des échecs, mot de passe jamais en localStorage. Pas de TLS (localhost,
+   hors périmètre) — le risque réseau n'existe pas par construction.
+5. **Modifs spec** : §6 ; ajouter au glossaire/§sécurité de SPEC.txt la
+   notion de « session web » (nouveauté : SPEC.txt interdit les sessions
+   persistantes pour l'API — préciser que la session web est une session de
+   TRANSPORT du navigateur, pas une session d'API : chaque appel socket
+   reste authentifié individuellement).
+
+### I9. « Système fort anti-agent/bot » — limites réelles
+
+1. **Problème** : l'utilisateur demande un web exclusivement humain et
+   « anti-agent ». Un agent peut techniquement appeler l'endpoint HTTP comme
+   un humain.
+2. **Pourquoi** : HTTP local ne permet pas de distinguer un agent d'un humain
+   (même protocole, même machine) ; CAPTCHA et preuves de travail sont
+   théâtraux en localhost (déchiffrables par le même processus).
+3. **Impact** : si l'on s'appuie sur du « anti-bot » cosmétique, fausse
+   sécurité ; si l'on n'accepte que des identifiants d'org, un agent sans le
+   mot de passe d'org est effectivement exclu — c'est le contrôle réel.
+4. **Solution** : le contrôle anti-agent est le LOGIN PAR IDENTIFIANTS D'ORG
+   UNIQUEMENT (les agents n'ont pas ce secret) + rate-limit + verrouillage +
+   audit. Documenter honnêtement : un agent possédant le mot de passe d'org
+   est déjà équivalent à une compromission racine (hors modèle de menace).
+5. **Modifs spec** : §6.3 ; note de menace dans SPEC-WEB.
+
+### I10. Contenu dans le snapshot pollé ?
+
+1. **Problème** : le snapshot est pollé toutes les 3 s ; y mettre le contenu
+   alourdirait le réseau/mémoire et exposerait le contenu à chaque poll.
+2. **Pourquoi** : la vue « en direct » pousse à tout mettre dans le snapshot.
+3. **Impact** : performances dégradées (55 Ko help déjà optimisés ; le
+   contenu est bien plus gros), surface d'exposition accrue.
+4. **Solution** : la liste des conversations (métadonnées) peut être dans le
+   snapshot ; le contenu via `get_org_conversation` à la demande (R2.4).
+5. **Modifs spec** : §2.3 R2.4.
+
+### I11. L'humain et les approbations (F8) / tâches (F5)
+
+1. **Problème** : F19 (vision) envisage l'humain dans les approbations (F8) ;
+   le périmètre demandé est la messagerie + la gestion.
+2. **Pourquoi** : la vision est large ; le besoin actuel est ciblé.
+3. **Impact** : si l'on glisse des approbations/tâches dans ce périmètre, la
+   surface explose (dépendance F8, permissions, UI de workflow).
+4. **Solution** : périmètre v1 = messagerie + gestion (D1-D5) ; approbations
+   humaines = évolution ultérieure (F19 inchangée, non implémentée ici).
+5. **Modifs spec** : section « Hors périmètre » (§11).
+
+### I12. Compatibilité des tests et compteurs
+
+1. **Problème** : la suite actuelle verrouille 58 commandes, le jeton web, le
+   modèle observateur-au-démarrage ; les nouvelles fonctionnalités cassent
+   ces verrous.
+2. **Pourquoi** : spécifications et tests évoluent ensemble.
+3. **Impact** : suite rouge si non accompagnée (test_compliance contrainte 1,
+   test_web_ui_requires_token, tests observers/web).
+4. **Solution** : mettre à jour compteurs (63), réécrire les tests web en
+   tests de session, garder les tests observateur (toujours valides côté
+   API), ajouter les tests des 5 nouvelles commandes.
+5. **Modifs spec** : compteurs partie B §1 ; SPEC-WEB §8.
+
+### I13. Contenu inter-organisations (conversations externes)
+
+1. **Problème** : dans une conversation A↔B, l'humain de A lit les messages
+   écrits par B (et réciproquement).
+2. **Pourquoi** : la portée « org » inclut les échanges avec l'extérieur.
+3. **Impact** : confidentialité asymétrique possible (une org voit les
+   messages de l'autre) ; acceptable car symétrique, mais à documenter
+   explicitement.
+4. **Solution** : acter R2.1 (les deux humains voient la conversation) ;
+   documenter dans l'UI (« les échanges externes sont visibles des deux
+   organisations »). Ne pas filtrer (complexité, incohérence).
+5. **Modifs spec** : §2.1/§2.3 R2.1 + note UI.
+
+### I14. Redémarrage web = perte des sessions
+
+1. **Problème** : les sessions sont en mémoire ; un redémarrage déconnecte
+   tout le monde.
+2. **Pourquoi** : pas de persistance des sessions (choix : aucune donnée
+   sensible sur disque).
+3. **Impact** : gêne mineure (reconnexion), aucune fuite.
+4. **Solution** : documenter le comportement (C6.4) ; option : persistance
+   chiffrée des sessions (hors périmètre v1).
+5. **Modifs spec** : §6.5 C6.4.
+
+### I15. Désactivation d'org et authentification d'org elle-même
+
+1. **Problème** : si l'org est désactivée, son auth échoue ; mais
+   `enable_org` exige une auth valide — qui peut réactiver ?
+2. **Pourquoi** : la boucle de gel/gel exige un chemin de sortie.
+3. **Impact** : sans chemin de sortie, une org désactivée est perdue
+   (équivalent suppression, interdit).
+4. **Solution** : `enable_org` autorisé par un humain d'UNE AUTRE organisation
+   (chaîne de confiance) OU par la procédure locale (`synapse-init-org`
+   étendu) — décision à acter. Recommandation : procédure locale uniquement
+   (le gel est une décision de l'administrateur système).
+5. **Modifs spec** : §7.2 (autorisation d'`enable_org` à préciser).
+
+---
+
+## 10. Modifications consolidées à SPEC.txt
+
+| Section | Modification |
+|---|---|
+| Partie B §1 | compteur 58 → 65 commandes |
+| Partie B §3.1 | création d'org : première locale, suivantes via `create_org` (humain) ; état désactivé réversible ; rotation du mot de passe possible ; contenu : exception « compte humain » |
+| Partie B §3.2 | noms réservés (suffixe `_humain`) |
+| Partie B §3.3 | auth : compte `human` vérifié contre le mot de passe d'org |
+| Partie A F18 | annotation : l'interface web utilise désormais le compte humain ; observateur conservé côté API (métadonnées) |
+| Partie A F19 | passage de vision à fonctionnalité actée (périmètre §11) |
+| Nouveau (SPEC-WEB) | contrats §7, sessions §6, analyse §9 |
+
+## 11. Hors périmètre (v1)
+
+- Approbations humaines (F8) et tâches créées par l'humain (F5) — évolutions
+  ultérieures.
+- TLS/HTTPS (localhost uniquement, pas de risque réseau).
+- Persistance des sessions (mémoire uniquement).
+- Multi-org pour un même humain (interdit par la spec, D2 = reconnexion).
+- Suppression définitive d'orgs/agents (D3 = désactivation).
+- Notifications web poussées (polling existant conservé).
+
+---
+
+## Annexe A — Exemple de flux (implémentation de référence)
+
+1. `synapse-init-org` (local) : org « acme » + humain « acme_humain »
+   (mot de passe d'org) — même code que `create_org`.
+2. L'humain ouvre le web : écran de connexion → sélection d'organisation
+   « acme » dans la liste déroulante → « Se connecter » → session (cookie)
+   → tableau de bord (adapté).
+3. Vue Conversations : liste (métadonnées) → clic → `get_org_conversation`
+   → messages complets → réponse (`send_message` en tant qu'humain).
+4. Vue Agents : création/édition/désactivation (auth d'org via la session).
+5. Vue Organisation : « Créer une organisation » → `create_org` (auth humain)
+   → nouvelle org + humain auto-créé ; « Désactiver cette organisation » →
+   session invalidée.
+6. Changer d'organisation : logout → login (autre org).
+
+
+---
+
+## 10. AMENDEMENT (2026-08-06) — connexion par sélection + réorganisation des conversations
+
+### 10.1 Connexion par sélection d'organisation
+
+Décision utilisateur : l'écran de connexion ne demande plus d'identifiants.
+Il affiche la liste déroulante des organisations ACTIVES (`GET /api/orgs`,
+servie par l'identité web locale `_web_local` + jeton de confiance du run
+dir, commande `list_orgs`) ; l'utilisateur sélectionne son organisation et
+clique « Se connecter » (`POST /api/login` avec `organization_name` seul).
+Le web s'authentifie auprès du service avec le jeton local (fichier
+`web_token` 0600 écrit par le serveur au démarrage) à la place du mot de
+passe d'organisation — valable pour les comptes humains et les commandes
+d'organisation, jamais pour les agents. `list_orgs` est la 65e commande.
+Compromis documenté : la suppression de la saisie abaisse la barrière
+anti-agent locale (tout processus du même utilisateur lisant le jeton peut
+agir comme le web) ; l'interface reste limitée à 127.0.0.1. Voir SPEC.txt
+§20.7. Tests : tests/test_spec_web_d6.py (15), tests/test_webui.py,
+tests/test_webui_dom_harness.py (écran de connexion + 8 vues).
+
+### 10.2 Onglet Conversations réorganisé
+
+Décision utilisateur (même séance) :
+
+- **Switch [Agent ↔ Agent | Humain ↔ Agent]** en tête de l'onglet
+  (boutons segmentés) :
+  * **Agent ↔ Agent** : conversations entre agents uniquement — **lecture
+    seule** (aucun composeur) ;
+  * **Humain ↔ Agent** : conversations où l'humain courant participe —
+    lecture + **composeur d'envoi** (réponse depuis le compte humain).
+  La seule différence entre les vues est fonctionnelle : l'affichage est
+  identique (messagerie classique).
+- **Affichage de messagerie** : alternance gauche/droite des deux
+  interlocuteurs (en Agent ↔ Agent : le premier participant à gauche, le
+  second à droite ; en Humain ↔ Agent : l'humain à droite), noms dans les
+  bulles, timestamps ; en Agent ↔ Agent, l'en-tête et la liste montrent les
+  deux noms (« a ↔ b »).
+- **Bascule de mode** : si la conversation ouverte n'appartient pas au
+  nouveau mode, elle est désélectionnée (retour à la liste du mode).
+- **Gestion des messages non lus** (messagerie) : un message reçu destiné à
+  l'humain est « non lu » tant que la conversation n'est pas consultée ;
+  l'ouverture de la conversation marque lu les messages dont l'humain est
+  destinataire (`read_message` idempotent, non-divulgation conservée —
+  jamais les messages entre agents) ; le cache de la liste est invalidé et
+  l'UI répercute l'état immédiatement (badge de la liste + compteur de la
+  sidebar) ; l'état `read_at` est persistant en base (cohérent après
+  rechargement) ; robuste aux arrivées multiples (marquage idempotent à
+  chaque lecture du détail).
+- **Rafraîchissement fluide** : le refresh périodique compare les données
+  par empreinte (ids, compteurs, horodatages) — aucun re-rendu quand rien
+  n'a changé (plus de « Chargement du contenu… » récurrent, plus de
+  clignotement, scroll et sélection préservés). Le « Chargement… » n'apparaît
+  plus qu'au premier chargement.
+- **Mentions de raccourcis retirées** : les libellés « g d / g a / g c »
+  (`nav-shortcut`) ne sont plus affichés dans la sidebar (le raccourci
+  clavier reste fonctionnel, invisible).
+
+Tests : tests/test_spec_web_d6.py (non lus persistants),
+tests/test_webui_dom_harness.py (switch, alternance AA/HA, badge non lu →
+lu, stabilité du DOM), seed_demo.py (échange humain ↔ agent pour la vue HA).

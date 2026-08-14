@@ -1,7 +1,8 @@
 /* ==========================================================================
-   Synapse — Tasks view: state board (kanban) in metadata.
+   Synapse — Tasks view: state board (kanban) + action panel.
    Task titles and descriptions are protected content: only
    state, assignee, creator, priority and due date are exposed.
+   Actions: approve/reject for pending_approval tasks (human-in-the-loop).
    ========================================================================== */
 
 import { el, clear, badge, emptyState, pageHeader, protectedBanner,
@@ -122,6 +123,55 @@ export function render(container) {
   );
   container.append(toolbar);
   renderBoard(container);
+}
+
+export function renderActions(container) {
+  const snap = api.snapshot;
+  const pending = (snap?.tasks || []).filter(t => t.state === 'pending_approval');
+  clear(container);
+  container.append(pageHeader({
+    title: 'Approval Queue',
+    desc: `${pending.length} task(s) awaiting your approval.`,
+  }));
+  if (!pending.length) {
+    container.append(emptyState({ iconName: 'tasks', title: 'No pending approvals', desc: 'All tasks have been processed.' }));
+    return;
+  }
+  const list = el('ul', { class: 'list' });
+  for (const t of pending) {
+    list.append(el('li', { class: 'list-item' },
+      el('div', { class: 'list-main' },
+        el('span', { class: 'list-name' }, `#${shortId(t.task_id)}`),
+        badge(t.priority, t.priority === 'high' ? 'danger' : 'info'),
+        el('span', { class: 'cell-sub' }, `assignee: ${t.assignee_username}`),
+      ),
+      el('div', { class: 'list-actions' },
+        el('button', { class: 'btn btn-primary', onclick: () => approveTask(t.task_id) }, 'Approve'),
+        el('button', { class: 'btn btn-danger', onclick: () => rejectTask(t.task_id) }, 'Reject'),
+      ),
+    ));
+  }
+  container.append(list);
+}
+
+async function approveTask(taskId) {
+  try {
+    await api.approveTask(taskId);
+    toast('success', 'Task approved');
+    render(document.querySelector('#content'));
+  } catch (e) {
+    toast('error', e.message || 'Failed to approve');
+  }
+}
+
+async function rejectTask(taskId) {
+  try {
+    await api.rejectTask(taskId);
+    toast('success', 'Task rejected');
+    render(document.querySelector('#content'));
+  } catch (e) {
+    toast('error', e.message || 'Failed to reject');
+  }
 }
 
 export const refresh = render;

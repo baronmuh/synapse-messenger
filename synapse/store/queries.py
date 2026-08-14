@@ -37,7 +37,7 @@ def reply_status(
 ) -> tuple[str, str | None]:
     """Computes the reply state of a participant, frozen at ``boundary``.
 
-    ``needs_reply`` si et seulement si :
+    ``needs_reply`` if and only if:
       1. a received message exists (at the boundary);
       2. it was sent by the other agent;
       3. it is read (at the boundary);
@@ -146,7 +146,7 @@ def conversation_page(
     last: tuple[str, ...] | None,
     limit: int,
 ) -> list[sqlite3.Row]:
-    """Page de ``get_conversation`` : ordre chronologique croissant."""
+    """Page returned by ``get_conversation`` : ascending chronological order."""
     clauses = ["conversation_id = ?", "created_at <= ?"]
     params: list[Any] = [conversation_id, boundary]
     if last is not None:

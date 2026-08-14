@@ -1,0 +1,193 @@
+# Synapse Project — Communication Infrastructure for AI Agent Organizations
+
+> **Unified vision and specification document**, resulting from the merge of
+> `VISION.txt` (product vision) and `T.txt` (API v2 specification) on
+> 2026-08-05. Both original documents are archived in git history;
+> all external references now point here.
+
+## Correspondence with Original Documents
+
+| Former File | New Location | Numbering |
+|---|---|---|
+| `VISION.txt` | Part A (vision) | sections `V.1`-`V.14` (+ `V.7 bis`), features `F1`-`F21` |
+| `T.txt` | Part B (API v2 specification, source of truth) | sections `1`-`26` + amendments v1-v4 |
+
+Reference convention: `SPEC.txt §N` = part B (specification); `SPEC.txt §V.N` = part A (vision); `SPEC.txt FN` = vision feature.
+
+---
+
+# PART A — VISION (former `VISION.txt`)
+
+# Project: Synapse — Vision for AI Agent Organization Infrastructure (Vision and Design Document)
+
+## V.1. Status and Scope
+
+This document is a **vision and design spec**: it describes Synapse's
+product direction and the evolution that must transform it from a local
+messaging system for AI agents into a **communication and coordination
+infrastructure for organizations of AI agents**. It formed, with the former
+`T.txt`, two complementary documents; since the 2026-08-05 merge, it
+constitutes **Part A** of this unified document (`SPEC.txt`), whose Part B
+is the API v2 specification, source of truth — which it guides.
+
+Reading rules:
+
+* each feature is presented with the problem solved, the solution
+  proposed, the integration into the existing codebase, and the estimated
+  complexity;
+* horizons are: short term (🟢), medium term (🟡), long term (🔴), and
+  vision (🚀);
+* decisions recorded (section V.6) are those validated by the user;
+  they will not be revisited during design;
+* no feature in this document is yet implemented; each selected evolution
+  will be the subject of a detailed spec (in the style of existing
+  specification documents) and then an amendment to Part B (`SPEC.txt`)
+  before implementation.
+
+## V.2. Product Vision
+
+Synapse is not a messaging system between coding agents. It is an
+**effective communication infrastructure between AI agents**, enabling a
+set of specialized agents to collaborate to accomplish complex tasks
+**in any domain**.
+
+Communication is not simply "Agent A → message → Agent B" but:
+"Agent A → objective → coordination → multiple agents → results →
+synthesis".
+
+Ultimately, Synapse must enable the creation of **networks of agents
+capable of functioning like a real organization**: an HR agent, employee
+agents, a manager agent, an accounting agent, a sales agent, a marketing
+agent, a legal agent, a support agent, an operations manager, specialized
+agents. These agents communicate, transmit information, request actions,
+provide reports, collaborate on tasks, and make decisions collectively.
+
+And beyond: a **platform enabling humans to create, manage, and observe
+entire organizations of AI agents**, as one would manage a company — via
+a visualization interface (dashboard) built on top of Synapse, without
+ever modifying the server's architecture.
+
+## V.3. Positioning and Guiding Principles
+
+Synapse sits on the "agent ↔ agent" layer (equivalent to the A2A protocol
+of the Linux Foundation: capability discovery, delegation, task
+coordination) with guarantees that this layer generally does not offer:
+organizations, strong per-command authentication, fine-grained permissions,
+communication policies, non-disclosure, verified persistence, audit. The
+"local-first, secure, sovereign" niche is an advantage, not a limitation.
+
+Guiding principles, applicable to any evolution:
+
+1. **Non-regression**: the 26 final constraints of Part B remain in
+   force, unless explicitly amended and recorded in this document (section V.6);
+2. **security and compliance before performance**: no optimization
+   sacrifices non-disclosure, immutability, authentication, or
+   persistence;
+3. **small first**: any feature must work in a minimal organization of
+   two agents without additional configuration (section V.4);
+4. **real problem first**: no feature without an identified use case;
+   no complex architecture without measurable justification;
+5. **each new command** is authenticated, strictly validated,
+   documented in `help()` (anti-drift) and covered by tests;
+6. **all new data** is persisted, included in backups and restorations,
+   and protected by the same non-disclosure rules as the existing;
+7. **pull and database state take precedence**: no asynchronous processes
+   while consultable events (F10) suffice; tasks and states are durable
+   (in the database, never in memory);
+8. **start simple**: fixed roles and permissions first, never a
+   customizable rules engine from the start (complexity risk).
+
+## V.4. Organizations of All Sizes — The "Small First" Principle
+
+A Synapse organization does not necessarily represent a company.
+It represents **a group of agents under a common authority**. Sizes
+and forms are multiple:
+
+* **two coordinated agents**: two agents performing two different tasks
+  and communicating to better coordinate (typical example);
+* **a team**: three to ten agents around a common goal;
+* **a company**: departments, teams, roles, hundreds of agents;
+* **an ecosystem**: several organizations connected (partners,
+  suppliers) — vision horizon (F20).
+
+Rules:
+
+1. the current foundation of Part B — flat organization (agents +
+   communication policy) — remains **the valid minimal model**; nothing
+   should force it to evolve;
+2. no feature can **require** hierarchy (department, team, role):
+   tasks (F5), work queues (F6), events (F10), and audit (F11) work
+   fully in a flat organization of two agents;
+3. hierarchy (F13) is an **organizational option**, never a
+   precondition; an organization that does not need it does not create one;
+4. examples in this document alternate scales: the case "two agents
+   coordinating their tasks" is as legitimate as the case "company of a
+   hundred agents".
+
+## V.5. Infrastructure Pillars
+
+Synapse's evolution is organized into seven complementary pillars:
+
+* **A. Discovery and Directory** — knowing who does what (cards, search,
+  structure);
+* **B. Task-Oriented Coordination** — delegate, follow, validate, escalate
+  (the core);
+* **C. Advanced Communication** — events, transfers, groups;
+* **D. Identity and Capabilities** — role, skills, limits, reputation;
+* **E. Governance and Security** — permissions, controlled delegation, audit;
+* **F. Observability** — who talked to whom, where are the blockages;
+* **G. Interface and Scale** — dashboard, volume, interoperability.
+
+Sections 8 to 11 detail features by horizon. Each sheet indicates the
+concerned pillar.
+
+## V.6. Decisions Recorded (from Analysis)
+
+The following decisions were validated by the user. They constrain the
+detailed specs to come.
+
+### V.6.1 Authentication Verification Cache — APPROVED (yes)
+
+Server throughput is capped by Argon2id verification (~255 ms and 64 MiB
+per command; ~9.5 req/s measured on the reference machine). The cache
+temporarily remembers (TTL 30 to 60 seconds) the result of a successful
+authentication per principal; failures are never cached; the cache is
+invalidated on any hash rotation (password change).
+
+Impact: throughput multiplied by 3 to 10 for agents that chain commands.
+This is the **prerequisite for the entire vision**: without it, an
+organization of a hundred active agents suffocates.
+
+Compliance: authentication remains verified in each command (Part B
+constraint 2); the cache remembers the result of this verification. The
+promise "each command pays the Argon2id computation" is formally amended
+in Part B during implementation. The complete design is documented in
+`docs/PERFORMANCE.md` §6.
+
+### V.6.2 Next Structuring Step: Tasks — APPROVED (yes)
+
+The next major evolution is the **task system** (F5), rather than
+discussion groups or fine-grained permissions. Tasks meet the real need
+for coordination ("do X by such date", with tracking, transfer, and
+history) at the right level of abstraction. Group conversations (F15)
+and granular permissions (F14) will come after.
+
+### V.6.3 Organizational Structure: Start Simple — APPROVED (yes)
+
+Hierarchy (departments, teams, roles) will be introduced with **fixed
+predefined roles** (for example: `manager`, `employee`, `rh`), not a
+customizable permissions engine. The complete system can be enriched
+later; complexity is contained at the start.
+
+### V.6.4 Web Interface: Observer Account via Server — APPROVED (yes)
+
+The future web interface (F18) will access data **through the server**,
+like a read-only principal (observer account), never by direct reading
+of database files. Single-process architecture and consistency are
+preserved.
+
+### V.6.5 Federation: Standard A2A Gateway — APPROVED (yes)
+
+Multi-server binding (F20) will rely on the **A2A standard** (Linux
+Foundation), not a proprietary protocol. Synapse will expose a compatible
+gateway; it will not be isolated from the rest of the agent world.

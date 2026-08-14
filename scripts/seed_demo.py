@@ -27,6 +27,14 @@ from synapse.install import create_organization  # noqa: E402
 from synapse.server import SynapseServer  # noqa: E402
 from synapse.validation import now_utc_offset  # noqa: E402
 
+# Test harnesses (DOM tests) export SYNAPSE_FAST_HASH=1: Argon2id drops to
+# fast parameters so seeding a demo org takes ~1s instead of ~7s. Production
+# and normal demo usage keep the full parameters (never set by default).
+if os.environ.get("SYNAPSE_FAST_HASH") == "1":
+    from synapse import security  # noqa: E402
+
+    security.install_fast_hasher()
+
 ORG = "acme_ia"
 ORG_PASSWORD = "motdepasse-acme-1"
 OBSERVER = "observateur"

@@ -488,6 +488,53 @@ def validate_event_types(raw: Any) -> list[str] | None:
     return raw
 
 
+def validate_hlc(raw: Any) -> str:
+    """Validates a canonical HLC timestamp at the API boundary.
+
+    The canonical form is the fixed-width encoding of the hybrid
+    logical clock (DESIGN_CAUSAL_TIME_HLC_v2 §3.1): 13 digits of
+    physical ms + 6 digits of logical counter, e.g.
+    ``1786462715123.000042``. Malformed values are rejected exactly
+    like any other malformed field (``INVALID_ARGUMENT``).
+    """
+    from .hlc import is_valid
+
+    if not isinstance(raw, str):
+        raise _invalid("hlc must be a string")
+    if not is_valid(raw):
+        raise _invalid(
+            "hlc must be a canonical hybrid logical clock in the format "
+            "DDDDDDDDDDDDD.DDDDDD (13 digits of physical ms, 6 digits of "
+            "logical counter)"
+        )
+    return raw
+
+
+def validate_deadline(raw: Any) -> dict | None:
+    """Accepts a causal deadline value of the shape ``{agent, hlc}``.
+
+    Phase-2 T1 seam (visionary R2 feed-in, t_9e6bca5e — AP4 deadline
+    admission control is the first consumer): a deadline names the
+    causal point before which a task must complete — the agent that
+    must observe it and the HLC of the conditioning event. C1 ACCEPTS
+    and validates the shape at the boundary (malformed values are
+    rejected like any other field) but implements NO semantics: the
+    value is not interpreted, stored or enforced yet (design §6.4,
+    phase-2). The validator is the contract the phase-2 consumer
+    (EDF scheduling on {agent, hlc}) will rely on.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise _invalid("deadline must be an object {\"agent\", \"hlc\"}")
+    _ensure_exact_keys(raw, ("agent", "hlc"), "deadline")
+    agent = raw["agent"]
+    if not isinstance(agent, str) or not agent.strip():
+        raise _invalid("deadline.agent must be a non-empty string")
+    validate_hlc(raw["hlc"])  # rejects malformed hlc (H5 boundary)
+    return {"agent": agent.strip(), "hlc": raw["hlc"]}
+
+
 def validate_retention_days(raw: Any) -> int | None:
     """Event retention days (SPEC.txt F10): integer 1-3650."""
     value = validate_budget(raw)
@@ -562,7 +609,6 @@ def normalize_group_name(raw: Any) -> str:
 
 MIN_CAPABILITIES = 1
 MAX_CAPABILITIES = 50
-MIN_CAPABILITY_LEN = 1
 MAX_CAPABILITY_LEN = 64
 MAX_CARD_TEXT_LEN = 128
 MAX_CARD_LIMITS_LEN = 256
@@ -951,6 +997,7 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
             ("assignee_username", _P, True, normalize_username),
             ("priority", _P, False, validate_task_priority),
             ("due_at", _P, False, validate_due_at),
+            ("deadline", dict, False, validate_deadline),
             ("depends_on", list, False, validate_depends_on),
             ("business_reference", _P, False, normalize_business_reference),
             ("client_task_id", _P, False, _validate_optional_client_id),

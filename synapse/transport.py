@@ -147,6 +147,9 @@ def connect(config: Config) -> socket.socket:
         sock.sendall(token.encode("ascii") + b"\n")
         return sock
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.settimeout(10.0)
+    # Read timeout for server responses. Env-configurable (SYNAPSE_SOCKET_TIMEOUT,
+    # default 10s): parallel test workers on a loaded machine can push a request
+    # past 10s; production keeps the default.
+    sock.settimeout(float(os.environ.get("SYNAPSE_SOCKET_TIMEOUT", "10")))
     sock.connect(config.socket_path)
     return sock

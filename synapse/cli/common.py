@@ -188,13 +188,26 @@ def read_password(args: argparse.Namespace, prompt: str) -> str:
 
 def require_service(config: Config) -> None:
     """Any command served by the API requires a reachable service: code 3
-    (service unavailable, SPEC_CLI §2) if the socket does not respond."""
-    if not socket_responds(config):
-        raise CliError(
-            f"service unavailable: the socket {config.socket_path} does not respond "
-            "(server stopped?)",
-            code=EXIT_UNAVAILABLE,
-        )
+    (service unavailable, SPEC_CLI §2) if the socket does not respond.
+
+    The probe retries briefly (1s total): a freshly started daemon has a
+    tiny bind->listen window where the socket file exists but does not
+    accept connections yet. Under load (parallel tests) that window can
+    exceed a single probe; the retry closes the race. Semantics unchanged:
+    a truly stopped service still fails with code 3 after 1s.
+    """
+    deadline = time.time() + 1.0
+    while True:
+        if socket_responds(config):
+            return
+        if time.time() >= deadline:
+            break
+        time.sleep(0.05)
+    raise CliError(
+        f"service unavailable: the socket {config.socket_path} does not respond "
+        "(server stopped?)",
+        code=EXIT_UNAVAILABLE,
+    )
 
 
 def unique_org_name(config: Config) -> str:

@@ -163,14 +163,43 @@ def run_api(config, *, command: str, raw_tokens: list[str], json_out: bool,
     require_service(config)
     spec = COMMAND_SPECS.get(command)
 
-    # Command parameters: --key value / --key=value / --flag.
+    params, parse_error = _parse_params(raw_tokens)
+    if parse_error is not None:
+        return parse_error
+    if spec is not None:
+        _apply_spec_defaults(params, spec, organization_name, my_name,
+                             password_stdin)
+
+    auth_error = _resolve_auth(config, spec, command, params,
+                               organization_name, my_name, password_stdin)
+    if auth_error is not None:
+        return auth_error
+
+    try:
+        data = Client.from_config(config).request(command, params)
+    except ApiClientError as exc:
+        return emit_error(exc.message, api_code=exc.code)
+    except ClientTransportError as exc:
+        return emit_error(f"service unavailable: {exc}", code=3)
+    # Raw access prints the JSON response (full envelope, scripting).
+    import json as json_mod
+
+    print(json_mod.dumps({"success": True, "data": data, "error": None},
+                         ensure_ascii=False))
+    return EXIT_OK
+
+
+def _parse_params(raw_tokens: list[str]) -> tuple[dict, int | None]:
+    """Command parameters: --key value / --key=value / --flag.
+    Returns (params, None) on success, or ({}, error_code) when a
+    parameter is malformed (the message was already printed)."""
     params: dict = {}
     tokens = list(raw_tokens)
     i = 0
     while i < len(tokens):
         token = tokens[i]
         if not token.startswith("--"):
-            return emit_error(
+            return {}, emit_error(
                 f"unexpected parameter: {token!r} (use --key value)"
             )
         if "=" in token:
@@ -185,80 +214,89 @@ def run_api(config, *, command: str, raw_tokens: list[str], json_out: bool,
         else:
             params[key] = True  # boolean flag
             i += 1
+    return params, None
 
-    # Known command: all declared parameters are sent (missing
-    # ones are null) — the API requires the exact key set.
-    if spec is not None:
-        for name, _typ, _required, _validator in spec[1]:
-            params.setdefault(name, None)
-        # --organization-name / --my-name also act as parameters when
-        # the command declares that name (e.g. create_org → organization_name).
-        if organization_name is not None and "organization_name" in params:
-            params["organization_name"] = organization_name
-        if my_name is not None and "my_name" in params:
-            params["my_name"] = my_name
-        _fill_secret_params(params, spec, args=_SecretArgs(password_stdin))
 
-    # Authentication: local token, human or agent (SPEC_CLI §2.1).
+def _apply_spec_defaults(params: dict, spec, organization_name: str | None,
+                         my_name: str | None, password_stdin: bool) -> None:
+    """Known command: all declared parameters are sent (missing ones are
+    null) — the API requires the exact key set."""
+    for name, _typ, _required, _validator in spec[1]:
+        params.setdefault(name, None)
+    # --organization-name / --my-name also act as parameters when
+    # the command declares that name (e.g. create_org → organization_name).
+    if organization_name is not None and "organization_name" in params:
+        params["organization_name"] = organization_name
+    if my_name is not None and "my_name" in params:
+        params["my_name"] = my_name
+    _fill_secret_params(params, spec, args=_SecretArgs(password_stdin))
+
+
+def _resolve_auth(config, spec, command: str, params: dict,
+                  organization_name: str | None, my_name: str | None,
+                  password_stdin: bool) -> int | None:
+    """Authentication: local token, human or agent (SPEC_CLI §2.1).
+    Returns an error code (message already printed) or None on success."""
     token = read_web_token(config)
     if spec is not None and spec[2]:  # organization command
-        org = organization_name or params.get("organization_name_auth")
-        if token is not None:
-            params["organization_name_auth"] = org or _unique_org(config, token)
-            params["organization_password_auth"] = token
-        else:
-            if not org:
-                return emit_error(
-                    "organization command: --organization-name required "
-                    "(or local web token present)"
-                )
-            params["organization_name_auth"] = org
-            params["organization_password_auth"] = read_password(
-                _SecretArgs(password_stdin),
-                f"Password of the organization '{org}' : ",
-            )
+        return _auth_organization(config, params, organization_name, token,
+                                  password_stdin)
+    return _auth_account(config, command, params, organization_name, my_name,
+                         token, password_stdin)
+
+
+def _auth_organization(config, params: dict, organization_name: str | None,
+                       token: str | None, password_stdin: bool) -> int | None:
+    org = organization_name or params.get("organization_name_auth")
+    if token is not None:
+        params["organization_name_auth"] = org or _unique_org(config, token)
+        params["organization_password_auth"] = token
     else:
-        if command == "create_org" and token is not None:
-            # Web equivalent: local web identity + token (creation from
-            # the login page — no organization required).
-            from ..service import _WEB_LOCAL
-
-            params["my_name_auth"] = _WEB_LOCAL
-            params["my_password_auth"] = token
-        elif my_name is None and token is not None:
-            # Human account of the organization (the token replaces the
-            # human password) — humans call the account commands.
-            from ..validation import human_username_for
-
-            human = human_username_for(
-                organization_name or _unique_org(config, token)
-            )
-            params["my_name_auth"] = human
-            params["my_password_auth"] = token
-        elif my_name is not None:
-            params["my_name_auth"] = my_name
-            params["my_password_auth"] = read_password(
-                _SecretArgs(password_stdin),
-                f"Password of agent '{my_name}' : ",
-            )
-        else:
+        if not org:
             return emit_error(
-                "identity required: --my-name <account> (or --organization-name, "
-                "or local web token present)"
+                "organization command: --organization-name required "
+                "(or local web token present)"
             )
+        params["organization_name_auth"] = org
+        params["organization_password_auth"] = read_password(
+            _SecretArgs(password_stdin),
+            f"Password of the organization '{org}' : ",
+        )
+    return None
 
-    try:
-        data = Client.from_config(config).request(command, params)
-    except ApiClientError as exc:
-        return emit_error(exc.message, api_code=exc.code)
-    except ClientTransportError as exc:
-        return emit_error(f"service unavailable: {exc}", code=3)
-    # Raw access prints the JSON response (full envelope, scripting).
-    import json as json_mod
 
-    print(json_mod.dumps({"success": True, "data": data, "error": None},
-                         ensure_ascii=False))
-    return EXIT_OK
+def _auth_account(config, command: str, params: dict,
+                  organization_name: str | None, my_name: str | None,
+                  token: str | None, password_stdin: bool) -> int | None:
+    if command == "create_org" and token is not None:
+        # Web equivalent: local web identity + token (creation from
+        # the login page — no organization required).
+        from ..service import _WEB_LOCAL
+
+        params["my_name_auth"] = _WEB_LOCAL
+        params["my_password_auth"] = token
+    elif my_name is None and token is not None:
+        # Human account of the organization (the token replaces the
+        # human password) — humans call the account commands.
+        from ..validation import human_username_for
+
+        human = human_username_for(
+            organization_name or _unique_org(config, token)
+        )
+        params["my_name_auth"] = human
+        params["my_password_auth"] = token
+    elif my_name is not None:
+        params["my_name_auth"] = my_name
+        params["my_password_auth"] = read_password(
+            _SecretArgs(password_stdin),
+            f"Password of agent '{my_name}' : ",
+        )
+    else:
+        return emit_error(
+            "identity required: --my-name <account> (or --organization-name, "
+            "or local web token present)"
+        )
+    return None
 
 
 class _SecretArgs:

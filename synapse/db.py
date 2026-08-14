@@ -140,7 +140,8 @@ CREATE TABLE IF NOT EXISTS task_events (
     event        TEXT NOT NULL,
     by_username  TEXT NOT NULL,
     note         TEXT,
-    at           TEXT NOT NULL
+    at           TEXT NOT NULL,
+    hlc          TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_task_events_task ON task_events(task_id, id);
 
@@ -150,7 +151,9 @@ CREATE TABLE IF NOT EXISTS events (
     event_type   TEXT NOT NULL,
     ref_id       TEXT,
     by_username  TEXT,
-    at           TEXT NOT NULL
+    at           TEXT NOT NULL,
+    hlc          TEXT,
+    prev_event   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_events_principal ON events(principal, seq);
 CREATE INDEX IF NOT EXISTS idx_events_at ON events(at);
@@ -182,7 +185,8 @@ CREATE TABLE IF NOT EXISTS audit_log (
     command           TEXT NOT NULL,
     target_type       TEXT,
     target_username   TEXT,
-    outcome           TEXT NOT NULL
+    outcome           TEXT NOT NULL,
+    hlc               TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_audit_org ON audit_log(organization_name, id);
 
@@ -382,10 +386,119 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute(
             "ALTER TABLE organizations ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1"
         )
+    # causal time (C1, DESIGN_CAUSAL_TIME_HLC_v2 §4): hlc column on the
+    # event/task/audit rows + deterministic, idempotent backfill.
+    _migrate_hlc(conn)
     # missing human account (SPEC-WEB §5): each organization has an
     # auto-created human (web access). The password is delegated to the
     # organization's (never copied): the stored hash is an empty marker.
     _backfill_humans(conn)
+
+
+def _at_ms(at: str) -> int:
+    """Milliseconds since the Unix epoch of a ``YYYY-MM-DDTHH:mm:ss.sssZ``
+    timestamp (the service's canonical format)."""
+    from datetime import datetime
+
+    dt = datetime.fromisoformat(at.replace("Z", "+00:00"))
+    return max(0, int(dt.timestamp() * 1000))
+
+
+def _migrate_hlc(conn: sqlite3.Connection) -> None:
+    """Adds the causal-time ``hlc`` column and backfills existing rows.
+
+    Deterministic: the same input DB always yields the same hlc values
+    (rows ordered by (at, id/seq); l derived from at, strictly
+    increasing via the ``l_prev + 1`` guard). Idempotent: only NULL
+    rows are touched, so a re-run is a no-op. All columns are added and
+    backfilled in ONE transaction.
+
+    The backfilled hlc is a best-effort causal reconstruction of the
+    past (monotone, consistent with at, locally ordered) — it is NOT a
+    cross-instance proof, since no cross-instance traffic existed
+    before the primitive (release note, DESIGN_CAUSAL_TIME_HLC_v2 H8).
+    """
+    from .hlc import encode
+
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        for table, order_key in (
+            ("events", "seq"),
+            ("task_events", "id"),
+            ("audit_log", "id"),
+        ):
+            columns = {
+                row[1] for row in conn.execute(f"PRAGMA table_info({table})")
+            }
+            if "hlc" not in columns:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN hlc TEXT")
+            rows = conn.execute(
+                f"SELECT {order_key} AS k, at FROM {table} "
+                "WHERE hlc IS NULL ORDER BY at ASC, "
+                f"{order_key} ASC"
+            ).fetchall()
+            l_prev = 0
+            c_same_l = 0
+            for row in rows:
+                l = max(_at_ms(row["at"]), l_prev + 1)
+                if l == l_prev:
+                    c_same_l += 1
+                else:
+                    c_same_l = 0
+                conn.execute(
+                    f"UPDATE {table} SET hlc = ? WHERE {order_key} = ?",
+                    (encode(l, c_same_l), row["k"]),
+                )
+                l_prev = l
+        # prev-event DAG edge (visionary R2 feed-in, t_9e6bca5e): the
+        # column is added but NOT backfilled — reconstructing the exact
+        # chain for history is O(n) per principal and buys nothing (the
+        # chain is only meaningful for causally connected traffic, which
+        # did not exist before the primitive). History rows keep NULL;
+        # new events link their immediate predecessor (store/events.py).
+        events_columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(events)")
+        }
+        if "prev_event" not in events_columns:
+            conn.execute("ALTER TABLE events ADD COLUMN prev_event TEXT")
+        conn.execute("COMMIT")
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def max_hlc(conn: sqlite3.Connection) -> str | None:
+    """The persisted causal upper bound: ``MAX(hlc)`` over the three hlc
+    tables — the Synapse analogue of CockroachDB's persisted
+    ``WallTimeUpperBound`` (DESIGN_CAUSAL_TIME_HLC_v2 §3.1a/§3.3). A
+    clock rehydrated from this value never moves below what has been
+    durably written (I3 across restarts and crash-after-rollback).
+    ``None`` when nothing has been stamped yet.
+    """
+    row = conn.execute(
+        "SELECT MAX(hlc) AS m FROM ("
+        "SELECT hlc FROM events UNION ALL "
+        "SELECT hlc FROM task_events UNION ALL "
+        "SELECT hlc FROM audit_log)"
+    ).fetchone()
+    return row["m"] if row is not None else None
+
+
+def hlc_upper_bound(config: Config) -> str | None:
+    """``MAX(hlc)`` over the hlc tables, on a DEDICATED connection.
+
+    Used to rehydrate the process clock (``Service._build_clock``, the
+    bridge). MUST NOT go through :func:`connect`: the thread pool
+    resets a connection on reuse and would roll back a transaction the
+    calling thread has open (clock rehydration runs on the first stamp,
+    inside the first write transaction). One dedicated connection per
+    process lifetime is negligible.
+    """
+    conn = _open_connection(config)
+    try:
+        return max_hlc(conn)
+    finally:
+        conn.close()
 
 
 def _backfill_humans(conn: sqlite3.Connection) -> None:

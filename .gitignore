@@ -15,3 +15,16 @@ node_modules/
 prompt_hallmark_total_redesign.txt
 *.log
 correction-audit-synapse.txt
+# Secret files — defense in depth (never commit credentials/keys)
+.env
+.env.*
+*.pem
+*.key
+*.p12
+# Internal organization state — never pushed to the public repo
+STATUS.md
+orchestrateur-organisation-synapse.txt
+
+# Local tool artifacts / internal reports
+.commandcode/
+/GITHUB_SHIP_PROPOSAL.html

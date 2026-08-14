@@ -26,6 +26,7 @@ from .common import (
     table,
     wait_ready,
 )
+from .daemon import watch_parent_env
 
 GROUP = "server"
 
@@ -177,21 +178,27 @@ def _start_detached(config: Config, args: argparse.Namespace) -> int:
            "--config", os.path.abspath(cfg_path) if cfg_path else cfg_path]
     if getattr(args, "log_level", None):
         cmd += ["--log-level", args.log_level]
+    # Parent watch (auditor F1): the daemon exits when the process that
+    # started it disappears — no orphaned daemons from killed test
+    # workers. Opt-in via SYNAPSE_WATCH_PARENT (test harness only).
+    watch = watch_parent_env()
     try:
         proc = subprocess.Popen(
             cmd,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            env={**os.environ, **watch} if watch else None,
             **spawn_kwargs(),
         )
     except OSError as exc:
         return emit_error(f"cannot start the server: {exc}")
 
+    start_timeout = float(os.environ.get("SYNAPSE_START_TIMEOUT", "15"))
     ready = wait_ready(
         lambda: socket_responds(config)
         and read_pid_file(config, "synapse") is not None,
-        timeout=15.0,
+        timeout=start_timeout,
     )
     if not ready:
         proc.terminate()
@@ -200,7 +207,7 @@ def _start_detached(config: Config, args: argparse.Namespace) -> int:
         except subprocess.TimeoutExpired:
             proc.kill()
         return emit_error(
-            f"the server did not start within 15s (see "
+            f"the server did not start within {start_timeout:.0f}s (see "
             f"{config.log_dir}/synapse.error.log)"
         )
     info = read_pid_file(config, "synapse") or {}

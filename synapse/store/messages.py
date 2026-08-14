@@ -28,20 +28,6 @@ _MESSAGE_READ_FIELDS = (
     " WHERE a.username = messages.sender_username) AS sender_organization_name"
 )
 
-MESSAGE_SCHEMA_KEYS = (
-    "message_id",
-    "conversation_id",
-    "client_message_id",
-    "sender_username",
-    "sender_organization_name",
-    "recipient_username",
-    "content",
-    "business_reference",
-    "created_at",
-    "status",
-    "read_at",
-)
-
 
 def new_uuid() -> str:
     return str(uuid.uuid4())

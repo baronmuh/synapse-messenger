@@ -80,10 +80,10 @@ def _cmd_stream(args: argparse.Namespace) -> int:
     events = data.get("events", [])
     rows = [
         [str(e.get("seq", "")), e.get("event_type", ""), e.get("at", ""),
-         e.get("by_username", "")]
+         e.get("hlc", ""), e.get("by_username", "")]
         for e in events
     ]
-    print(table(rows, ["seq", "type", "timestamp", "actor"]))
+    print(table(rows, ["seq", "type", "timestamp", "hlc", "actor"]))
     if data.get("next_cursor"):
         print(f"(next page: --cursor {data['next_cursor']})")
     return EXIT_OK

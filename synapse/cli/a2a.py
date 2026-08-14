@@ -132,10 +132,17 @@ def _cmd_start(args: argparse.Namespace) -> int:
     cmd = [sys.executable, "-m", "synapse.cli", "_daemon", "a2a",
            "--config", config_arg_path(args), "--agent-name", args.agent_name,
            "--port", str(_resolve_a2a_port(args))]
+    from .daemon import watch_parent_env
+
+    watch = watch_parent_env()
     try:
         proc = subprocess.Popen(
-            cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL, **spawn_kwargs(),
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env={**os.environ, **watch} if watch else None,
+            **spawn_kwargs(),
         )
         if proc.stdin is not None:
             # Both secrets travel through the pipe (never as arguments
@@ -146,9 +153,10 @@ def _cmd_start(args: argparse.Namespace) -> int:
     except OSError as exc:
         return emit_error(f"cannot start the A2A bridge: {exc}")
 
+    start_timeout = float(os.environ.get("SYNAPSE_START_TIMEOUT", "15"))
     ready = wait_ready(
         lambda: _a2a_responding(config, args.port),
-        timeout=15.0,
+        timeout=start_timeout,
     )
     if not ready:
         proc.terminate()
@@ -157,7 +165,7 @@ def _cmd_start(args: argparse.Namespace) -> int:
         except subprocess.TimeoutExpired:
             proc.kill()
         return emit_error(
-            f"the A2A bridge did not start within 15s (see "
+            f"the A2A bridge did not start within {start_timeout:.0f}s (see "
             f"{config.log_dir}/a2a.error.log)"
         )
     info = read_pid_file(config, "a2a") or {}

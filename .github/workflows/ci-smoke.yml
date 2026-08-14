@@ -1,0 +1,45 @@
+name: Smoke CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  smoke:
+    name: Install and smoke test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: pip install .
+      - name: Check version
+        run: synapse --version
+      - name: "Smoke: org init, server, first message"
+        shell: bash
+        env:
+          SYNAPSE_NO_SYSTEMD: "1"
+        run: |
+          set -e
+          ROOT="$RUNNER_TEMP/synapse-smoke"
+          mkdir -p "$ROOT"
+          export SYNAPSE_CONFIG="$ROOT/config.json"
+          cat > "$SYNAPSE_CONFIG" <<EOF
+          {"storage_dir": "$ROOT/data", "socket_path": "$ROOT/run/synapse.sock", "log_dir": "$ROOT/logs", "backup_dir": "$ROOT/backups"}
+          EOF
+          printf 'smoke-org-pass-1\n' | synapse org init demo_org --password-stdin
+          synapse server start
+          printf 'agent-a-pass-1\nsmoke-org-pass-1\n' | synapse agent create agent_a --description "Smoke agent" --password-stdin
+          printf 'agent-b-pass-1\nsmoke-org-pass-1\n' | synapse agent create agent_b --description "Smoke agent" --password-stdin
+          printf 'agent-a-pass-1\n' | synapse message send agent_b "Hello from smoke test" --client-message-id smoke-1 --my-name agent_a --password-stdin
+          printf 'agent-b-pass-1\n' | synapse message inbox --unread --my-name agent_b --password-stdin
+          synapse server stop
+          echo "SMOKE OK"

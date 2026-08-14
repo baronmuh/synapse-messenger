@@ -22,7 +22,6 @@ from .common import (
     read_web_token,
     remove_pid_file,
     resolve_config,
-    service_state,
     socket_responds,
     stop_service,
     table,
@@ -139,17 +138,25 @@ def _cmd_start(args: argparse.Namespace) -> int:
            "--config", config_arg_path(args), "--port", str(port)]
     if getattr(args, "log_level", None):
         cmd += ["--log-level", args.log_level]
+    from .daemon import watch_parent_env
+
+    watch = watch_parent_env()
     try:
         proc = subprocess.Popen(
-            cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL, **spawn_kwargs(),
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env={**os.environ, **watch} if watch else None,
+            **spawn_kwargs(),
         )
     except OSError as exc:
         return emit_error(f"cannot start the web interface: {exc}")
 
+    start_timeout = float(os.environ.get("SYNAPSE_START_TIMEOUT", "15"))
     ready = wait_ready(
         lambda: _web_responding(config, port),
-        timeout=15.0,
+        timeout=start_timeout,
     )
     if not ready:
         proc.terminate()
@@ -158,7 +165,7 @@ def _cmd_start(args: argparse.Namespace) -> int:
         except subprocess.TimeoutExpired:
             proc.kill()
         return emit_error(
-            f"the web interface did not start within 15s (see "
+            f"the web interface did not start within {start_timeout:.0f}s (see "
             f"{config.log_dir}/web.error.log)"
         )
     info = read_pid_file(config, "web") or {}

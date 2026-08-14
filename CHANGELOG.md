@@ -4,6 +4,83 @@ All notable changes to the Synapse project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project follows [SemVer](https://semver.org/).
 
+## [3.1.7] — 2026-08-14
+
+### Fixed
+
+- **Test-suite stability under parallel load** — the CLI start timeouts
+  (`server` / `web` / `a2a`, previously hardcoded 15s) and the client
+  socket read timeout (previously 10s) are now env-configurable
+  (`SYNAPSE_START_TIMEOUT`, `SYNAPSE_SOCKET_TIMEOUT`). Production
+  defaults are unchanged; parallel test workers get headroom, so
+  intermittent "service unavailable" / "Internal error" failures under
+  memory pressure are gone.
+- **`require_service` and `diag doctor` socket probes** retry briefly
+  (1s total) — closes the bind→listen race of a freshly started daemon
+  (a single probe could false-FAIL a healthy service).
+- **Default pytest parallelism pinned to `-n 3`** — `-n auto` can
+  exhaust RAM on 4-core / 8GB machines.
+- **`seed_demo.py` supports `SYNAPSE_FAST_HASH=1`** (test harness only)
+  — demo seeding is ~4× faster; production Argon2id parameters are
+  unchanged.
+
+## [Unreleased] — 2026-08-12 (causal time — HLC primitive, C1)
+
+### Added
+
+- **Hybrid Logical Clock (C1)** — the first causal-time primitive of
+  Synapse (DESIGN_CAUSAL_TIME_HLC_v2): one `hlc` column on
+  `events` / `task_events` / `audit_log` plus one merge rule, so the
+  journal answers "what is provably before what", not just "what does
+  the wall clock say". `at` stays untouched (humans, UI, retention
+  purge); `hlc` is additive proof. Semantics mirror the **CockroachDB
+  HLC reference contract** (wall-first comparison with logical
+  tiebreak, atomic updates, persisted upper bound — the process clock
+  rehydrates from `MAX(hlc)` at boot, so it never moves below what has
+  been durably written). YugabyteDB's HybridTime corroborates the
+  design; CockroachDB remains the byte-level contract. There is no IETF
+  HLC standard (verified absence): Synapse defines the de-facto
+  agent-facing spec.
+  - Canonical encoding `"{l:013d}.{c:06d}"` (13 digits of physical ms,
+    6 digits of logical counter) makes SQLite TEXT byte order equal to
+    causal order. One stamp per write transaction (I4: within an
+    instance, hlc order == seq order). Server-stamped only — never
+    accepted from clients.
+  - `events` also gains `prev_event` (exact DAG edge, populated
+    forward-only) and the Events API (`get_events`, `synapse event
+    stream`) exposes `hlc` + `prev_event` per event. Malformed hlc
+    strings are rejected at the API boundary; `create_task` accepts an
+    optional `{agent, hlc}`-typed `deadline` value at the boundary
+    WITHOUT semantics (phase-2 seam for causal deadlines and
+    deadline-driven admission control).
+  - The A2A bridge attaches the Synapse hlc to outbound envelopes as an
+    extension field (ignored by non-Synapse peers) and observes remote
+    envelope hlc before processing — the merge rule runs through the
+    real transport, exercised by the two-instance MVE with a +30 s
+    clock skew.
+  - **History caveat (H8):** backfilled hlc on pre-C1 databases is a
+    *best-effort causal reconstruction* — monotone and consistent with
+    `at`, but NOT a proof of cross-instance order (no cross-instance
+    traffic existed before the primitive). Do not claim proofs for
+    history.
+  - **Privacy note (phase-2, out of scope):** HLC stamps reveal causal
+    order to any reader of the journal; envelope-level decoy/camouflage
+    and erasure-safe causal structures are phase-2 privacy concerns
+    (P3/P4), out of scope for C1.
+  - **IT2-D hook (for the D-1 builder):** when fact digests gain an hlc
+    field, the acceptance gate runs `clock.observe(fact.hlc)` before
+    journal insert, and digest reconciliation compares by hlc (causally
+    consistent, not arrival-consistent). MANDATORY: the IT2-D
+    `fact_hash` canonicalization follows RFC 8785 (JCS) and MUST treat
+    IEEE-754 negative zero ("-0") as an ERROR input (verified technical
+    erratum eid7920); validate against the cyberphone conformance
+    vectors; record JCS as an Informational RFC used as a de-facto
+    standard.
+  - Not cited as HLC precedent (verified counter-examples): TiDB
+    (central TSO, not HLC), Cassandra (client timestamps + LWW, not
+    HLC), MongoDB (unconfirmable), Longhorn (no evidence), the PyPI
+    "hlc" package (a hosts(5) converter, not HLC).
+
 ## [3.1.6] — 2026-08-09 (uninstall command, simplified update)
 
 ### Added

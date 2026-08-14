@@ -236,12 +236,3 @@ def _header(config: Config, path: Path) -> dict | None:
 def _header_date(config: Config, path: Path) -> str | None:
     header = _header(config, path)
     return header.get("created_at") if header else None
-
-
-def _header_format(config: Config, path: Path) -> int | None:
-    header = _header(config, path)
-    return header.get("format") if header else None
-
-
-def _api_error(exc: Exception) -> int:
-    return emit_error(str(exc))

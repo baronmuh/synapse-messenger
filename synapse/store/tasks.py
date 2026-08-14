@@ -26,6 +26,17 @@ ACTIVE_STATES = frozenset(
     {STATE_SUBMITTED, STATE_IN_PROGRESS, STATE_PENDING_APPROVAL}
 )
 
+
+def active_states_sql() -> str:
+    """SQL ``IN (... )`` fragment listing the active task states.
+
+    Rendered from ``ACTIVE_STATES`` (sorted for determinism — the order
+    inside an ``IN`` clause never affects results), so the active-state
+    filter is defined once instead of being repeated as literals in every
+    query.
+    """
+    return "(" + ", ".join(f"'{s}'" for s in sorted(ACTIVE_STATES)) + ")"
+
 # Transitions allowed by ``update_task_state`` (approvals excluded:
 # they go through request_approval/approve/reject).
 _TRANSITIONS: dict[str, frozenset[str]] = {
@@ -148,12 +159,13 @@ def dependencies_met(conn: sqlite3.Connection, task_id: str) -> bool:
 
 
 def add_event(
-    conn: sqlite3.Connection, task_id: str, event: str, by_username: str, note: str | None, at: str
+    conn: sqlite3.Connection, task_id: str, event: str, by_username: str,
+    note: str | None, at: str, hlc: str,
 ) -> None:
     conn.execute(
-        "INSERT INTO task_events (task_id, event, by_username, note, at) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (task_id, event, by_username, note, at),
+        "INSERT INTO task_events (task_id, event, by_username, note, at, hlc) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (task_id, event, by_username, note, at, hlc),
     )
 
 
@@ -172,8 +184,8 @@ def get_history(conn: sqlite3.Connection, task_id: str) -> list[dict[str, Any]]:
 def active_count(conn: sqlite3.Connection, username: str) -> int:
     """Number of active tasks (submitted/in_progress/pending_approval) of an agent."""
     row = conn.execute(
-        "SELECT COUNT(*) AS n FROM tasks WHERE assignee_username = ? "
-        "AND state IN ('submitted', 'in_progress', 'pending_approval')",
+        f"SELECT COUNT(*) AS n FROM tasks WHERE assignee_username = ? "
+        f"AND state IN {active_states_sql()}",
         (username,),
     ).fetchone()
     return row["n"]
@@ -261,8 +273,8 @@ def list_work(
     approvals where ``me`` is the approver. Sorted by ``due_at`` (without
     due last), then ``created_at``, then ``task_id``."""
     clauses = [
-        "((assignee_username = ? AND state IN ('submitted', 'in_progress', "
-        "'pending_approval')) OR (approver_username = ? AND state = 'pending_approval'))",
+        f"((assignee_username = ? AND state IN {active_states_sql()}) "
+        "OR (approver_username = ? AND state = 'pending_approval'))",
         "created_at <= ?",
     ]
     args: list[Any] = [me, me, boundary]

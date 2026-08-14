@@ -232,6 +232,16 @@ class Service:
     def __init__(self, config: Config) -> None:
         self.config = config
         self._cursor_key: bytes | None = None
+        # Causal time (C1, DESIGN_CAUSAL_TIME_HLC_v2 §3.3): the process's
+        # single hybrid logical clock, lazily created on the first write
+        # (rehydration needs the storage: Service is constructed before
+        # ensure_storage in the server startup). Rehydration from
+        # MAX(hlc) over the three hlc tables = the Synapse analogue of
+        # CockroachDB's persisted WallTimeUpperBound — the clock never
+        # moves below what has been durably written (I3 across restarts
+        # and crash-after-rollback). One stamp per write transaction.
+        self._clock: Any | None = None
+        self._clock_lock = threading.Lock()
         # Authentication cache (F1): result of successful verifications,
         # cached TTL seconds per principal. Failures are never
         # cached; a hash rotation (password change)
@@ -262,6 +272,51 @@ class Service:
         if self._web_token is None or not isinstance(password, str):
             return False
         return hmac.compare_digest(password, self._web_token)
+
+    # ------------------------------------------------------------------
+    # Causal time (C1, DESIGN_CAUSAL_TIME_HLC_v2 §3.3/§4.3)
+    # ------------------------------------------------------------------
+    def _stamp(self) -> str:
+        """One HLC stamp per write transaction.
+
+        The clock is created lazily on the first write (rehydration
+        needs the storage, which exists by then) and returns a fresh
+        stamp for every transaction. Callers pass the SAME stamp to all
+        store calls of one transaction — one hlc per transaction => the
+        I4 invariant (hlc order == seq order within an instance) holds.
+        """
+        clock = self._clock
+        if clock is None:
+            with self._clock_lock:
+                if self._clock is None:
+                    self._clock = self._build_clock()
+                clock = self._clock
+        return clock.stamp()
+
+    def _build_clock(self) -> "HLC":
+        """Builds the process clock, rehydrated from the persisted upper
+        bound (MAX(hlc) over events/task_events/audit_log — the Synapse
+        analogue of CockroachDB's WallTimeUpperBound, DESIGN §3.1a/§3.3).
+
+        The physical provider honors the test-only ``clock_skew_ms``
+        seam (DESIGN §8.2): a test instance simulates an NTP-skewed
+        clock exactly where clock error enters (the physical time
+        source), with zero effect on production (default 0).
+        """
+        from .hlc import HLC, default_pt
+
+        skew = self.config.clock_skew_ms
+        physical = default_pt if skew == 0 else (lambda: default_pt() + skew)
+        initial = None
+        try:
+            # Dedicated connection (db.hlc_upper_bound): the thread-pool
+            # connection would be reset on reuse and roll back the
+            # caller's open transaction (first stamp runs inside the
+            # first write transaction).
+            initial = db.hlc_upper_bound(self.config)
+        except Exception:  # pragma: no cover - storage missing (first boot)
+            initial = None
+        return HLC(physical=physical, initial=initial)
 
     # ------------------------------------------------------------------
     # Secrets
@@ -341,9 +396,9 @@ class Service:
                 data = handler(self, conn, params, org_name)
                 self._audit_action(conn, command, params, actor=org_name, org_name=org_name)
                 return data
-            user = self._authenticate(conn, params["my_name_auth"], params["my_password_auth"])
+            user, auth_row = self._authenticate(conn, params["my_name_auth"], params["my_password_auth"])
             meta["username"] = user
-            row = accounts.get(conn, user)
+            row = auth_row
             if row is not None and bool(row["is_observer"]) and command not in _OBSERVER_READ_COMMANDS:
                 raise ApiError(ACCESS_DENIED, ACCESS_DENIED_OBSERVER_READONLY)
             if command == "list_orgs":
@@ -369,11 +424,19 @@ class Service:
                 if row is None or row["principal_type"] != "human":
                     raise ApiError(ACCESS_DENIED, ACCESS_DENIED_HUMAN_COMMANDS)
                 data = _HUMAN_HANDLERS[command](self, conn, params, user)
-                self._audit_action(conn, command, params, actor=user, org_name=_org_of(conn, user))
+                self._audit_action(
+                    conn, command, params, actor=user,
+                    org_name=(row["organization_name"]
+                              if command in _AUDITED_COMMANDS and row is not None else None),
+                )
                 return data
             handler = _AGENT_HANDLERS[command]
             data = handler(self, conn, params, user)
-            self._audit_action(conn, command, params, actor=user, org_name=_org_of(conn, user))
+            self._audit_action(
+                conn, command, params, actor=user,
+                org_name=(row["organization_name"]
+                          if command in _AUDITED_COMMANDS and row is not None else None),
+            )
             return data
 
     def _audit_action(
@@ -383,14 +446,16 @@ class Service:
         params: dict,
         *,
         actor: str,
-        org_name: str,
+        org_name: str | None,
     ) -> None:
         """Registers write commands not already audited by their
         handler (F11). Pure reads are not audited (they do not
         change any state); coordination commands audit
-        themselves in their transaction."""
+        themselves in their transaction. ``org_name`` is ``None``
+        for non-audited commands (unused, never dereferenced)."""
         if command not in _AUDITED_COMMANDS:
             return
+        assert org_name is not None  # audited commands always pass a real org
         target = params.get(_TARGET_FIELD.get(command, "")) if _TARGET_FIELD.get(command) else None
         if isinstance(target, str):
             target = target.lower()
@@ -404,6 +469,7 @@ class Service:
                 target_type="target",
                 target_username=target,
                 outcome="ok",
+                hlc=self._stamp(),
             )
 
     # ------------------------------------------------------------------
@@ -456,7 +522,14 @@ class Service:
     # ------------------------------------------------------------------
     # Authentication and rate limiting
     # ------------------------------------------------------------------
-    def _authenticate(self, conn: sqlite3.Connection, name_raw: Any, password_raw: Any) -> str:
+    def _authenticate(self, conn: sqlite3.Connection, name_raw: Any, password_raw: Any) -> tuple[str, sqlite3.Row | None]:
+        """Authenticates ``(name, password)`` and returns ``(username, account_row)``.
+
+        The account row is already fetched here (it validates the
+        principal). Returning it lets ``_dispatch`` reuse it instead of
+        re-reading the same row — one less indexed SELECT per command.
+        The web-local identity matches no account: its row is ``None``.
+        """
         window = self.config.auth_window_seconds
         maximum = self.config.auth_max_failures
         username = name_raw.lower()
@@ -469,7 +542,7 @@ class Service:
         if username == _WEB_LOCAL:
             if self.web_token_matches(password_raw):
                 authfail.clear(conn, username)
-                return _WEB_LOCAL
+                return _WEB_LOCAL, None
             authfail.record(conn, username)
             raise ApiError(AUTH_FAILED)
         authfail.prune(conn, window)
@@ -497,12 +570,12 @@ class Service:
                 authfail.record(conn, username)
                 raise ApiError(AUTH_FAILED)
             authfail.clear(conn, username)
-            return username
+            return username, row
         if not self._cached_password_ok(username, row["password_hash"], password_raw):
             authfail.record(conn, username)
             raise ApiError(AUTH_FAILED)
         authfail.clear(conn, username)
-        return username
+        return username, row
 
     def _authenticate_organization(
         self, conn: sqlite3.Connection, name_raw: Any, password_raw: Any
@@ -1338,16 +1411,28 @@ def _get_conversation(service: Service, conn: sqlite3.Connection, p: dict, me: s
 
 
 def _read_message(service: Service, conn: sqlite3.Connection, p: dict, me: str) -> dict:
-    with db.begin_immediate(conn):
-        row = messages.get_message_by_id(conn, p["message_id"])
-        if row is None or (row["sender_username"] != me and row["recipient_username"] != me):
-            raise ApiError(MESSAGE_NOT_FOUND)
-        if row["recipient_username"] == me:
-            messages.mark_read_conditional(conn, p["message_id"], now_utc())
+    row = messages.get_message_by_id(conn, p["message_id"])
+    if row is None or (row["sender_username"] != me and row["recipient_username"] != me):
+        raise ApiError(MESSAGE_NOT_FOUND)
+    if row["recipient_username"] == me and row["read_at"] is None:
+        # The recipient's first read is the only case that writes
+        # (read_at). Sender reads and already-read messages return
+        # without acquiring the global writer lock or opening a WAL
+        # transaction: they used to serialize against every writer
+        # (db.begin_immediate) for zero writes, which showed up as the
+        # heavy read_message p99 tail under mixed load. A single SELECT
+        # in autocommit is statement-atomic, so the lock-free read is
+        # consistent; mark_read_conditional remains the arbiter between
+        # concurrent first readers (first committed read_at wins).
+        with db.begin_immediate(conn):
             row = messages.get_message_by_id(conn, p["message_id"])
             assert row is not None  # le message existe toujours
-        # The reply state is recomputed (derived): no storage needed.
-        return messages.row_to_message(row)
+            if row["read_at"] is None:  # already marked by a concurrent reader
+                messages.mark_read_conditional(conn, p["message_id"], now_utc())
+                row = messages.get_message_by_id(conn, p["message_id"])
+                assert row is not None  # le message existe toujours
+    # The reply state is recomputed (derived): no storage needed.
+    return messages.row_to_message(row)
 
 
 def _get_notifications(service: Service, conn: sqlite3.Connection, p: dict, me: str) -> dict:
@@ -1402,6 +1487,7 @@ def _audit(
     target_type: str | None = None,
     target_username: str | None = None,
     outcome: str = "ok",
+    hlc: str,
 ) -> None:
     audit.append(
         conn,
@@ -1412,6 +1498,7 @@ def _audit(
         target_type=target_type,
         target_username=target_username,
         outcome=outcome,
+        hlc=hlc,
     )
 
 
@@ -1476,12 +1563,15 @@ def _check_message_budget(conn: sqlite3.Connection, sender: str) -> None:
 
 
 def _check_escalations(
-    conn: sqlite3.Connection, org_name: str, now: str, default_retention: int
+    conn: sqlite3.Connection, org_name: str, now: str, default_retention: int,
+    hlc: str,
 ) -> None:
     """Automatic escalation (F9): tasks late or failing since the
     configured threshold are transferred to the designated agent, with event and
     audit. Called in the write transaction, on the organization of
-    the current assignee."""
+    the current assignee. ``hlc`` is the caller's one-per-transaction
+    stamp (DESIGN_CAUSAL_TIME_HLC_v2 §4.3: I4 holds because escalation
+    writes share the triggering transaction's stamp)."""
     policy = conn.execute(
         "SELECT * FROM org_escalation_policy WHERE organization_name = ?", (org_name,)
     ).fetchone()
@@ -1514,16 +1604,17 @@ def _check_escalations(
             if tasks.active_count(conn, escalate_to) >= budget["max_active_tasks"]:
                 continue
         tasks.set_assignee(conn, task_id, escalate_to, now)
-        tasks.add_event(conn, task_id, "escalated", escalate_to, "automatic escalation", now)
+        tasks.add_event(conn, task_id, "escalated", escalate_to, "automatic escalation", now, hlc)
         task_dict = {"task_id": task_id, "creator_username": row["creator_username"],
                      "assignee_username": escalate_to}
         events.append_for_task(conn, task=task_dict, event_type="task.escalated",
                                by_username=escalate_to, note="automatic escalation", at=now,
+                               hlc=hlc,
                                retention_days=_event_retention_days(
                                    conn, org_name, default_retention))
         _audit(conn, organization_name=org_name, at=now, actor_username=escalate_to,
                command="escalate_task", target_type="task", target_username=task_id,
-               outcome="escalated")
+               outcome="escalated", hlc=hlc)
 
 
 # F9 guardrail: maximum depth of a task's dependency chain
@@ -1572,6 +1663,7 @@ def _event_retention_days(
 def _agent_create_task(service: Service, conn: sqlite3.Connection, p: dict, me: str) -> dict:
     at = now_utc()
     with db.begin_immediate(conn):
+        hlc = service._stamp()  # one causal stamp per write transaction (§4.3)
         org = _org_of(conn, me)
         if p["client_task_id"] is not None:
             existing = tasks.get_by_client_key(conn, me, p["client_task_id"])
@@ -1582,10 +1674,13 @@ def _agent_create_task(service: Service, conn: sqlite3.Connection, p: dict, me: 
                 ):
                     _audit(conn, organization_name=org, at=at, actor_username=me,
                            command="create_task", target_type="task",
-                           target_username=existing["task_id"], outcome="idempotent")
+                           target_username=existing["task_id"], outcome="idempotent",
+                           hlc=hlc)
                     return tasks.row_to_task(conn, existing)
                 raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_CLIENT_TASK_ID_USED)
         _require_active_account(conn, p["assignee_username"])
+        if not _external_comm_allowed(conn, me, p["assignee_username"]):
+            raise ApiError(POLICY_DENIED)
         _check_task_budget(conn, p["assignee_username"])
         for dep in p["depends_on"]:
             if tasks.get(conn, dep) is None:
@@ -1608,18 +1703,19 @@ def _agent_create_task(service: Service, conn: sqlite3.Connection, p: dict, me: 
         )
         if p["depends_on"]:
             tasks.replace_dependencies(conn, task_id, p["depends_on"])
-        tasks.add_event(conn, task_id, "created", me, None, at)
+        tasks.add_event(conn, task_id, "created", me, None, at, hlc)
         row = tasks.get(conn, task_id)
         assert row is not None
         task = tasks.row_to_task(conn, row)
         events.append_for_task(conn, task=task, event_type="task.created",
-                               by_username=me, note=None, at=at,
+                               by_username=me, note=None, at=at, hlc=hlc,
                                retention_days=_event_retention_days(
                                    conn, org, service.config.event_retention_days))
         _audit(conn, organization_name=org, at=at, actor_username=me,
-               command="create_task", target_type="task", target_username=task_id)
+               command="create_task", target_type="task", target_username=task_id,
+               hlc=hlc)
         _check_escalations(conn, _org_of(conn, p["assignee_username"]), at,
-                           service.config.event_retention_days)
+                           service.config.event_retention_days, hlc)
         return task
 
 
@@ -1669,6 +1765,7 @@ def _agent_list_tasks(service: Service, conn: sqlite3.Connection, p: dict, me: s
 def _agent_update_task_state(service: Service, conn: sqlite3.Connection, p: dict, me: str) -> dict:
     at = now_utc()
     with db.begin_immediate(conn):
+        hlc = service._stamp()  # one causal stamp per write transaction (§4.3)
         row, delegated = _task_visible_or_404(conn, p["task_id"], me, allow_delegation=True)
         org = _org_of(conn, me)
         current = row["state"]
@@ -1678,51 +1775,57 @@ def _agent_update_task_state(service: Service, conn: sqlite3.Connection, p: dict
             raise ApiError(TASK_DEPENDENCY_NOT_MET)
         result = p["result"] if new_state in (tasks.STATE_COMPLETED, tasks.STATE_FAILED) else None
         tasks.set_state(conn, p["task_id"], new_state, result, at)
-        tasks.add_event(conn, p["task_id"], f"state_changed:{current}->{new_state}", me, None, at)
+        tasks.add_event(conn, p["task_id"], f"state_changed:{current}->{new_state}", me, None, at, hlc)
         updated = tasks.get(conn, p["task_id"])
         assert updated is not None
         task = tasks.row_to_task(conn, updated)
         events.append_for_task(conn, task=task, event_type="task.state_changed",
-                               by_username=me, note=None, at=at,
+                               by_username=me, note=None, at=at, hlc=hlc,
                                retention_days=_event_retention_days(
                                    conn, org, service.config.event_retention_days))
         _audit(conn, organization_name=org, at=at, actor_username=me,
                command="update_task_state", target_type="task",
                target_username=p["task_id"],
-               outcome=new_state if not delegated else f"{new_state}:delegated")
-        _check_escalations(conn, org, at, service.config.event_retention_days)
+               outcome=new_state if not delegated else f"{new_state}:delegated",
+               hlc=hlc)
+        _check_escalations(conn, org, at, service.config.event_retention_days, hlc)
         return task
 
 
 def _agent_transfer_task(service: Service, conn: sqlite3.Connection, p: dict, me: str) -> dict:
     at = now_utc()
     with db.begin_immediate(conn):
+        hlc = service._stamp()  # one causal stamp per write transaction (§4.3)
         row, _ = _task_visible_or_404(conn, p["task_id"], me)
         org = _org_of(conn, me)
         _require_active_account(conn, p["assignee_username"])
+        if not _external_comm_allowed(conn, me, p["assignee_username"]):
+            raise ApiError(POLICY_DENIED)
         _check_task_budget(conn, p["assignee_username"])
         if row["state"] in tasks.TERMINAL_STATES:
             raise ApiError(TASK_STATE_INVALID, TASK_STATE_INVALID_COMPLETED_TRANSFER)
         tasks.set_assignee(conn, p["task_id"], p["assignee_username"], at)
-        tasks.add_event(conn, p["task_id"], "transferred", me, p["note"], at)
+        tasks.add_event(conn, p["task_id"], "transferred", me, p["note"], at, hlc)
         updated = tasks.get(conn, p["task_id"])
         assert updated is not None
         task = tasks.row_to_task(conn, updated)
         events.append_for_task(conn, task=task, event_type="task.transferred",
-                               by_username=me, note=p["note"], at=at,
+                               by_username=me, note=p["note"], at=at, hlc=hlc,
                                retention_days=_event_retention_days(
                                    conn, org, service.config.event_retention_days))
         _audit(conn, organization_name=org, at=at, actor_username=me,
                command="transfer_task", target_type="task",
-               target_username=p["task_id"], outcome=p["assignee_username"])
+               target_username=p["task_id"], outcome=p["assignee_username"],
+               hlc=hlc)
         _check_escalations(conn, _org_of(conn, p["assignee_username"]), at,
-                           service.config.event_retention_days)
+                           service.config.event_retention_days, hlc)
         return task
 
 
 def _agent_request_approval(service: Service, conn: sqlite3.Connection, p: dict, me: str) -> dict:
     at = now_utc()
     with db.begin_immediate(conn):
+        hlc = service._stamp()  # one causal stamp per write transaction (§4.3)
         row, _ = _task_visible_or_404(conn, p["task_id"], me)
         org = _org_of(conn, me)
         if row["state"] in tasks.TERMINAL_STATES or row["state"] == tasks.STATE_PENDING_APPROVAL:
@@ -1735,23 +1838,25 @@ def _agent_request_approval(service: Service, conn: sqlite3.Connection, p: dict,
         tasks.set_approver(conn, p["task_id"], p["approver_username"], at)
         tasks.set_state(conn, p["task_id"], tasks.STATE_PENDING_APPROVAL, None, at)
         tasks.add_event(conn, p["task_id"], "approval_requested", me,
-                        f"approbateur: {p['approver_username']}", at)
+                        f"approbateur: {p['approver_username']}", at, hlc)
         updated = tasks.get(conn, p["task_id"])
         assert updated is not None
         task = tasks.row_to_task(conn, updated)
         events.append_for_task(conn, task=task, event_type="task.approval_requested",
-                               by_username=me, note=None, at=at,
+                               by_username=me, note=None, at=at, hlc=hlc,
                                retention_days=_event_retention_days(
                                    conn, org, service.config.event_retention_days))
         _audit(conn, organization_name=org, at=at, actor_username=me,
                command="request_approval", target_type="task",
-               target_username=p["task_id"], outcome=p["approver_username"])
+               target_username=p["task_id"], outcome=p["approver_username"],
+               hlc=hlc)
         return task
 
 
 def _agent_approve_task(service: Service, conn: sqlite3.Connection, p: dict, me: str) -> dict:
     at = now_utc()
     with db.begin_immediate(conn):
+        hlc = service._stamp()  # one causal stamp per write transaction (§4.3)
         row = tasks.get(conn, p["task_id"])
         if row is None or row["approver_username"] != me:
             raise ApiError(TASK_NOT_FOUND)  # non-divulgation : invisible pour un non-approbateur
@@ -1759,22 +1864,24 @@ def _agent_approve_task(service: Service, conn: sqlite3.Connection, p: dict, me:
         if row["state"] != tasks.STATE_PENDING_APPROVAL:
             raise ApiError(TASK_STATE_INVALID)
         tasks.set_state(conn, p["task_id"], tasks.STATE_COMPLETED, row["result"], at)
-        tasks.add_event(conn, p["task_id"], "approved", me, None, at)
+        tasks.add_event(conn, p["task_id"], "approved", me, None, at, hlc)
         updated = tasks.get(conn, p["task_id"])
         assert updated is not None
         task = tasks.row_to_task(conn, updated)
         events.append_for_task(conn, task=task, event_type="task.approved",
-                               by_username=me, note=None, at=at,
+                               by_username=me, note=None, at=at, hlc=hlc,
                                retention_days=_event_retention_days(
                                    conn, org, service.config.event_retention_days))
         _audit(conn, organization_name=org, at=at, actor_username=me,
-               command="approve_task", target_type="task", target_username=p["task_id"])
+               command="approve_task", target_type="task", target_username=p["task_id"],
+               hlc=hlc)
         return task
 
 
 def _agent_reject_task(service: Service, conn: sqlite3.Connection, p: dict, me: str) -> dict:
     at = now_utc()
     with db.begin_immediate(conn):
+        hlc = service._stamp()  # one causal stamp per write transaction (§4.3)
         row = tasks.get(conn, p["task_id"])
         if row is None or row["approver_username"] != me:
             raise ApiError(TASK_NOT_FOUND)
@@ -1782,17 +1889,17 @@ def _agent_reject_task(service: Service, conn: sqlite3.Connection, p: dict, me: 
         if row["state"] != tasks.STATE_PENDING_APPROVAL:
             raise ApiError(TASK_STATE_INVALID)
         tasks.set_state(conn, p["task_id"], tasks.STATE_IN_PROGRESS, None, at)
-        tasks.add_event(conn, p["task_id"], "rejected", me, p["reason"], at)
+        tasks.add_event(conn, p["task_id"], "rejected", me, p["reason"], at, hlc)
         updated = tasks.get(conn, p["task_id"])
         assert updated is not None
         task = tasks.row_to_task(conn, updated)
         events.append_for_task(conn, task=task, event_type="task.rejected",
-                               by_username=me, note=p["reason"], at=at,
+                               by_username=me, note=p["reason"], at=at, hlc=hlc,
                                retention_days=_event_retention_days(
                                    conn, org, service.config.event_retention_days))
         _audit(conn, organization_name=org, at=at, actor_username=me,
                command="reject_task", target_type="task", target_username=p["task_id"],
-               outcome="rejected")
+               outcome="rejected", hlc=hlc)
         return task
 
 
@@ -1857,6 +1964,7 @@ def _org_set_event_retention_days(
     """Configurable retention of consultable events (SPEC.txt F10)."""
     at = now_utc()
     with db.begin_immediate(conn):
+        hlc = service._stamp()  # one causal stamp per write transaction (§4.3)
         conn.execute(
             "INSERT INTO org_settings (organization_name, event_retention_days) "
             "VALUES (?, ?) "
@@ -1866,7 +1974,7 @@ def _org_set_event_retention_days(
         )
         _audit(conn, organization_name=org_name, at=at, actor_username=org_name,
                command="set_event_retention_days", target_type="organization",
-               target_username=org_name, outcome="ok")
+               target_username=org_name, outcome="ok", hlc=hlc)
     return {"event_retention_days": p["days"]}
 
 
@@ -1875,6 +1983,7 @@ def _org_set_escalation_policy(
 ) -> dict:
     at = now_utc()
     with db.begin_immediate(conn):
+        hlc = service._stamp()  # one causal stamp per write transaction (§4.3)
         _org_require_member(conn, p["escalate_to_username"], org_name)
         conn.execute(
             "INSERT INTO org_escalation_policy (organization_name, enabled, "
@@ -1889,7 +1998,7 @@ def _org_set_escalation_policy(
         )
         _audit(conn, organization_name=org_name, at=at, actor_username=org_name,
                command="set_escalation_policy", target_type="organization",
-               target_username=org_name, outcome="ok")
+               target_username=org_name, outcome="ok", hlc=hlc)
     return {
         "enabled": p["enabled"],
         "due_after_seconds": p["due_after_seconds"],
@@ -1931,6 +2040,7 @@ def _org_set_agent_budget(
 ) -> dict:
     at = now_utc()
     with db.begin_immediate(conn):
+        hlc = service._stamp()  # one causal stamp per write transaction (§4.3)
         _org_require_member(conn, p["username"], org_name)
         if p["max_active_tasks"] is None and p["max_messages_per_hour"] is None:
             conn.execute("DELETE FROM agent_budgets WHERE username = ?", (p["username"],))
@@ -1950,7 +2060,7 @@ def _org_set_agent_budget(
             )
         _audit(conn, organization_name=org_name, at=at, actor_username=org_name,
                command="set_agent_budget", target_type="agent",
-               target_username=p["username"], outcome="ok")
+               target_username=p["username"], outcome="ok", hlc=hlc)
     # Report the values actually stored (a partial update preserves the
     # other limit via COALESCE — echoing the request would lie about it).
     stored = conn.execute(
@@ -2063,6 +2173,25 @@ def _org_get_org_structure(
     }
 
 
+def _require_role(conn: sqlite3.Connection, username: str, allowed_roles: frozenset[str], department_name: str | None = None) -> str:
+    """Returns the membership row if ``username`` holds one of ``allowed_roles``
+    (in ``department_name`` if given) Raises ``ACCESS_DENIED`` otherwise.
+    Used by the F14 granular-permission enforcement (SPEC.txt V.10.2)."""
+    if department_name is not None:
+        membership = conn.execute(
+            "SELECT username, organization_name, department_name, role FROM memberships WHERE username = ? AND department_name = ?",
+            (username, department_name),
+        ).fetchone()
+    else:
+        membership = conn.execute(
+            "SELECT username, organization_name, department_name, role FROM memberships WHERE username = ?",
+            (username,),
+        ).fetchone()
+    if membership is None or membership["role"] not in allowed_roles:
+        raise ApiError(ACCESS_DENIED, ACCESS_DENIED_MANAGER_ROLE)
+    return membership["role"]
+
+
 def _agent_list_department_tasks(
     service: Service, conn: sqlite3.Connection, p: dict, me: str
 ) -> dict:
@@ -2073,12 +2202,8 @@ def _agent_list_department_tasks(
     filters = {"department_name": p["department_name"]}
     last, boundary = service._pagination(p, me, "list_department_tasks", "task_asc", filters)
     with db.begin_read(conn):
-        membership = conn.execute(
-            "SELECT role FROM memberships WHERE username = ? AND department_name = ?",
-            (me, p["department_name"]),
-        ).fetchone()
-        if membership is None or membership["role"] != "manager":
-            raise ApiError(ACCESS_DENIED, ACCESS_DENIED_MANAGER_ROLE)
+        # F14 enforcement: only the manager of the department can list its tasks
+        _require_role(conn, me, frozenset({"manager"}), department_name=p["department_name"])
         # The scope is limited to one's own organization: the subquery
         # filters by organization_name, otherwise a same-named department of another
         # organization would expose its tasks to the manager (isolation
@@ -2090,7 +2215,7 @@ def _agent_list_department_tasks(
             "WHERE assignee_username IN "
             "(SELECT username FROM memberships WHERE department_name = ? "
             " AND organization_name = ?) "
-            "AND state IN ('submitted', 'in_progress', 'pending_approval') "
+            f"AND state IN {tasks.active_states_sql()} "
             "AND created_at <= ? "
             "AND (? IS NULL OR (created_at > ? OR (created_at = ? AND task_id > ?))) "
             "ORDER BY created_at ASC, task_id ASC LIMIT ?",
@@ -2257,6 +2382,7 @@ def _external_comm_allowed(conn: sqlite3.Connection, me: str, other: str) -> boo
 def _agent_create_group(service: Service, conn: sqlite3.Connection, p: dict, me: str) -> dict:
     at = now_utc()
     with db.begin_immediate(conn):
+        hlc = service._stamp()  # one causal stamp per write transaction (§4.3)
         group_id = messages.new_uuid()
         conn.execute(
             "INSERT INTO groups (group_id, name, created_by, created_at) VALUES (?, ?, ?, ?)",
@@ -2269,13 +2395,14 @@ def _agent_create_group(service: Service, conn: sqlite3.Connection, p: dict, me:
         org = _org_of(conn, me)
         _audit(conn, organization_name=org, at=at, actor_username=me,
                command="create_group", target_type="group",
-               target_username=group_id, outcome=p["name"])
+               target_username=group_id, outcome=p["name"], hlc=hlc)
     return {"group_id": group_id, "name": p["name"], "created_by": me, "created_at": at}
 
 
 def _agent_add_group_member(service: Service, conn: sqlite3.Connection, p: dict, me: str) -> dict:
     at = now_utc()
     with db.begin_immediate(conn):
+        hlc = service._stamp()  # one causal stamp per write transaction (§4.3)
         _group_require_member(conn, p["group_id"], me)
         _require_active_account(conn, p["username"])
         # A group does not bypass the external communication policies:
@@ -2292,13 +2419,14 @@ def _agent_add_group_member(service: Service, conn: sqlite3.Connection, p: dict,
         org = _org_of(conn, me)
         _audit(conn, organization_name=org, at=at, actor_username=me,
                command="add_group_member", target_type="group",
-               target_username=p["group_id"], outcome=p["username"])
+               target_username=p["group_id"], outcome=p["username"], hlc=hlc)
     return {"group_id": p["group_id"], "username": p["username"]}
 
 
 def _agent_remove_group_member(service: Service, conn: sqlite3.Connection, p: dict, me: str) -> dict:
     at = now_utc()
     with db.begin_immediate(conn):
+        hlc = service._stamp()  # one causal stamp per write transaction (§4.3)
         group = _group_require_member(conn, p["group_id"], me)
         # Only the group creator removes another member; a member can
         # always leave by themselves (SPEC.txt F15: "a participant leaves
@@ -2313,7 +2441,7 @@ def _agent_remove_group_member(service: Service, conn: sqlite3.Connection, p: di
         org = _org_of(conn, me)
         _audit(conn, organization_name=org, at=at, actor_username=me,
                command="remove_group_member", target_type="group",
-               target_username=p["group_id"], outcome=p["username"])
+               target_username=p["group_id"], outcome=p["username"], hlc=hlc)
     return {"group_id": p["group_id"], "username": p["username"]}
 
 
@@ -2322,6 +2450,7 @@ def _agent_send_group_message(
 ) -> dict:
     at = now_utc()
     with db.begin_immediate(conn):
+        hlc = service._stamp()  # one causal stamp per write transaction (§4.3)
         _group_require_member(conn, p["group_id"], me)
         if p["client_message_id"] is not None:
             existing = conn.execute(
@@ -2366,7 +2495,7 @@ def _agent_send_group_message(
         org = _org_of(conn, me)
         _audit(conn, organization_name=org, at=at, actor_username=me,
                command="send_group_message", target_type="group",
-               target_username=p["group_id"], outcome=message_id)
+               target_username=p["group_id"], outcome=message_id, hlc=hlc)
     return {
         "message_id": message_id,
         "group_id": p["group_id"],
@@ -2533,8 +2662,11 @@ def _agent_create_delegation(
 ) -> dict:
     at = now_utc()
     with db.begin_immediate(conn):
+        hlc = service._stamp()  # one causal stamp per write transaction (§4.3)
         row, _ = _task_visible_or_404(conn, p["task_id"], me)
         _require_active_account(conn, p["delegatee_username"])
+        if not _external_comm_allowed(conn, me, p["delegatee_username"]):
+            raise ApiError(POLICY_DENIED)
         if p["expires_at"] <= at:
             raise ApiError(INVALID_ARGUMENT, INVALID_ARGUMENT_EXPIRES_FUTURE)
         conn.execute(
@@ -2545,7 +2677,8 @@ def _agent_create_delegation(
         org = _org_of(conn, me)
         _audit(conn, organization_name=org, at=at, actor_username=me,
                command="create_delegation", target_type="task",
-               target_username=p["task_id"], outcome=p["delegatee_username"])
+               target_username=p["task_id"], outcome=p["delegatee_username"],
+               hlc=hlc)
     return {
         "task_id": p["task_id"],
         "delegatee_username": p["delegatee_username"],
@@ -2559,6 +2692,7 @@ def _agent_revoke_delegation(
 ) -> dict:
     at = now_utc()
     with db.begin_immediate(conn):
+        hlc = service._stamp()  # one causal stamp per write transaction (§4.3)
         row, _ = _task_visible_or_404(conn, p["task_id"], me)
         deleted = conn.execute(
             "DELETE FROM delegations WHERE delegator_username = ? AND task_id = ? "
@@ -2568,7 +2702,8 @@ def _agent_revoke_delegation(
         org = _org_of(conn, me)
         _audit(conn, organization_name=org, at=at, actor_username=me,
                command="revoke_delegation", target_type="task",
-               target_username=p["task_id"], outcome=p["delegatee_username"])
+               target_username=p["task_id"], outcome=p["delegatee_username"],
+               hlc=hlc)
     return {"task_id": p["task_id"], "delegatee_username": p["delegatee_username"],
             "revoked": deleted.rowcount > 0}
 
@@ -2607,6 +2742,7 @@ def _org_create_observer_account(
     This is a READ-ONLY account (principal_type 'agent'): never a human
     account — except explicit marking, auth does not delegate to the org."""
     with db.begin_immediate(conn):
+        hlc = service._stamp()  # one causal stamp per write transaction (§4.3)
         existing = accounts.get(conn, p["observer_name"])
         if existing is not None:
             raise ApiError(USERNAME_ALREADY_EXISTS)
@@ -2627,7 +2763,7 @@ def _org_create_observer_account(
         )
         _audit(conn, organization_name=org_name, at=now_utc(), actor_username=org_name,
                command="create_observer_account", target_type="agent",
-               target_username=p["observer_name"], outcome="created")
+               target_username=p["observer_name"], outcome="created", hlc=hlc)
     return {
         "observer_name": p["observer_name"],
         "status": "active",
@@ -2641,6 +2777,7 @@ def _org_revoke_observer_account(
 ) -> dict:
     """Deactivates an observer account (SPEC.txt F18)."""
     with db.begin_immediate(conn):
+        hlc = service._stamp()  # one causal stamp per write transaction (§4.3)
         _org_require_member(conn, p["observer_name"], org_name)
         conn.execute(
             "UPDATE accounts SET status = 'disabled' WHERE username = ?",
@@ -2648,7 +2785,7 @@ def _org_revoke_observer_account(
         )
         _audit(conn, organization_name=org_name, at=now_utc(), actor_username=org_name,
                command="revoke_observer_account", target_type="agent",
-               target_username=p["observer_name"], outcome="revoked")
+               target_username=p["observer_name"], outcome="revoked", hlc=hlc)
     return {"observer_name": p["observer_name"], "status": "disabled"}
 
 

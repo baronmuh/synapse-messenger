@@ -32,14 +32,24 @@ def append(
     ref_id: str | None,
     by_username: str | None,
     at: str,
+    hlc: str,
     retention_days: int | None = None,
 ) -> None:
     if retention_days is not None:
         purge_old(conn, retention_days, at)
+    # Exact DAG edge (visionary R2 feed-in, t_9e6bca5e): the immediate
+    # predecessor of this event in the principal's journal. Computed at
+    # the chokepoint (one indexed lookup, same transaction as the
+    # INSERT) so every new event links its chain for free; history
+    # rows (pre-primitive) keep NULL.
+    prev_row = conn.execute(
+        "SELECT MAX(seq) AS m FROM events WHERE principal = ?", (principal,)
+    ).fetchone()
+    prev_event = prev_row["m"] if prev_row is not None else None
     conn.execute(
-        "INSERT INTO events (principal, event_type, ref_id, by_username, at) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (principal, event_type, ref_id, by_username, at),
+        "INSERT INTO events (principal, event_type, ref_id, by_username, at, hlc, "
+        "prev_event) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (principal, event_type, ref_id, by_username, at, hlc, prev_event),
     )
 
 
@@ -61,6 +71,7 @@ def append_for_task(
     by_username: str,
     note: str | None,
     at: str,
+    hlc: str,
     retention_days: int | None = None,
 ) -> None:
     """Records the event for the creator and assignee of the task
@@ -75,6 +86,7 @@ def append_for_task(
             ref_id=task["task_id"],
             by_username=by_username,
             at=at,
+            hlc=hlc,
             retention_days=retention_days,
         )
 
@@ -99,7 +111,7 @@ def page(
         args.append(last_seq)
     args.append(limit + 1)
     return conn.execute(
-        "SELECT seq, event_type, ref_id, by_username, at FROM events WHERE "
+        "SELECT seq, event_type, ref_id, by_username, at, hlc, prev_event FROM events WHERE "
         + " AND ".join(clauses)
         + " ORDER BY seq ASC LIMIT ?",
         args,
@@ -113,4 +125,6 @@ def row_to_event(row: sqlite3.Row) -> dict[str, Any]:
         "ref_id": row["ref_id"],
         "by_username": row["by_username"],
         "at": row["at"],
+        "hlc": row["hlc"],
+        "prev_event": row["prev_event"],
     }

@@ -211,6 +211,27 @@ class Api {
     return data;
   }
 
+  async groups() {
+    const { data } = await this.fetchJSON('/api/groups');
+    return data.groups || [];
+  }
+
+  async group(group_id) {
+    const { data } = await this.fetchJSON(
+      `/api/groups/${encodeURIComponent(group_id)}`);
+    return data;
+  }
+
+  async approveTask(task_id) {
+    const { data } = await this.fetchJSON('/api/tasks/approve', { post: { task_id } });
+    return data;
+  }
+
+  async rejectTask(task_id, reason) {
+    const { data } = await this.fetchJSON('/api/tasks/reject', { post: { task_id, reason } });
+    return data;
+  }
+
   async sendMessage(recipient_username, message) {
     const { data } = await this.fetchJSON('/api/send', {
       post: { recipient_username, message },

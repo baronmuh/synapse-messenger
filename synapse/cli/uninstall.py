@@ -95,6 +95,11 @@ class _Plan:
     def add(self, kind: str, description: str) -> None:
         self.items.append((kind, description))
 
+    def keep(self, *descriptions: str) -> None:
+        """Removes the given descriptions from the plan (--keep-data)."""
+        self.items = [(k, d) for k, d in self.items
+                      if d not in descriptions]
+
     def systemd(self) -> list[str]:
         return [d for k, d in self.items if k == "systemd"]
 
@@ -120,8 +125,6 @@ def _build_plan(config: Config, keep_data: bool,
     """
     plan = _Plan()
 
-    defaults = default_paths()
-
     # systemd units (Linux production install) — always listed; the
     # removal itself is skipped when the unit file does not exist.
     for unit in _SYSTEMD_UNITS:
@@ -132,6 +135,23 @@ def _build_plan(config: Config, keep_data: bool,
 
     # directories: data/run/log/backup/config/secrets + the install
     # root (/opt/synapse) on Linux.
+    data_dir, backup_dir = _add_directories(plan, config, config_path)
+
+    # package + CLI command
+    plan.add("package", "synapse-messenger (pip) + the synapse command")
+
+    if keep_data:
+        # keep the data and the backups; the rest is still removed.
+        plan.keep(data_dir, backup_dir)
+    return plan
+
+
+def _add_directories(plan: _Plan, config: Config,
+                     config_path: str | None) -> tuple[str, str]:
+    """Adds the data/run/log/backup/config/secrets + Linux install-root
+    directories to the plan. Returns (data_dir, backup_dir) for the
+    --keep-data filter."""
+    defaults = default_paths()
     data_dir = config.storage_dir or defaults["storage"]
     run_dir = config.run_dir or defaults["run"]
     log_dir = config.log_dir or defaults["log"]
@@ -146,17 +166,7 @@ def _build_plan(config: Config, keep_data: bool,
     plan.add("dir", secrets_dir)
     if sys.platform.startswith("linux"):
         plan.add("dir", "/opt/synapse")
-
-    # package + CLI command
-    plan.add("package", "synapse-messenger (pip) + the synapse command")
-
-    if keep_data:
-        # keep the data and the backups; the rest is still removed.
-        plan.items = [
-            (k, d) for k, d in plan.items
-            if d not in (data_dir, backup_dir)
-        ]
-    return plan
+    return data_dir, backup_dir
 
 
 # ---------------------------------------------------------------------------
@@ -222,60 +232,108 @@ def _cmd_uninstall(args: argparse.Namespace) -> int:
                    or os.environ.get("SYNAPSE_CONFIG")
                    or os.environ.get("Synapse_CONFIG"))
     plan = _build_plan(config, args.keep_data, config_path)
+    _print_plan(plan)
 
+    dry_run_result = _dry_run(config, args.dry_run)
+    if dry_run_result is not None:
+        return dry_run_result
+
+    error = _handle_running_services(config, config_path, args.yes)
+    if error is not None:
+        return error
+
+    error = _confirm_uninstall(args.yes)
+    if error is not None:
+        return error
+
+    error = _ensure_root()
+    if error is not None:
+        return error
+
+    error = _run_removal_phases(plan)
+    if error is not None:
+        return error
+
+    print()
+    print("Synapse uninstalled.")
+    return EXIT_OK
+
+
+def _print_plan(plan: _Plan) -> None:
+    """Prints the uninstall plan (systemd units, account, dirs, package)."""
     print("Synapse uninstall plan:")
     for kind, desc in plan.items:
         print(f"  - [{kind}] {desc}")
     print()
 
-    # --dry-run lists everything and removes NOTHING, even when the
-    # services are running (no stop, no refusal).
-    if args.dry_run:
-        running = _services_running(config)
-        if running:
-            print(f"Services currently running: {', '.join(running)}.")
-        print("(--dry-run: nothing removed)")
-        return EXIT_OK
 
+def _dry_run(config: Config, dry_run: bool) -> int | None:
+    """--dry-run lists everything and removes NOTHING, even when the
+    services are running (no stop, no refusal). Returns the exit code
+    when the command was a dry-run, else None."""
+    if not dry_run:
+        return None
     running = _services_running(config)
     if running:
         print(f"Services currently running: {', '.join(running)}.")
-        if not args.yes:
-            return emit_error(
-                "stop the services first (synapse server stop, synapse web "
-                "stop, synapse a2a stop --agent-name <name>), or re-run with "
-                "--yes to stop them cleanly during the uninstall"
-            )
-        print("Stopping the services...")
-        if not _stop_services_cli(config, config_path):
-            return emit_error("failed to stop the services — uninstall canceled")
+    print("(--dry-run: nothing removed)")
+    return EXIT_OK
 
-    if not args.yes:
-        print("This will permanently remove Synapse from this machine.")
-        try:
-            answer = input("Type 'uninstall' to confirm: ").strip().lower()
-        except EOFError:
-            return emit_error("no confirmation given — aborted")
-        if answer != "uninstall":
-            return emit_error("confirmation failed — aborted")
 
-    if not _is_root():
-        # The systemd/account/root-owned directories need root. Print the
-        # exact command (or re-execute with sudo when available).
-        cmd = " ".join(sys.argv)
-        if shutil.which("sudo"):
-            print(f"Root privileges required — re-running with sudo: sudo {cmd}")
-            try:
-                result = subprocess.run(["sudo", *sys.argv])
-                return result.returncode
-            except OSError as exc:
-                return emit_error(f"cannot re-run with sudo: {exc}")
+def _handle_running_services(config: Config, config_path: str | None,
+                             yes: bool) -> int | None:
+    """Refuses (or cleanly stops, with --yes) the running services."""
+    running = _services_running(config)
+    if not running:
+        return None
+    print(f"Services currently running: {', '.join(running)}.")
+    if not yes:
         return emit_error(
-            "root privileges required. Run the same command as root:"
-            f"\n  sudo {cmd}"
+            "stop the services first (synapse server stop, synapse web "
+            "stop, synapse a2a stop --agent-name <name>), or re-run with "
+            "--yes to stop them cleanly during the uninstall"
         )
+    print("Stopping the services...")
+    if not _stop_services_cli(config, config_path):
+        return emit_error("failed to stop the services — uninstall canceled")
+    return None
 
-    # 1. stop + disable + remove the systemd units
+
+def _confirm_uninstall(yes: bool) -> int | None:
+    """Interactive confirmation ('uninstall') unless --yes was given."""
+    if yes:
+        return None
+    print("This will permanently remove Synapse from this machine.")
+    try:
+        answer = input("Type 'uninstall' to confirm: ").strip().lower()
+    except EOFError:
+        return emit_error("no confirmation given — aborted")
+    if answer != "uninstall":
+        return emit_error("confirmation failed — aborted")
+    return None
+
+
+def _ensure_root() -> int | None:
+    """The systemd/account/root-owned directories need root: re-run with
+    sudo when available, else print the exact command to run as root."""
+    if _is_root():
+        return None
+    cmd = " ".join(sys.argv)
+    if shutil.which("sudo"):
+        print(f"Root privileges required — re-running with sudo: sudo {cmd}")
+        try:
+            result = subprocess.run(["sudo", *sys.argv])
+            return result.returncode
+        except OSError as exc:
+            return emit_error(f"cannot re-run with sudo: {exc}")
+    return emit_error(
+        "root privileges required. Run the same command as root:"
+        f"\n  sudo {cmd}"
+    )
+
+
+def _remove_systemd_units(plan: _Plan) -> int | None:
+    """1. stop + disable + remove the systemd units."""
     for unit in plan.systemd():
         unit_path = Path(_SYSTEMD_DIR) / unit
         if not unit_path.exists():
@@ -289,8 +347,11 @@ def _cmd_uninstall(args: argparse.Namespace) -> int:
             return emit_error(f"cannot remove {unit_path}: {exc}")
     subprocess.run(["systemctl", "daemon-reload"], capture_output=True, timeout=30)
     subprocess.run(["systemctl", "reset-failed"], capture_output=True, timeout=30)
+    return None
 
-    # 2. remove the service account
+
+def _remove_service_account(plan: _Plan) -> int | None:
+    """2. remove the service account."""
     for account in plan.account():
         try:
             subprocess.run(["userdel", "-r", account],
@@ -299,8 +360,11 @@ def _cmd_uninstall(args: argparse.Namespace) -> int:
             print(f"  removed system account {account}")
         except OSError:
             pass
+    return None
 
-    # 3. remove the directories
+
+def _remove_directories(plan: _Plan) -> int | None:
+    """3. remove the directories."""
     for directory in plan.dirs():
         path = Path(directory)
         if not path.exists():
@@ -310,9 +374,12 @@ def _cmd_uninstall(args: argparse.Namespace) -> int:
             print(f"  removed {path}")
         except OSError as exc:
             return emit_error(f"cannot remove {path}: {exc}")
+    return None
 
-    # 4. uninstall the Python package (pip uninstall) — the synapse
-    #    command disappears with it.
+
+def _uninstall_package(plan: _Plan) -> int | None:
+    """4. uninstall the Python package (pip uninstall) — the synapse
+    command disappears with it."""
     for _ in plan.package():
         try:
             subprocess.run(
@@ -323,7 +390,23 @@ def _cmd_uninstall(args: argparse.Namespace) -> int:
             print("  uninstalled the synapse-messenger package")
         except OSError as exc:
             return emit_error(f"cannot uninstall the package: {exc}")
+    return None
 
-    print()
-    print("Synapse uninstalled.")
-    return EXIT_OK
+
+_REMOVAL_PHASES = (
+    _remove_systemd_units,
+    _remove_service_account,
+    _remove_directories,
+    _uninstall_package,
+)
+
+
+def _run_removal_phases(plan: _Plan) -> int | None:
+    """Runs the four removal phases in order, stopping at the first
+    error. Each phase returns None on success or an error code (its
+    message was already printed)."""
+    for phase in _REMOVAL_PHASES:
+        error = phase(plan)
+        if error is not None:
+            return error
+    return None

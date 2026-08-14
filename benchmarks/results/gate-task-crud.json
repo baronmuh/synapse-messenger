@@ -1,0 +1,49 @@
+{
+ "scenarios": [
+  {
+   "scenario": "task:create",
+   "rps": 6386.39,
+   "lat_moy_ms": 1.25,
+   "p50_ms": 1.08,
+   "p95_ms": 2.51,
+   "p99_ms": 3.66,
+   "requetes": 63877
+  },
+  {
+   "scenario": "task:list",
+   "rps": 6874.0,
+   "lat_moy_ms": 1.16,
+   "p50_ms": 0.97,
+   "p95_ms": 2.56,
+   "p99_ms": 3.85,
+   "requetes": 68751
+  },
+  {
+   "scenario": "task:update(404-path)",
+   "rps": 6254.15,
+   "lat_moy_ms": 1.28,
+   "p50_ms": 1.05,
+   "p95_ms": 2.97,
+   "p99_ms": 4.29,
+   "requetes": 62557
+  },
+  {
+   "scenario": "task:status(404-path)",
+   "rps": 6873.97,
+   "lat_moy_ms": 1.02,
+   "p50_ms": 0.8,
+   "p95_ms": 2.44,
+   "p99_ms": 3.76,
+   "requetes": 68762
+  },
+  {
+   "scenario": "registry:get_agent_description",
+   "rps": 682.94,
+   "lat_moy_ms": 11.71,
+   "p50_ms": 12.01,
+   "p95_ms": 18.06,
+   "p99_ms": 21.31,
+   "requetes": 6835
+  }
+ ]
+}

@@ -49,6 +49,10 @@ class Config:
     log_retention_days: int = DEFAULT_LOG_RETENTION_DAYS
     event_retention_days: int = DEFAULT_EVENT_RETENTION_DAYS  # retention of consultable events (F10)
     db_busy_timeout_ms: int = 10_000
+    # Causal time (C1): skew injected into the HLC physical-time provider
+    # (DESIGN_CAUSAL_TIME_HLC_v2 §3.3/§8.2). TEST-ONLY: simulates an
+    # NTP-skewed clock on this instance; production systems leave it 0.
+    clock_skew_ms: int = 0
     # Human web interface (SPEC-WEB §6): sessions per user.
     web_session_ttl_seconds: int = DEFAULT_WEB_SESSION_TTL_SECONDS
     web_login_max_attempts: int = DEFAULT_WEB_LOGIN_MAX_ATTEMPTS

@@ -75,6 +75,47 @@ class _Session:
 class _Handler(BaseHTTPRequestHandler):
     web: "SynapseWebUI"
 
+    # Exact-path routes: (handler method name, needs_session). Public
+    # shell/metadata endpoints are handled without a session; the rest
+    # require one. Prefix routes (/assets/*, /api/agents/*) are resolved
+    # in do_GET/do_POST after this table.
+    _GET_ROUTES = {
+        "/onboarding": ("_get_onboarding", False),
+        "/login": ("_get_login", False),
+        "/": ("_get_root", False),
+        "/index.html": ("_get_root", False),
+        "/api/orgs": ("_get_orgs", False),
+        "/api/status": ("_get_status", False),
+        "/api/session": ("_get_session", True),
+        "/api/snapshot": ("_get_snapshot", True),
+        "/api/org": ("_get_org", True),
+        "/api/search": ("_get_search", True),
+        "/api/conversations": ("_get_conversations", True),
+        "/api/conversation": ("_get_conversation", True),
+        "/api/groups": ("_get_groups", True),
+        "/api/groups/group": ("_get_group", True),
+    }
+
+    # Exact-path POST routes: (handler method name, needs_session).
+    _POST_ROUTES = {
+        "/api/login": ("_handle_login", False),
+        "/api/orgs": ("_post_create_org", False),
+        "/api/logout": ("_post_logout", True),
+        "/api/send": ("_post_send", True),
+        "/api/agents": ("_post_create_agent", True),
+        "/api/orgs/disable": ("_post_disable_org", True),
+        "/api/tasks/approve": ("_post_approve_task", True),
+        "/api/tasks/reject": ("_post_reject_task", True),
+    }
+
+    # Agent sub-action suffix routes (POST /api/agents/<name>/<action>):
+    # (suffix, handler method name). The handler receives (session, username).
+    _POST_AGENT_ACTIONS = {
+        "/deactivate": "_post_deactivate_agent",
+        "/reactivate": "_post_reactivate_agent",
+        "/description": "_post_change_description",
+    }
+
     # ------------------------------------------------------------------
     # Sessions (HttpOnly cookie, SameSite=Strict — replaces the static key)
     # ------------------------------------------------------------------
@@ -154,157 +195,241 @@ class _Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = unquote(parsed.path)
 
-        # Shell and static assets: served without a session — they
-        # contain NO organization data (everything is loaded via
-        # /api/*), the interface must be able to load to connect.
-        if path == "/onboarding":
-            self._serve_static("onboarding.html")
-            return
-        if path == "/login":
-            # Explicit login/create page: served without the onboarding
-            # gate so the first organization can be created from the web
-            # (the onboarding buttons point here — a direct link to "/"
-            # would loop back to /onboarding while no org exists).
-            self._serve_static("index.html")
-            return
-        if path in ("/", "/index.html"):
-            # Onboarding gate: when no organization exists yet, send the
-            # user to the interactive guide instead of the login screen.
-            try:
-                orgs = self.web.list_orgs() if self.web.web_token else None
-                no_org = bool(orgs) is False or not (orgs or {}).get("organizations")
-            except ApiClientError:
-                no_org = True
-            if no_org:
-                self.send_response(302)
-                self.send_header("Location", "/onboarding")
-                self.end_headers()
-                return
-            self._serve_static("index.html")
-            return
+        # Prefix route: static assets, served without a session — they
+        # contain NO organization data.
         if path.startswith("/assets/"):
             self._serve_static(path[len("/assets/"):])
             return
-        if path == "/api/orgs":
-            # Organization list for the selection
-            # login screen (SPEC-WEB D5 amended): public (active org
-            # names only), served by the local web identity.
-            self._handle_orgs()
+
+        handler_name, needs_session = self._GET_ROUTES.get(path, (None, False))
+        if handler_name is None:
+            # Prefix route: a single agent's public card.
+            if path.startswith("/api/agents/"):
+                self._get_agent(path)
+                return
+            # Prefix route: a single group's detail.
+            if path.startswith("/api/groups/"):
+                group_id = path[len("/api/groups/"):]
+                if group_id and "/" not in group_id:
+                    self._get_group(group_id)
+                    return
+            self._send(404, "text/plain; charset=utf-8", b"404")
             return
-        if path == "/api/status":
-            # Web state for local supervision (SPEC_CLI ``web
-            # status``): port, active in-memory sessions, startup.
-            # Metadata only — same trust domain as
-            # /api/orgs (local workstation).
-            self._send_json(200, {
-                "port": self.web.port,
-                "sessions_active": self.web.session_count(),
-                "started_at": self.web.started_at,
-            })
+
+        session = self._require_session() if needs_session else None
+        if needs_session and session is None:
             return
+        getattr(self, handler_name)(parsed, session)
+
+    # -- GET handlers ---------------------------------------------------
+
+    def _get_onboarding(self, parsed, session) -> None:
+        self._serve_static("onboarding.html")
+
+    def _get_login(self, parsed, session) -> None:
+        # Explicit login/create page: served without the onboarding
+        # gate so the first organization can be created from the web
+        # (the onboarding buttons point here — a direct link to "/"
+        # would loop back to /onboarding while no org exists).
+        self._serve_static("index.html")
+
+    def _get_root(self, parsed, session) -> None:
+        # Onboarding gate: when no organization exists yet, send the
+        # user to the interactive guide instead of the login screen.
+        try:
+            orgs = self.web.list_orgs() if self.web.web_token else None
+            no_org = bool(orgs) is False or not (orgs or {}).get("organizations")
+        except ApiClientError:
+            no_org = True
+        if no_org:
+            self.send_response(302)
+            self.send_header("Location", "/onboarding")
+            self.end_headers()
+            return
+        self._serve_static("index.html")
+
+    def _get_orgs(self, parsed, session) -> None:
+        # Organization list for the selection
+        # login screen (SPEC-WEB D5 amended): public (active org
+        # names only), served by the local web identity.
+        self._handle_orgs()
+
+    def _get_status(self, parsed, session) -> None:
+        # Web state for local supervision (SPEC_CLI ``web
+        # status``): port, active in-memory sessions, startup.
+        # Metadata only — same trust domain as
+        # /api/orgs (local workstation).
+        self._send_json(200, {
+            "port": self.web.port,
+            "sessions_active": self.web.session_count(),
+            "started_at": self.web.started_at,
+        })
+
+    def _get_session(self, parsed, session) -> None:
+        self._send_json(200, self.web.session_info(session))
+
+    def _get_snapshot(self, parsed, session) -> None:
+        self._serve_json(lambda: self.web.snapshot(session), session=session)
+
+    def _get_org(self, parsed, session) -> None:
+        self._serve_json(lambda: self.web.org(session), session=session)
+
+    def _get_search(self, parsed, session) -> None:
+        query = parse_qs(parsed.query)
+        q = query.get("q", [""])[0].strip()
+        capability = query.get("capability", [""])[0].strip() or None
+        domain = query.get("domain", [""])[0].strip() or None
+        if not q and not capability and not domain:
+            self._send_json(400, {"error": "parameter q, capability or domain required"})
+        else:
+            self._serve_json(
+                lambda: self.web.search(session, q, capability, domain), session=session)
+
+    def _get_conversations(self, parsed, session) -> None:
+        self._serve_json(lambda: self.web.conversations(session), session=session)
+
+    def _get_conversation(self, parsed, session) -> None:
+        query = parse_qs(parsed.query)
+        conversation_id = query.get("conversation_id", [""])[0].strip()
+        if not conversation_id:
+            self._send_json(400, {"error": "conversation_id required"})
+        else:
+            self._serve_json(
+                lambda: self.web.conversation(session, conversation_id), session=session)
+
+    def _get_agent(self, path: str) -> None:
+        # Session is required first (matching the original dispatch
+        # ordering: the /api/agents/* route sat after _require_session).
         session = self._require_session()
         if session is None:
             return
-        if path == "/api/session":
-            self._send_json(200, self.web.session_info(session))
-        elif path == "/api/snapshot":
-            self._serve_json(lambda: self.web.snapshot(session), session=session)
-        elif path == "/api/org":
-            self._serve_json(lambda: self.web.org(session), session=session)
-        elif path == "/api/search":
-            query = parse_qs(parsed.query)
-            q = query.get("q", [""])[0].strip()
-            capability = query.get("capability", [""])[0].strip() or None
-            domain = query.get("domain", [""])[0].strip() or None
-            if not q and not capability and not domain:
-                self._send_json(400, {"error": "parameter q, capability or domain required"})
-            else:
-                self._serve_json(
-                    lambda: self.web.search(session, q, capability, domain), session=session)
-        elif path == "/api/conversations":
-            self._serve_json(lambda: self.web.conversations(session), session=session)
-        elif path == "/api/conversation":
-            query = parse_qs(parsed.query)
-            conversation_id = query.get("conversation_id", [""])[0].strip()
-            if not conversation_id:
-                self._send_json(400, {"error": "conversation_id required"})
-            else:
-                self._serve_json(
-                    lambda: self.web.conversation(session, conversation_id), session=session)
-        elif path.startswith("/api/agents/"):
-            username = path[len("/api/agents/"):]
-            if not username or "/" in username:
-                self._send_json(404, {"error": "agent not found"})
-            else:
-                self._serve_json(
-                    lambda: self.web.agent(session, username), session=session, not_found=True)
-        else:
-            self._send(404, "text/plain; charset=utf-8", b"404")
+        username = path[len("/api/agents/"):]
+        if not username or "/" in username:
+            self._send_json(404, {"error": "agent not found"})
+            return
+        self._serve_json(
+            lambda: self.web.agent(session, username), session=session, not_found=True)
+
+    def _get_groups(self, parsed, session) -> None:
+        self._serve_json(lambda: self.web.groups(session), session=session)
+
+    def _get_group(self, group_id: str) -> None:
+        session = self._require_session()
+        if session is None:
+            return
+        self._serve_json(
+            lambda: self.web.group(session, group_id), session=session, not_found=True)
 
     def do_POST(self) -> None:  # noqa: N802 (API http.server)
         parsed = urlparse(self.path)
         path = unquote(parsed.path)
 
-        if path == "/api/login":
-            self._handle_login()
+        handler_name, needs_session = self._POST_ROUTES.get(path, (None, False))
+        if handler_name is not None:
+            if not needs_session:
+                getattr(self, handler_name)()
+                return
+            session = self._require_session()
+            if session is None:
+                return
+            getattr(self, handler_name)(session)
             return
-        if path == "/api/orgs":
-            # Organization creation FROM THE LOGIN PAGE
-            # (SPEC-WEB D5 amended): no session required — the local web
-            # (trust token) creates the organization and its human account,
-            # web equivalent of the local synapse-init-org procedure.
-            body = self._read_body()
-            if body is None:
+
+        # Agent sub-action: POST /api/agents/<name>/<action>. Session is
+        # required before matching (the original dispatch required it for
+        # every post-session route, so an unknown action without a session
+        # returns 401, not 404).
+        if path.startswith("/api/agents/"):
+            session = self._require_session()
+            if session is None:
                 return
-            try:
-                data = self.web.create_org_public(body)
-            except ApiClientError as exc:
-                # 400: business error (name already used, invalid
-                # password…); 503: local service not ready (token missing).
-                code = 503 if exc.code == "AUTH_FAILED" else 400
-                self._send_json(code, {"error": exc.message})
-                return
-            self._send_json(200, data)
+            self._post_agent_action(path, session)
             return
-        session = self._require_session()
-        if session is None:
+        self._send(404, "text/plain; charset=utf-8", b"404")
+
+    def _post_agent_action(self, path: str, session) -> None:
+        for suffix, handler_name in self._POST_AGENT_ACTIONS.items():
+            if path.endswith(suffix):
+                username = path[len("/api/agents/"):-len(suffix)]
+                getattr(self, handler_name)(session, username)
+                return
+        self._send(404, "text/plain; charset=utf-8", b"404")
+
+    # -- POST handlers --------------------------------------------------
+
+    def _post_create_org(self) -> None:
+        body = self._read_body()
+        if body is None:
             return
-        if path == "/api/logout":
-            self.web.destroy_session(self._session_token())
-            self._send_json(200, {"ok": True}, extra=self._clear_cookie_header())
-        elif path == "/api/send":
-            body = self._read_body()
-            if body is None:
-                return
-            self._serve_json(lambda: self.web.send(session, body), session=session)
-        elif path == "/api/agents":
-            body = self._read_body()
-            if body is None:
-                return
-            self._serve_json(lambda: self.web.create_agent(session, body), session=session)
-        elif path.startswith("/api/agents/") and path.endswith("/deactivate"):
-            username = path[len("/api/agents/"):-len("/deactivate")]
-            self._serve_json(
-                lambda: self.web.deactivate_agent(session, username), session=session)
-        elif path.startswith("/api/agents/") and path.endswith("/reactivate"):
-            username = path[len("/api/agents/"):-len("/reactivate")]
-            self._serve_json(
-                lambda: self.web.reactivate_agent(session, username), session=session)
-        elif path.startswith("/api/agents/") and path.endswith("/description"):
-            username = path[len("/api/agents/"):-len("/description")]
-            body = self._read_body()
-            if body is None:
-                return
-            self._serve_json(
-                lambda: self.web.change_agent_description(session, username, body),
-                session=session)
-        elif path == "/api/orgs/disable":
-            body = self._read_body()
-            if body is None:
-                return
-            self._serve_json(lambda: self.web.disable_org(session, body), session=session)
-        else:
-            self._send(404, "text/plain; charset=utf-8", b"404")
+        try:
+            data = self.web.create_org_public(body)
+        except ApiClientError as exc:
+            # 400: business error (name already used, invalid
+            # password…); 503: local service not ready (token missing).
+            code = 503 if exc.code == "AUTH_FAILED" else 400
+            self._send_json(code, {"error": exc.message})
+            return
+        self._send_json(200, data)
+
+    def _post_send(self, session) -> None:
+        body = self._read_body()
+        if body is None:
+            return
+        self._serve_json(lambda: self.web.send(session, body), session=session)
+
+    def _post_create_agent(self, session) -> None:
+        body = self._read_body()
+        if body is None:
+            return
+        self._serve_json(lambda: self.web.create_agent(session, body), session=session)
+
+    def _post_change_description(self, session, username: str) -> None:
+        body = self._read_body()
+        if body is None:
+            return
+        self._serve_json(
+            lambda: self.web.change_agent_description(session, username, body),
+            session=session)
+
+    def _post_disable_org(self, session) -> None:
+        body = self._read_body()
+        if body is None:
+            return
+        self._serve_json(lambda: self.web.disable_org(session, body), session=session)
+
+    def _post_approve_task(self, session) -> None:
+        body = self._read_body()
+        if body is None:
+            return
+        task_id = body.get("task_id")
+        if not isinstance(task_id, str):
+            self._send_json(400, {"error": "task_id required"})
+            return
+        self._serve_json(
+            lambda: self.web.approve_task(session, task_id), session=session)
+
+    def _post_reject_task(self, session) -> None:
+        body = self._read_body()
+        if body is None:
+            return
+        task_id = body.get("task_id")
+        if not isinstance(task_id, str):
+            self._send_json(400, {"error": "task_id required"})
+            return
+        self._serve_json(
+            lambda: self.web.reject_task(session, task_id), session=session)
+
+    def _post_logout(self, session) -> None:
+        self.web.destroy_session(self._session_token())
+        self._send_json(200, {"ok": True}, extra=self._clear_cookie_header())
+
+    def _post_deactivate_agent(self, session, username: str) -> None:
+        self._serve_json(
+            lambda: self.web.deactivate_agent(session, username), session=session)
+
+    def _post_reactivate_agent(self, session, username: str) -> None:
+        self._serve_json(
+            lambda: self.web.reactivate_agent(session, username), session=session)
 
     def _handle_orgs(self) -> None:
         """Lists the active organizations (selection login screen).
@@ -489,7 +614,7 @@ class SynapseWebUI:
             raise _LoginFailed()  # service not started or token missing
         now = time.monotonic()
         with self._sessions_lock:
-            failures, locked_until = self._login_failures.get(org_name, (0, 0.0))
+            _, locked_until = self._login_failures.get(org_name, (0, 0.0))
             if locked_until > now:
                 raise _LoginLocked()
         client = self._client()
@@ -672,6 +797,27 @@ class SynapseWebUI:
             # the read state immediately (unread counter badge).
             self._invalidate(f"conversations:{session.org_name}")
         return data
+
+    def groups(self, session: _Session) -> dict:
+        """Lists the groups of the organization (SPEC-WEB extension)."""
+        client = self._client()
+        org_groups = client.list_my_groups(session.human_username, session.org_password)
+        return {"groups": org_groups.get("groups", [])}
+
+    def group(self, session: _Session, group_id: str) -> dict:
+        """Returns a group's detail: members + messages (SPEC-WEB extension)."""
+        client = self._client()
+        members = client.get_group_members(group_id, session.human_username, session.org_password)
+        messages = client.get_group_messages(group_id, session.human_username, session.org_password, limit=100)
+        return {"members": members.get("members", []), "messages": messages.get("messages", [])}
+
+    def approve_task(self, session: _Session, task_id: str) -> dict:
+        """Approves a pending_approval task (human-in-the-loop)."""
+        return self._client().approve_task(task_id, session.human_username, session.org_password)
+
+    def reject_task(self, session: _Session, task_id: str) -> dict:
+        """Rejects a pending_approval task (human-in-the-loop)."""
+        return self._client().reject_task(task_id, session.human_username, session.org_password)
 
     def send(self, session: _Session, body: dict) -> dict:
         recipient = body.get("recipient_username")

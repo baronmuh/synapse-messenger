@@ -71,6 +71,8 @@ _PARAM_FORMATS: dict[str, str] = {
     "assignee_username": "assignee name (active account)",
     "priority": "'low', 'normal' or 'high' (default 'normal')",
     "due_at": "UTC due date YYYY-MM-DDTHH:mm:ss.sssZ (null = none)",
+    "deadline": "causal deadline object {agent: name, hlc: canonical HLC} "
+                "(accepted, not enforced — phase-2)",
     "depends_on": "list of 0-20 existing task identifiers",
     "client_task_id": "task idempotency id (1-128 [A-Za-z0-9._:-], optional)",
     "new_state": "new state: submitted, in_progress, completed, failed, canceled, "

@@ -1,0 +1,1968 @@
+# Projet : Synapse — infrastructure de communication pour organisations d'agents IA
+
+> **Document unique de vision et de spécification**, issu de la fusion de
+> `VISION.txt` (vision produit) et `T.txt` (spécification API v2) le
+> 2026-08-05. Les deux documents d'origine sont archivés dans l'historique
+> git ; toute référence externe pointe désormais ici.
+
+## Correspondance avec les documents d'origine
+
+| Ancien fichier | Nouvelle localisation | Numérotation |
+|---|---|---|
+| `VISION.txt` | Partie A (vision) | sections `V.1`-`V.14` (+ `V.7 bis`), fonctionnalités `F1`-`F21` |
+| `T.txt` | Partie B (spécification API v2, source de vérité) | sections `1`-`26` + amendements v1-v4 |
+
+Convention de référence : `SPEC.txt §N` = partie B (spécification) ;
+`SPEC.txt §V.N` = partie A (vision) ; `SPEC.txt FN` = fonctionnalité de vision.
+
+---
+
+# PARTIE A — VISION (ancien `VISION.txt`)
+
+# Projet : Synapse — vision d'infrastructure pour organisations d'agents IA (document de vision et de conception)
+
+## V.1. Statut et portée du document
+
+Le présent document est une **spec de vision et de conception** : il décrit la
+direction produit de Synapse et les évolutions qui doivent le faire passer
+d'une messagerie locale entre agents IA à une **infrastructure de
+communication et de coordination pour organisations d'agents IA**. Il
+formait, avec l'ancien `T.txt`, deux documents complémentaires ; depuis la
+fusion du 2026-08-05, il constitue la **partie A** du présent document
+unique (`SPEC.txt`), dont la partie B est la spécification API v2, source
+de vérité — qu'il oriente.
+
+Règles de lecture :
+
+* chaque fonctionnalité est présentée avec le problème résolu, la solution
+  proposée, l'intégration dans l'existant et la complexité estimée ;
+* les horizons sont : court terme (🟢), moyen terme (🟡), long terme (🔴) et
+  vision (🚀) ;
+* les décisions actées (section V.6) sont celles que l'utilisateur a validées ;
+  elles ne seront pas rediscutées à la conception ;
+* aucune fonctionnalité de ce document n'est encore implémentée ; chaque
+  évolution retenue fera l'objet d'une spec détaillée (dans le style des
+  documents de spécification existants) puis d'un amendement de la partie B (`SPEC.txt`)
+  avant implémentation.
+
+## V.2. Vision produit
+
+Synapse n'est pas une messagerie entre agents de coding. C'est une
+**infrastructure de communication efficace entre agents IA**, permettant à un
+ensemble d'agents spécialisés de collaborer pour accomplir des tâches
+complexes **dans n'importe quel domaine**.
+
+La communication n'est pas simplement « Agent A → message → Agent B » mais :
+« Agent A → objectif → coordination → plusieurs agents → résultats →
+synthèse ».
+
+À terme, Synapse doit permettre la création de **réseaux d'agents capables de
+fonctionner comme une organisation réelle** : un agent RH, des agents
+employés, un agent manager, un agent comptable, un agent commercial, un agent
+marketing, un agent juridique, un agent support, un agent responsable des
+opérations, des agents spécialisés. Ces agents communiquent, transmettent des
+informations, demandent des actions, fournissent des rapports, collaborent
+sur des tâches et prennent des décisions collectivement.
+
+Et au-delà : une **plateforme permettant à des humains de créer, gérer et
+observer des organisations entières d'agents IA**, comme on gérerait une
+entreprise — via une interface de visualisation (tableau de bord) construite
+au-dessus de Synapse, sans jamais modifier l'architecture du serveur.
+
+## V.3. Positionnement et principes directeurs
+
+Synapse se situe sur la couche « agent ↔ agent » (équivalente au protocole
+A2A de la Linux Foundation : découverte par capacités, délégation,
+coordination de tâches) avec des garanties que cette couche n'offre
+généralement pas : organisations, authentification forte par commande,
+permissions fines, politiques de communication, non-divulgation, persistance
+vérifiée, audit. Le créneau « local d'abord, sécurisé, souverain » est un
+avantage, pas une limite.
+
+Principes directeurs, applicables à toute évolution :
+
+1. **Non-régression** : les 26 contraintes finales de la partie B restent en
+   vigueur, sauf amendement explicite acté dans ce document (section V.6) ;
+2. **sécurité et conformité avant performance** : aucune optimisation ne
+   sacrifie la non-divulgation, l'immuabilité, l'authentification ou la
+   persistance ;
+3. **petit d'abord** : toute fonctionnalité doit fonctionner dans une
+   organisation minimale de deux agents sans configuration supplémentaire
+   (section V.4) ;
+4. **problème réel d'abord** : aucune fonctionnalité sans cas d'utilisation
+   identifié ; aucune architecture complexe sans justification mesurable ;
+5. **chaque nouvelle commande** est authentifiée, strictement validée,
+   documentée dans `help()` (anti-dérive) et couverte par des tests ;
+6. **toutes les nouvelles données** sont persistées, incluses dans les
+   sauvegardes et restaurations, et protégées par les mêmes règles de
+   non-divulgation que l'existant ;
+7. **le pull et l'état en base priment** : pas de processus asynchrones tant
+   que les événements consultables (F10) suffisent ; les tâches et états sont
+   durables (en base, jamais en mémoire) ;
+8. **commencer simple** : les rôles et permissions fixes d'abord, jamais un
+   moteur de règles personnalisable dès le départ (risque de complexité).
+
+## V.4. Organisations de toute taille — le principe « petit d'abord »
+
+Une organisation Synapse ne représente pas nécessairement une entreprise.
+Elle représente **un groupe d'agents sous une autorité commune**. Les tailles
+et formes sont multiples :
+
+* **deux agents coordonnés** : deux agents qui effectuent deux tâches
+  différentes et communiquent pour mieux se coordonner (exemple type) ;
+* **une équipe** : trois à dix agents autour d'un objectif commun ;
+* **une entreprise** : départements, équipes, rôles, centaines d'agents ;
+* **un écosystème** : plusieurs organisations reliées (partenaires,
+  fournisseurs) — horizon vision (F20).
+
+Règles :
+
+1. le socle actuel de la partie B — organisation plate (agents + politique de
+   communication) — reste **le modèle minimal valide** ; rien ne doit
+   l'obliger à évoluer ;
+2. aucune fonctionnalité ne peut **exiger** de hiérarchie (département,
+   équipe, rôle) : les tâches (F5), files de travail (F6), événements (F10)
+   et l'audit (F11) fonctionnent intégralement dans une organisation plate de
+   deux agents ;
+3. la hiérarchie (F13) est une **option d'organisation**, jamais une
+   précondition ; une organisation qui n'en a pas besoin n'en crée pas ;
+4. les exemples de ce document alternent les échelles : le cas « deux agents
+   qui coordonnent leurs tâches » est aussi légitime que le cas « entreprise
+   de cent agents ».
+
+## V.5. Les piliers de l'infrastructure
+
+L'évolution de Synapse s'organise en sept piliers complémentaires :
+
+* **A. Découverte et annuaire** — savoir qui fait quoi (cartes, recherche,
+  structure) ;
+* **B. Coordination orientée tâches** — déléguer, suivre, valider, escalader
+  (le cœur) ;
+* **C. Communication avancée** — événements, transferts, groupes ;
+* **D. Identité et capacités** — rôle, compétences, limites, réputation ;
+* **E. Gouvernance et sécurité** — permissions, délégation contrôlée, audit ;
+* **F. Observabilité** — qui a parlé à qui, où sont les blocages ;
+* **G. Interface et échelle** — tableau de bord, volume, interopérabilité.
+
+Les sections 8 à 11 détaillent les fonctionnalités par horizon. Chaque fiche
+indique le pilier concerné.
+
+## V.6. Décisions actées (issues de l'analyse)
+
+Les décisions suivantes ont été validées par l'utilisateur. Elles
+contraignent les specs détaillées à venir.
+
+### V.6.1 Cache de vérification d'authentification — ACTÉ (oui)
+
+Le débit du serveur est plafonné par la vérification Argon2id
+(~255 ms et 64 MiB par commande ; ~9,5 requêtes/s mesurées sur la machine de
+référence). Le cache mémorise temporairement (TTL 30 à 60 secondes) le
+résultat d'une authentification réussie par principal ; les échecs ne sont
+jamais mémorisés ; le cache est invalidé lors de toute rotation du hash.
+
+Impact : débit multiplié par 3 à 10 pour les agents qui enchaînent les
+commandes. C'est le **prérequis de toute la vision** : sans lui, une
+organisation de cent agents actifs étouffe.
+
+Conformité : l'authentification reste vérifiée dans chaque commande
+(contrainte 2 de la partie B) ; le cache mémorise le résultat de cette
+vérification. La promesse « chaque commande paie le calcul Argon2id » est
+formellement amendée dans la partie B lors de l'implémentation. Le design complet
+est documenté dans `docs/PERFORMANCE.md` §6.
+
+### V.6.2 Prochaine étape structurante : les tâches — ACTÉ (oui)
+
+La prochaine grande évolution est le **système de tâches** (F5), plutôt que
+les groupes de discussion ou les permissions fines. Les tâches répondent au
+besoin réel de coordination (« fais X pour telle date », avec suivi, transfert
+et historique) au bon niveau d'abstraction. Les conversations de groupe (F15)
+et les permissions granulaires (F14) viendront après.
+
+### V.6.3 Structure organisationnelle : commencer simple — ACTÉ (oui)
+
+La hiérarchie (départements, équipes, rôles) sera introduite avec des **rôles
+fixes prédéfinis** (par exemple : `manager`, `employee`, `rh`), pas un moteur
+de permissions personnalisable. Le système complet pourra être enrichi
+ensuite ; la complexité est contenue au départ.
+
+### V.6.4 Interface web : compte observateur via le serveur — ACTÉ (oui)
+
+La future interface web (F18) accédera aux données **par le serveur**, comme
+un principal en lecture seule (compte observateur), jamais par lecture
+directe des fichiers de base. L'architecture monoprocessus et la cohérence
+sont préservées.
+
+### V.6.5 Fédération : passerelle A2A standard — ACTÉ (oui)
+
+La liaison multi-serveurs (F20) s'appuiera sur le **standard A2A**
+(Linux Foundation), pas sur un protocole propriétaire. Synapse exposera une
+passerelle compatible ; il ne sera pas isolé du reste du monde des agents.
+
+## V.7. Feuille de route par horizons
+
+Étape 1 (🟢) : cache de vérification (6.1), carte d'agent (F2), recherche par
+compétence (F3), corrélation métier (F4).
+
+Étape 2 (🟡) : tâches (F5), files de travail (F6), transfert de tâche (F7),
+événements consultables (F10).
+
+Étape 3 (🟡) : approbations (F8), escalade et budgets (F9), audit (F11),
+métriques (F12).
+
+Étape 4 (🔴) : structure organisationnelle (F13), permissions granulaires
+(F14), interface web (F18).
+
+Étape 5 (🚀) : groupes (F15), réputation (F16), délégation (F17), principaux
+humains (F19), passerelle A2A (F20), plateforme complète (F21).
+
+## V.7 bis. État d'implémentation (v3)
+
+Toutes les fonctionnalités F1 à F21 de ce document sont **implémentées,
+testées et documentées** (API v2 étendue, 58 commandes, amendement de la partie B
+section 19). Les écarts de conception assumés, signalés dans le code, le
+help et les fiches concernées :
+
+* F3 : portée limitée à la propre organisation (la recherche inter-org
+  viendra avec les politiques d'annuaire étendues) ;
+* F5 : une tâche est assignable à tout compte actif (y compris d'une autre
+  organisation) — l'assignation relève du choix de l'expéditeur, comme
+  l'envoi d'un message ; les politiques de communication (contrainte 23)
+  ne s'appliquent qu'aux messages, pas aux objets de coordination ;
+* F8 : l'approbation clôt la tâche (pending_approval → completed) ; le rejet
+  la renvoie à in_progress ;
+* F9 : garde-fous de budget implémentés — tâches actives maximales, messages
+  par heure (set_agent_budget) et profondeur maximale de la chaîne de
+  dépendances (borne serveur, QUOTA_EXCEEDED) ;
+* F10 : rétention configurable des événements (set_event_retention_days,
+  purge synchrone à l'écriture, jamais les messages) ;
+* F13/F14 : rôles fixes (manager/employee/rh) ; le manager d'un département
+  consulte les tâches actives de son département ; aucun rôle n'accorde
+  l'accès au contenu des messages ; matrice des permissions documentée dans
+  help() ;
+* F15 : pas d'état de lecture ni de notifications pour les groupes ;
+* F16 : réputation mesurée par le serveur, exposée comme champ calculé de la
+  carte (détail pour soi-même et l'organisation via get_org_agents, mention
+  qualitative pour les autres) ;
+* F17 : la délégation couvre la lecture et le changement d'état d'une tâche
+  (pas le transfert ni la demande d'approbation) ;
+* F18 : l'observateur utilise les commandes de lecture agent + un snapshot
+  agrégé dédié (sans contenu) ; l'interface web écoute sur 127.0.0.1
+  uniquement ;
+* F20 : pas de notifications push (SSE) — les clients A2A pollent via
+  tasks/get et tasks/list ; un agent par passerelle ; la passerelle est un
+  client local (les politiques de communication s'appliquent aux messages,
+  pas aux objets de coordination — cohérent avec l'écart F5) ;
+* F21 : démontré par un scénario de bout en bout (tests/test_platform.py).
+
+Jalons git : F1+F4 (`087dd21`), F2+F3 (commit suivant), F5-F10 (vague C),
+F11-F14 (vague D), F15-F19 (vague E), F18/F20/F21 (`ca25749`), amendement
+SPEC.txt (partie B) + rapport (partie B, section 20).
+
+## V.8. Court terme (🟢) — fonctionnalités facilement ajoutables
+
+### V.8.1 F1 — Cache de vérification d'authentification (pilier G)
+
+**Problème résolu.** Le plafond matériel de débit (~9,5 requêtes/s) rend
+impossible le fonctionnement d'une organisation d'agents active.
+
+**Description.** Mémorisation temporaire du résultat d'authentification
+réussie par principal (TTL 30-60 s, clé = nom du principal, valeur =
+résultat vérifié). Échecs jamais mémorisés. Invalidation à chaque rotation
+du hash de mot de passe. Aucun changement de l'enveloppe, des commandes ou
+des erreurs. Le sémaphore Argon2id (~2 × cœurs) et le rate-limit restent.
+
+**Intégration.** Interne au service (`security.py`) ; aucun impact sur
+l'API. Amendement formel de la contrainte 2 de la partie B.
+
+**Sécurité.** Fenêtre courte ; seuls les succès sont mémorisés ; la rotation
+du hash invalide immédiatement ; pas d'affaiblissement de la vérification
+initiale (Argon2id 64 MiB inchangé).
+
+**Complexité** : faible. **Valeur** : ×3-×10 de débit. **Différenciation** :
+interne, indispensable. **Business** : indispensable.
+
+### V.8.2 F2 — Carte d'agent (Agent Card) (pilier A/D)
+
+**Problème résolu.** « Quel agent est capable de gérer cette tâche ? » — la
+description libre ne permet pas la recherche ni le routage.
+
+**Description.** Extension structurée de la description, déclarée par
+l'agent et **validée par son organisation** (elle ne peut pas mentir sur son
+périmètre) : capacités, domaine d'expertise, modèle, outils disponibles,
+SLA annoncé, limites, coût estimé, version. La description libre reste
+inchangée.
+
+```text
+set_agent_card(capabilities, domain, model, tools, sla, limits, estimated_cost, my_name_auth, my_password_auth)
+get_agent_card(username, my_name_auth, my_password_auth)
+approve_agent_card(username, my_name_auth, my_password_auth)   # organisation
+```
+
+**Règles.**
+
+* `capabilities` : liste de 1 à 50 chaînes NFC (1-64 points de code chacune) ;
+  les autres champs sont optionnels, bornés et normalisés ;
+* toute modification de la carte après validation la repasse à l'état
+  « en attente de validation » (la carte validée reste affichée pendant ce
+  temps) ;
+* la carte est visible comme l'annuaire existant (agents actifs de la propre
+  organisation selon `can_see_org_agents` ; inter-organisations selon les
+  politiques existantes) ;
+* aucune donnée secrète dans la carte ; jamais journalisée.
+
+**Intégration.** Table `agent_cards` (username clé primaire/étrangère,
+champs, `validation_state`, `approved_by`, `approved_at`). Migration.
+Aucune modification des commandes existantes.
+
+**Complexité** : faible. **Différenciation** : forte (aucun système local ne
+l'offre). **Business** : forte (prérequis du routage).
+
+### V.8.3 F3 — Recherche d'agents par compétence (pilier A)
+
+**Problème résolu.** L'annuaire sans recherche ne sert qu'aux noms connus.
+
+**Description.** Recherche dans les cartes d'agent par capacité, domaine ou
+nom partiel, au sein de la propre organisation (et inter-organisations selon
+les politiques).
+
+```text
+find_agents(capability, domain, name_contains, limit, cursor, my_name_auth, my_password_auth)
+```
+
+**Règles.** Résultats limités aux agents actifs que l'appelant a le droit de
+voir ; pagination opaque et stable (mécanisme existant) ; tri par pertinence
+puis nom ; `INVALID_ARGUMENT` sur les filtres inconnus.
+
+**Intégration.** Index sur les capacités ; réutilise les règles de visibilité
+de l'annuaire. **Complexité** : faible-moyenne. **Différenciation** : forte.
+
+### V.8.4 F4 — Corrélation métier sur les messages (pilier B)
+
+**Problème résolu.** Relier un message à une opération métier ou à une tâche
+— le socle de la coordination.
+
+**Description.** Paramètre optionnel `business_reference` sur `send_message` :
+chaîne NFC 1-128 points de code, opaque pour le serveur, immuable, retournée
+dans les messages.
+
+**Règles.** Incluse dans l'égalité d'idempotence (re-envoyer le même
+`client_message_id` avec une référence différente provoque
+`MESSAGE_ALREADY_EXISTS`) ; jamais journalisée ; traitée comme du contenu
+(l'organisation n'y accède pas — contrainte 4 de la partie B).
+
+**Intégration.** Colonne `business_reference` sur `messages`. **Complexité** :
+faible. **Valeur** : socle des tâches (F5).
+
+## V.9. Moyen terme (🟡) — évolutions importantes, architecture conservée
+
+### V.9.1 F5 — Tâches avec cycle de vie (pilier B) — LE chantier structurant
+
+**Problème résolu.** La messagerie seule ne coordonne pas : un agent doit
+pouvoir dire « accomplis X pour telle date » et suivre l'avancement. Les
+tâches répondent au besoin que les accusés de message essayaient d'approcher,
+au bon niveau d'abstraction. **Fonctionne sans hiérarchie** : deux agents
+d'une organisation plate peuvent se créer des tâches mutuellement (section V.4).
+
+**Description.** Objet persistant de coordination avec cycle de vie, adossé
+facultativement à une conversation.
+
+```text
+create_task(title, description, assignee_username, priority, due_at, depends_on, business_reference, client_task_id, my_name_auth, my_password_auth)
+get_task(task_id, my_name_auth, my_password_auth)
+list_tasks(assignee_username, state, priority, due_before, limit, cursor, my_name_auth, my_password_auth)
+update_task_state(task_id, new_state, result, my_name_auth, my_password_auth)
+transfer_task(task_id, assignee_username, note, my_name_auth, my_password_auth)
+```
+
+**Objet tâche.**
+
+```json
+{
+  "task_id": "uuid-v4",
+  "client_task_id": "op-2026-0812-01",
+  "title": "Analyser le problème client 4711",
+  "description": "Le support a détecté un incident de facturation",
+  "creator_username": "commercial",
+  "assignee_username": "support",
+  "state": "submitted",
+  "priority": "high",
+  "due_at": "YYYY-MM-DDTHH:mm:ss.sssZ",
+  "depends_on": ["uuid-v4"],
+  "business_reference": "incident-4711",
+  "result": null,
+  "created_at": "YYYY-MM-DDTHH:mm:ss.sssZ",
+  "updated_at": "YYYY-MM-DDTHH:mm:ss.sssZ",
+  "history": [{"event": "created", "at": "YYYY-MM-DDTHH:mm:ss.sssZ", "by": "commercial"}]
+}
+```
+
+**États et transitions autorisées.**
+
+```text
+submitted -> in_progress | canceled
+in_progress -> completed | failed | canceled
+completed et failed sont terminaux ; canceled est terminal
+```
+
+Toute autre transition provoque `TASK_STATE_INVALID`. Aucune suppression
+physique : une tâche terminée reste conservée.
+
+**Règles.**
+
+* `title` : 1-200 points de code NFC ; `description` : 1-5 000 ou `null` ;
+  `priority` : `low|normal|high` (défaut `normal`) ; `due_at` : date UTC ;
+  `depends_on` : 0-20 identifiants de tâches existantes ;
+* **idempotence** : `client_task_id` (1-128) — recréer la même tâche
+  retourne l'existante ; sans lui, chaque appel crée une tâche distincte ;
+* **visibilité** : créateur et assigné (actif ou non) ; toute autre lecture
+  provoque `TASK_NOT_FOUND` (non-divulgation) ; l'organisation voit les
+  métadonnées de ses agents (état, assigné, échéance) via `list_tasks` sans
+  le titre ni la description (traités comme du contenu, contrainte 4) ;
+* `update_task_state` : créateur ou assigné uniquement ;
+* `transfer_task` : créateur ou assigné ; la chaîne de responsabilité est
+  tracée dans `history` (qui a transféré à qui, quand, avec quelle note) ;
+* passer à `in_progress` exige que toutes les dépendances soient
+  `completed` ; sinon `TASK_DEPENDENCY_NOT_MET` ;
+* passer à `completed` ou `failed` accepte un `result` (1-10 000 points de
+  code) ;
+* chaque changement d'état, d'assignation ou de dépendance est ajouté à
+  `history` dans la même transaction et émet l'événement correspondant (F10) ;
+* `list_tasks` paginée, triée par `due_at` puis `created_at` ; filtres
+  combinables.
+
+**Erreurs.** `TASK_NOT_FOUND`, `TASK_STATE_INVALID`,
+`TASK_DEPENDENCY_NOT_MET`, `INVALID_ARGUMENT`, `USER_NOT_FOUND` (assigné
+inconnu), `RECIPIENT_NOT_FOUND` (assigné désactivé). L'ajout de ces codes
+étend la liste des erreurs de la partie B (amendement acté à la conception).
+
+**Sécurité.** Non-divulgation stricte ; horodatage serveur uniquement ;
+durabilité (état en base, transactions `BEGIN IMMEDIATE`) ; une tâche
+survit au redémarrage et à la restauration.
+
+**Complexité** : moyenne-élevée mais bien délimitée (le serveur stocke et
+orchestre l'état ; ce sont les agents qui décident — pas de moteur de
+workflow). **Différenciation** : très forte. **Business** : maximale.
+
+### V.9.2 F6 — Files de travail par agent (pilier B) — le « bureau » de l'agent
+
+**Problème résolu.** Dans une organisation réelle, chaque employé a une boîte
+de travail ; les agents ne doivent pas tout re-sonder.
+
+**Description.** Vue agrégée par agent de tout ce qui l'attend : tâches
+assignées non terminées, demandes entrantes non traitées, approbations en
+attente (F8), classées par échéance puis priorité.
+
+```text
+get_my_work(limit, cursor, my_name_auth, my_password_auth)
+```
+
+**Règles.** Vue calculée (aucune table nouvelle) ; pagination par snapshot ;
+ne contient que les éléments que l'appelant peut voir ; les éléments traités
+disparaissent de la file.
+
+**Complexité** : faible-moyenne. **Différenciation** : très forte (concept
+« agent-employé »). **Business** : forte.
+
+### V.9.3 F7 — Transfert de tâche avec contexte (pilier B)
+
+**Problème résolu.** « Le support contacte un agent technique » : le relais
+doit être propre et tracé.
+
+**Description.** Inclus dans F5 (`transfer_task`) : le contexte est
+l'historique complet de la tâche plus une note optionnelle ; la chaîne de
+responsabilité est conservée dans `history`.
+
+**Règles.** Le transfert émet un événement (F10) ; l'ancien assigné perd
+l'accès en écriture, conserve la lecture ; la tâche reste dans son état.
+
+**Complexité** : faible (au sein de F5).
+
+### V.9.4 F8 — Demandes de validation et approbations (pilier E)
+
+**Problème résolu.** Une organisation a besoin de points de contrôle :
+« le comptable demande validation au manager avant paiement ».
+
+**Description.** État `pending_approval` sur une tâche ; l'approbateur
+(agent ou, à terme, humain — F19) accepte ou refuse.
+
+```text
+request_approval(task_id, approver_username, my_name_auth, my_password_auth)
+approve_task(task_id, my_name_auth, my_password_auth)
+reject_task(task_id, reason, my_name_auth, my_password_auth)
+```
+
+**Règles.** Seul le créateur ou l'assigné demande une approbation ;
+`approve_task` et `reject_task` uniquement par l'approbateur désigné
+(`ACCESS_DENIED` sinon) ; refuser ramène la tâche à `in_progress` avec la
+raison dans `history` ; chaque étape est journalisée (F11).
+
+**Complexité** : moyenne. **Différenciation** : forte (contrôle humain et
+agent dans la boucle, HITL).
+
+### V.9.5 F9 — Escalade automatique et garde-fous de budget (pilier E)
+
+**Problème résolu.** Sans limites, une organisation d'agents autonomes
+diverge : boucles de sous-tâches, coûts incontrôlés, tâches oubliées. C'est
+la leçon n°1 des déploiements multi-agents réels.
+
+**Description.** Règles déclarées par l'organisation, vérifiées à chaque
+changement d'état (aucun processus asynchrone au départ) :
+
+* escalade : une tâche dont l'échéance est dépassée (ou en échec) depuis un
+  seuil configurable est remontée à un agent désigné (manager) et émet un
+  événement d'escalade (F10) ; les seuils (`due_after_seconds`,
+  `failed_after_seconds`) sont des **entiers >= 1** — `null` ou `0` est
+  refusé (`INVALID_ARGUMENT`) : un seuil nul déclencherait l'escalade
+  immédiate de toutes les tâches ;
+* budgets : nombre maximal de tâches actives par agent, profondeur maximale
+  des dépendances, nombre maximal de messages émis par période ; le
+  dépassement provoque `ACCESS_DENIED` (ou `QUOTA_EXCEEDED`, code à acter).
+
+```text
+set_escalation_policy(department, policy, my_name_auth, my_password_auth)   # organisation
+set_agent_budget(username, budget, my_name_auth, my_password_auth)          # organisation
+```
+
+**Complexité** : moyenne. **Différenciation** : très forte (gouvernance par
+construction).
+
+### V.9.6 F10 — Événements consultables (pilier C/F)
+
+**Problème résolu.** Tout est pull : un agent doit re-sonder pour savoir si
+quelque chose a changé. Les événements consultables rendent le polling
+intelligent sans introduire de push réseau (l'architecture locale est
+préservée).
+
+**Description.** Journal append-only d'événements : tâche créée, état
+changé, transfert, approbation demandée/accordée/refusée, escalade, message
+reçu (facultatif).
+
+```text
+get_events(since_cursor, types, limit, cursor, my_name_auth, my_password_auth)
+```
+
+**Règles.** Les événements ne contiennent **jamais** le contenu des messages
+ni des descriptions ; pagination par curseur opaque ; chaque agent ne reçoit
+que les événements des ressources qu'il peut voir ; rétention configurable par
+l'organisation (purge des événements anciens, jamais des messages).
+
+**Intégration.** Table `events` append-only, index sur `(principal, seq)`.
+**Complexité** : moyenne. **Différenciation** : forte.
+
+### V.9.7 F11 — Audit organisationnel (pilier E/F)
+
+**Problème résolu.** Avec des centaines d'agents : qui a parlé à qui, quand,
+avec quel résultat, où sont les blocages. Exigence de conformité (ISO 42001,
+NIST AI RMF, OWASP Agentic).
+
+**Description.** Journal d'audit immuable côté serveur : acteur, commande,
+cible, horodatage, issue — **sans contenu** (cohérent avec les logs actuels
+sans secrets et la contrainte 4).
+
+```text
+get_org_audit(since, principal, command, limit, cursor, my_name_auth, my_password_auth)   # organisation
+```
+
+**Règles.** Table append-only, aucune modification ni suppression (immuable) ;
+seule l'organisation accède à l'audit de ses agents ; jamais de contenu de
+message, de description ni de carte ; export inclus dans les sauvegardes.
+
+**Complexité** : moyenne. **Différenciation** : très forte. **Business** :
+très forte (conformité = argument de vente).
+
+### V.9.8 F12 — Observabilité opérationnelle (pilier F)
+
+**Problème résolu.** Piloter une organisation exige des métriques.
+
+**Description.** Agrégaats exposés par commandes : agents actifs, tâches par
+état, escalades en cours, volume par paire, latences, connexions.
+
+```text
+get_org_metrics(my_name_auth, my_password_auth)        # organisation
+get_server_status(my_name_auth, my_password_auth)      # organisation (dédiée)
+```
+
+**Règles.** Aucune donnée de contenu ; chiffres dérivés en lecture seule ;
+prépare le tableau de bord (F18).
+
+**Complexité** : faible-moyenne (agrégats SQL, harnais existant).
+**Différenciation** : forte.
+
+## V.10. Long terme (🔴) — évolutions profondes de l'architecture
+
+### V.10.1 F13 — Structure organisationnelle hiérarchique (pilier A/E)
+
+**Problème résolu.** Une « entreprise d'agents » sans hiérarchie est un tas
+d'agents : départements, équipes, rôles, rattachements.
+
+**Description.** La décision 6.3 s'applique : **rôles fixes prédéfinis**
+(`manager`, `employee`, `rh`, …) et départements ; pas de moteur de règles
+personnalisable au départ. Optionnel : une organisation plate n'en crée
+aucun (section V.4).
+
+```text
+create_department(department_name, my_name_auth, my_password_auth)          # organisation
+set_agent_department(username, department_name, role, my_name_auth, my_password_auth)
+get_org_structure(my_name_auth, my_password_auth)
+```
+
+**Règles.** Un agent appartient à un département au plus ; un rôle par
+rattachement ; les rôles fixes ont des permissions prédéfinies (F14) ;
+la permanence des organisations (contrainte 24 de la partie B) est inchangée ;
+les départements sont permanents et non supprimables (cohérence).
+
+**Intégration.** Tables `departments`, `memberships` ; migration.
+**Complexité** : élevée. **Différenciation** : très forte.
+
+### V.10.2 F14 — Permissions granulaires (pilier E)
+
+**Problème résolu.** La non-divulgation actuelle (tout ou rien) est trop
+binaire pour une organisation réelle : un manager voit les tâches de son
+équipe sans le contenu, un agent RH lit les cartes, etc.
+
+**Description.** Permissions associées aux rôles fixes (F13) : voir les
+tâches/métadonnées de son équipe, contacter certains rôles, accéder à
+l'audit par département. Toujours sans contenu de message.
+
+**Règles.** Aucun nouveau code d'erreur (réutilise `ACCESS_DENIED`) ;
+évaluées dans chaque commande au même point que les politiques existantes ;
+la matrice des permissions est documentée dans `help()`.
+
+**Complexité** : élevée (à contenir : rôles fixes, pas de moteur).
+**Différenciation** : très forte. **Business** : forte (confiance,
+conformité).
+
+### V.10.3 F15 — Groupes et canaux multi-agents (pilier C)
+
+**Problème résolu.** La coordination d'équipe (commercial + support +
+technique ensemble) dépasse la conversation par paire.
+
+**Description.** Conversations à N participants, canaux par département.
+**Conflit direct avec la contrainte 11 de la partie B** (une conversation
+bidirectionnelle par paire) : amendement acté à la conception, APRÈS les
+tâches (une grande partie du besoin multi-agent est couverte par F5, qui
+conserve un nombre limité de participants).
+
+**Règles.** Participants explicites à la création ; un participant quitte le
+groupe ; les notifications et `needs_reply` s'étendent aux groupes ;
+pagination et non-divulgation conservées.
+
+**Complexité** : élevée. **Différenciation** : forte. **Business** : moyenne
+à ce stade.
+
+### V.10.4 F16 — Réputation mesurée par le serveur (pilier D)
+
+**Problème résolu.** « À qui faire confiance pour cette tâche ? »
+
+**Description.** Statistiques calculées par le serveur à partir des tâches
+terminées (taux de complétion, échecs, retards, délais moyens) — **jamais
+déclaratives** (un agent ne peut pas gonfler sa réputation). Affichée dans la
+carte d'agent (F2) comme champ calculé.
+
+**Règles.** Calcul sur fenêtre glissante ; seule l'organisation voit les
+chiffres détaillés, les agents voient leur propre réputation et une mention
+qualitative pour les autres ; pas de classement public (évite le jeu).
+
+**Complexité** : moyenne. **Différenciation** : moyenne. **Business** :
+moyenne.
+
+### V.10.5 F17 — Délégation contrôlée (pilier E)
+
+**Problème résolu.** Parfois seul un agent peut agir (ex. lire une donnée
+RH), mais il délègue une collecte précise.
+
+**Description.** Un agent autorise un autre à agir en son nom pour une tâche
+donnée : ticket temporaire, durée limitée, non renouvelable, journalisé dans
+l'audit (F11). **C'est la fonctionnalité la plus risquée de la liste** :
+surface d'attaque réelle.
+
+**Règles.** Le ticket est lié à une tâche précise (F5) ; jamais de
+délégation générale ; expiration obligatoire ; toute utilisation est
+journalisée ; révocation immédiate par le délégant.
+
+**Complexité** : élevée. **Différenciation** : forte. **Business** : moyenne.
+**Sécurité** : à concevoir en dernier, avec les tests les plus exigeants.
+
+### V.10.6 F18 — Interface web — compte observateur (pilier G)
+
+**Problème résolu.** La vision finale : des humains observent (et
+approuvent) une organisation d'agents comme une entreprise réelle —
+organigramme, agents actifs, tâches en cours, flux, escalades, blocages.
+
+**Description.** La décision 6.4 s'applique : l'interface web traverse le
+socket comme un **compte observateur** (principal authentifié en lecture
+seule, créé par l'organisation), avec des commandes de lecture dédiées
+(annuaire, cartes, tâches, files, métriques, audit, événements). Aucune
+lecture directe de la base ; aucun nouveau port ; l'interface web est un
+client Synapse comme un autre.
+
+**Règles.** Le compte observateur ne peut pas écrire (aucune commande
+d'écriture) ; sa création est tracée dans l'audit ; il est révocable ;
+sa vue est limitée à ce que son organisation peut voir.
+
+**Complexité** : élevée (côté interface web) ; l'API nécessaire (F2-F12)
+sera déjà en place. **Différenciation** : maximale. **Business** : maximale.
+
+### V.10.7 F19 — Principaux humains (pilier G)
+
+**Problème résolu.** La vision « entreprise » inclut des humains dans la
+boucle : approbations (F8), supervision, décisions.
+
+**Description.** Un humain est un principal : compte authentifié par mot de
+passe (mêmes règles Argon2id), commandes existantes, approbations (F8).
+Interface : le CLI existant, puis l'interface web (F18).
+
+**Règles.** Aucune session persistante au départ (chaque commande est
+authentifiée, cohérent avec l'existant) ; un compte humain est identifiable
+(champ `principal_type` à acter) ; les humains n'ont jamais plus de droits
+que le rôle qui leur est attribué.
+
+**Complexité** : moyenne. **Différenciation** : forte.
+
+## V.11. Vision à long terme (🚀) — fonctionnalités transformatrices
+
+### V.11.1 F20 — Passerelle A2A standard (pilier G)
+
+**Problème résolu.** L'interopérabilité avec d'autres plateformes d'agents.
+La décision 6.5 s'applique : **standard A2A (Linux Foundation), pas de
+protocole propriétaire** — Synapse ne doit pas être isolé du reste du monde
+des agents.
+
+**Description.** Un processus passerelle (client Synapse comme les autres)
+expose les cartes d'agent (F2) et les tâches (F5) au format A2A, et traduit
+les demandes entrantes en tâches locales — avec consentement explicite de
+l'organisation (politiques inter-organisations existantes étendues).
+
+**Règles.** La passerelle est un principal dédié, jamais un serveur
+réseau ; chaque traduction est journalisée (F11) ; les politiques
+`allow_incoming_external` / `allow_outgoing_external` restent la porte
+d'entrée ; aucune donnée interne n'est exposée hors de ce qui est déjà
+public.
+
+**Complexité** : très élevée. **Différenciation** : forte. **Business** :
+forte (l'écosystème).
+
+### V.11.2 F21 — Plateforme d'organisations d'agents (pilier global)
+
+**Problème résolu.** De 10 à 10 000 agents, plusieurs organisations,
+humains et agents mêlés, workflows complexes.
+
+**Description.** L'aboutissement : Synapse comme couche de communication,
+coordination et orchestration d'organisations d'agents IA, avec :
+
+* le cache (F1) rendant l'échelle possible (prérequis) ;
+* la découverte (F2/F3), les tâches (F5), la gouvernance (F8/F9/F14/F17),
+  l'observabilité (F11/F12) et le tableau de bord (F18) ;
+* des humains et des agents au même endroit (F19) ;
+* l'interopérabilité (F20).
+
+**Règles.** Chaque brique reste optionnelle et composable ; aucune ne dépend
+d'une autre au-delà des dépendances déclarées ; la non-régression des
+26 contraintes de la partie B (amendements actés exceptés) est vérifiée à chaque
+étape par la suite de tests.
+
+**Complexité** : cumulative. **Différenciation** : maximale.
+**Business** : maximale.
+
+## V.12. Contraintes de la vision (non-régression)
+
+Le système doit respecter simultanément les règles suivantes, en plus des
+26 contraintes finales de la partie B :
+
+1. toute fonctionnalité fonctionne dans une organisation plate de deux
+   agents, sans configuration supplémentaire (principe « petit d'abord ») ;
+2. aucune fonctionnalité n'exige de hiérarchie (département, équipe, rôle) ;
+3. l'organisation n'accède jamais au contenu des messages, descriptions ou
+   cartes — y compris via l'audit, les métriques ou les événements ;
+4. l'audit et les événements sont append-only et sans contenu ;
+5. toute nouvelle commande est authentifiée, strictement validée,
+   documentée dans `help()` et couverte par des tests ;
+6. toute nouvelle donnée est persistée et incluse dans les sauvegardes et
+   restaurations ;
+7. les nouvelles commandes d'écriture sont idempotentes (clé dédiée) et les
+   nouvelles listes sont paginées par curseur opaque stable ;
+8. les états de coordination (tâches, approbations) sont durables : en base,
+   en transaction, jamais en mémoire ; ils survivent au redémarrage et à la
+   restauration ;
+9. l'authentification reste vérifiée dans chaque commande ; le cache (6.1)
+   est le seul levier de débit autorisé ;
+10. aucun processus asynchrone tant que les événements consultables (F10)
+    suffisent ;
+11. les rôles et permissions sont des listes fixes tant que la complexité
+    d'un moteur de règles n'est pas justifiée par un besoin mesuré ;
+12. la fédération passe par le standard A2A, jamais par un protocole
+    propriétaire ;
+13. l'interface web passe par le serveur (compte observateur), jamais par
+    lecture directe de la base ;
+14. chaque amendement à la partie B (contrainte 2 pour le cache, contrainte 11
+    pour les groupes, liste des erreurs pour les tâches) est formalisé dans
+    une spec détaillée avant implémentation et accompagné de ses tests de
+    conformité.
+
+## V.13. Glossaire
+
+* **Agent** : principal logiciel (compte authentifié) appartenant à une
+  organisation.
+* **Carte d'agent (Agent Card)** : description structurée et validée des
+  capacités d'un agent (F2).
+* **Organisation** : groupe d'agents sous une autorité commune ; de deux
+  agents à une entreprise entière (section V.4).
+* **Tâche** : objet de coordination persistant avec cycle de vie (F5).
+* **File de travail** : vue agrégée de ce qui attend un agent (F6).
+* **Événement** : entrée append-only du journal consultable (F10).
+* **Audit** : journal immuable des actions, sans contenu (F11).
+* **Compte observateur** : principal en lecture seule pour l'interface web
+  (F18).
+* **Passerelle A2A** : pont vers le standard A2A (F20).
+* **HITL** : human-in-the-loop, approbation humaine dans un processus
+  (F8/F19).
+
+## V.14. Prochaines étapes
+
+La conception détaillée suivra l'ordre de la feuille de route (section V.7) :
+à chaque étape, une spec complète dans le style des documents de
+spécification existants puis un amendement de la partie B, avant toute
+implémentation. Aucune fonctionnalité de ce document n'est implémentée à ce
+jour.
+
+
+---
+
+# PARTIE B — SPÉCIFICATION API v2 (ancien `T.txt`)
+
+# Projet : Synapse — messagerie locale entre agents IA — spécification API v2
+
+## 1. Objectif et périmètre
+
+Créer une infrastructure locale de messagerie permettant à plusieurs agents IA
+de communiquer entre eux, organisés en organisations.
+
+Le système est exclusivement programmatique : aucune page web, interface
+graphique, interface utilisateur humaine, bouton ou écran de messagerie ne doit
+être créé. Toutes les opérations sont accessibles par des fonctions ou une API
+locale.
+
+Les signatures de ce document décrivent les paramètres logiques. Les requêtes
+réelles utilisent des objets JSON nommés et non des paramètres positionnels.
+L'API est versionnée en `v2`; toute modification incompatible exige une
+nouvelle version.
+
+Les organisations, comptes, messages, conversations, statuts, dates et
+identifiants d'idempotence doivent être persistants après redémarrage. La
+technologie de stockage est libre, mais elle doit être fiable et
+transactionnelle.
+
+## 2. Transport, enveloppe et sécurité
+
+L'API v2 doit être accessible uniquement via un socket Unix local. Aucun port
+réseau ne doit être exposé. Le socket et le stockage appartiennent au compte
+système du service et ne sont accessibles qu'à ce compte.
+
+Les signatures ne sont jamais des commandes shell : les mots de passe ne
+doivent pas apparaître dans l'historique, les arguments de processus ou les
+variables d'environnement.
+
+Chaque requête utilise exactement cette enveloppe :
+
+```json
+{
+  "api_version": "v2",
+  "command": "send_message",
+  "parameters": {}
+}
+```
+
+Les noms de champs sont sensibles à la casse. Tout champ inconnu, absent ou de
+type incorrect provoque `INVALID_ARGUMENT`.
+
+La taille totale d'une requête JSON ne doit pas dépasser 1 MiB. Au-delà, la
+requête est rejetée avec `INVALID_ARGUMENT` avant authentification.
+
+## 3. Organisations, comptes, authentification et autorisations
+
+### 3.1 Organisations
+
+Le système est organisé en organisations. Une organisation est une entité de
+premier ordre, créée exclusivement par la procédure locale d'installation
+`synapse-init-org` (jamais par une commande réseau), qui recueille son nom et
+son mot de passe. La première organisation est créée lors de l'installation ;
+des organisations supplémentaires peuvent être créées ultérieurement par la
+même procédure locale. Il n'existe aucun compte ni mot de passe par défaut.
+
+Chaque organisation possède :
+
+* un nom d'organisation unique ;
+* un mot de passe ;
+* une politique de communication externe entrante ;
+* une politique de communication externe sortante ;
+* une date de création.
+
+Les organisations sont permanentes : aucune commande ne peut les désactiver,
+les supprimer ou les renommer. Elles ne participent jamais à la messagerie :
+une organisation n'est ni expéditrice ni destinataire d'un message. Elles
+n'accèdent jamais au contenu des messages, des conversations ni des
+notifications : leur pouvoir est strictement limité à la gestion des comptes
+de leur propre organisation et à leurs politiques.
+
+### 3.2 Comptes d'agents
+
+Chaque compte d'agent possède :
+
+* un nom d'utilisateur unique (globalement, sur tout le service) ;
+* un mot de passe ;
+* une description ;
+* une organisation d'appartenance ;
+* une permission de visibilité des usernames de son organisation ;
+* un état `active` ou `disabled`.
+
+Tout agent appartient obligatoirement à une organisation et une seule.
+L'appartenance est fixée à la création du compte par l'organisation qui le
+crée et n'est jamais modifiable. Le nom d'utilisateur reste l'unique adresse
+de messagerie : l'organisation fait partie de l'identité de l'agent mais pas
+de son adresse.
+
+La permission de visibilité (`can_see_org_agents`, booléen, défaut `false`)
+contrôle si l'agent peut lister les usernames des autres agents de sa propre
+organisation via `list_org_agents`. Elle ne contrôle ni la découverte par nom
+connu (`get_agent_description`) ni l'envoi de messages.
+
+### 3.3 Authentification
+
+Il n'existe ni session persistante ni commande d'authentification séparée.
+Chaque commande reçoit et vérifie les identifiants de l'appelant dans le même
+appel.
+
+Les agents s'authentifient avec :
+
+```text
+my_name_auth
+my_password_auth
+```
+
+Les organisations s'authentifient avec :
+
+```text
+organization_name_auth
+organization_password_auth
+```
+
+La vérification a lieu avant toute opération. Des identifiants incorrects ou
+un compte désactivé provoquent `AUTH_FAILED`, sans lecture ni modification de
+donnée métier. Un nom d'organisation inexistant provoque également
+`AUTH_FAILED` (aucune révélation d'existence).
+
+Un agent agit uniquement en son propre nom. Il peut consulter ses messages et
+les conversations auxquelles il participe, mais jamais les données d'un autre
+agent, ni les données d'une autre organisation. Un agent qui appelle une
+commande d'organisation provoque `ACCESS_DENIED`.
+
+### 3.4 Gestion des agents par une organisation
+
+Une organisation gère uniquement les agents qui lui appartiennent. Pour toute
+cible de gestion, un compte inexistant ou appartenant à une autre organisation
+provoque `USER_NOT_FOUND` (aucune révélation d'existence).
+
+Les commandes d'organisation sont :
+
+```text
+create_agent(username, password, description, can_see_org_agents, organization_name_auth, organization_password_auth)
+deactivate_agent(username, organization_name_auth, organization_password_auth)
+reactivate_agent(username, organization_name_auth, organization_password_auth)
+change_agent_password(username, new_password, organization_name_auth, organization_password_auth)
+set_agent_visibility(username, can_see_org_agents, organization_name_auth, organization_password_auth)
+get_org_agents(organization_name_auth, organization_password_auth)
+set_organization_policy(allow_incoming_external, allow_outgoing_external, organization_name_auth, organization_password_auth)
+get_organization_policy(organization_name_auth, organization_password_auth)
+change_organization_password(new_password, organization_name_auth, organization_password_auth)
+```
+
+`create_agent` crée un compte dans l'organisation authentifiée (l'organisation
+n'est jamais un paramètre : elle est toujours celle qui s'authentifie) avec
+`status=active`. Les paramètres `description` et `can_see_org_agents` suivent
+les règles des sections 3.5 et 3.6. `deactivate_agent` et `reactivate_agent`
+sont idempotentes. `set_agent_visibility` modifie la permission de visibilité
+d'un agent de l'organisation.
+
+### 3.5 Noms, mots de passe et descriptions
+
+Les noms d'utilisateur et les noms d'organisation contiennent de 3 à 64
+caractères ASCII parmi `a-z`, `0-9`, `_` et `-`. Ils sont normalisés en
+minuscules. Les espaces et les autres caractères sont refusés, jamais
+supprimés. Les noms d'utilisateur et les noms d'organisation partagent le même
+jeu de caractères mais forment deux espaces de noms distincts : un agent et
+une organisation peuvent porter le même nom sans ambiguïté, car leurs
+paramètres d'authentification diffèrent.
+
+Les mots de passe contiennent au moins 12 caractères Unicode imprimables. Les
+espaces sont autorisés ; les caractères de contrôle, retours à la ligne et
+caractères nuls sont interdits. Ils ne sont jamais normalisés. Les mots de
+passe sont stockés uniquement sous forme de hash Argon2id avec sel aléatoire
+unique, mémoire de 64 MiB, trois itérations et parallélisme de 1. Ils ne
+doivent jamais apparaître en clair dans le stockage, les réponses, les
+erreurs, les logs ou les sauvegardes.
+
+La description est une chaîne UTF-8 valide, normalisée Unicode NFC, puis
+nettoyée des caractères Unicode appartenant à la propriété `White_Space` au
+début et à la fin. Elle contient de 1 à 500 points de code Unicode ; les
+caractères de contrôle sont interdits. Elle décrit brièvement l'agent (rôle,
+compétences, spécialité, fonction dans le système). Elle est obligatoire à la
+création de tout compte et est immuable : aucune commande ne peut la
+modifier. Elle ne contient jamais de mot de passe, de secret, de clé ou de
+donnée sensible.
+
+### 3.6 Permission de visibilité
+
+`can_see_org_agents` est un booléen JSON strict (`true` ou `false`). Défaut à
+la création : `false` (principe de moindre privilège). Elle est fixée à la
+création (`create_agent`) et modifiable ensuite par l'organisation
+(`set_agent_visibility`). Elle ne s'applique qu'à la commande
+`list_org_agents` et aux agents actifs de la propre organisation de l'agent.
+
+### 3.7 États des comptes
+
+Un compte désactivé ne peut pas s'authentifier, envoyer ou lire. Ses données
+sont conservées avec leurs statuts inchangés et redeviennent accessibles après
+réactivation. Il n'existe aucune suppression physique de compte, message ou
+conversation. La désactivation est la seule façon de rendre un compte inactif.
+
+## 4. Limitation et journalisation
+
+Le service autorise au maximum cinq échecs d'authentification pour un nom
+d'utilisateur dans une fenêtre glissante de quinze minutes. La même limitation
+s'applique aux noms d'organisation, comptés séparément des noms
+d'utilisateur. Après ce seuil, les tentatives sont refusées pendant quinze
+minutes.
+
+Les logs peuvent contenir `username`, `organization_name`, `command`,
+`target_id`, `timestamp`, `result` et `process_id`, mais jamais de mot de
+passe ni de contenu de message. Ils sont conservés 90 jours puis supprimés
+automatiquement.
+
+## 5. Réponses, erreurs et commandes
+
+Toutes les commandes retournent exactement :
+
+```json
+{
+  "success": true,
+  "data": {},
+  "error": null
+}
+```
+
+En cas d'erreur :
+
+```json
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "AUTH_FAILED",
+    "message": "Identifiants invalides"
+  }
+}
+```
+
+Le client utilise uniquement `error.code`; `error.message` est informatif et
+peut être localisé.
+
+Les codes sont :
+
+```text
+AUTH_FAILED
+ACCESS_DENIED
+INVALID_ARGUMENT
+UNKNOWN_COMMAND
+USERNAME_ALREADY_EXISTS
+USER_NOT_FOUND
+RECIPIENT_NOT_FOUND
+MESSAGE_NOT_FOUND
+CONVERSATION_NOT_FOUND
+MESSAGE_ALREADY_EXISTS
+POLICY_DENIED
+INTERNAL_ERROR
+```
+
+Un compte inexistant dans une commande de gestion d'organisation provoque
+`USER_NOT_FOUND`. Un destinataire inexistant ou désactivé provoque
+`RECIPIENT_NOT_FOUND`. Un envoi refusé par une politique de communication
+externe provoque `POLICY_DENIED`. Une cible de message ou de conversation
+inaccessible provoque `MESSAGE_NOT_FOUND` ou `CONVERSATION_NOT_FOUND`, afin de
+ne pas révéler son existence.
+
+Les commandes obligatoires de l'API v2 sont :
+
+```text
+create_agent(username, password, description, can_see_org_agents, organization_name_auth, organization_password_auth)
+deactivate_agent(username, organization_name_auth, organization_password_auth)
+reactivate_agent(username, organization_name_auth, organization_password_auth)
+change_agent_password(username, new_password, organization_name_auth, organization_password_auth)
+set_agent_visibility(username, can_see_org_agents, organization_name_auth, organization_password_auth)
+get_org_agents(organization_name_auth, organization_password_auth)
+set_organization_policy(allow_incoming_external, allow_outgoing_external, organization_name_auth, organization_password_auth)
+get_organization_policy(organization_name_auth, organization_password_auth)
+change_organization_password(new_password, organization_name_auth, organization_password_auth)
+get_my_organization(my_name_auth, my_password_auth)
+get_agent_description(username, my_name_auth, my_password_auth)
+list_org_agents(my_name_auth, my_password_auth)
+send_message(recipient_username, message, client_message_id, my_name_auth, my_password_auth)
+get_messages(my_name_auth, my_password_auth, status, sender_username, conversation_id, limit, cursor)
+get_conversation(other_username, my_name_auth, my_password_auth, limit, cursor)
+read_message(message_id, my_name_auth, my_password_auth)
+get_notifications(my_name_auth, my_password_auth, limit, cursor)
+mark_conversation_no_reply(conversation_id, my_name_auth, my_password_auth)
+help(my_name_auth, my_password_auth, command_name)
+```
+
+Dans JSON, tous les paramètres sont des champs nommés. Les paramètres
+facultatifs sont toujours présents avec `null` lorsqu'ils ne sont pas utilisés.
+Les valeurs par défaut sont `can_see_org_agents=false`, `status=null`,
+`sender_username=null`, `conversation_id=null`, `limit=50`, `cursor=null` et
+`command_name=null`. `limit` est un entier de 1 à 100. Les seuls statuts
+acceptés sont `read` et `unread`.
+
+Aucune commande non listée n'existe dans l'API v2.
+
+## 6. Envoi d'un message et politique de communication
+
+```text
+send_message(recipient_username, message, client_message_id, my_name_auth, my_password_auth)
+```
+
+### 6.1 Règles générales
+
+La commande accepte exactement un destinataire actif, différent de
+l'expéditeur. Le contenu est une chaîne UTF-8 valide, normalisée Unicode NFC,
+puis nettoyée des caractères Unicode appartenant à la propriété `White_Space`
+au début et à la fin. Le contenu enregistré contient de 1 à 10 000 points de
+code Unicode. Les pièces jointes, binaires et caractères de contrôle sont
+interdits.
+
+`client_message_id` est obligatoire, permanent et contient de 1 à 128
+caractères ASCII parmi `a-z`, `A-Z`, `0-9`, `.`, `_`, `:` et `-`. Il est
+comparé exactement caractère par caractère.
+
+Pour un même expéditeur, réutiliser cet identifiant avec le même destinataire
+et le même contenu normalisé retourne le message déjà créé, y compris si une
+politique de communication a changé depuis : la politique n'affecte jamais la
+récupération idempotente d'un message déjà validé. Une différence sur l'un de
+ces champs provoque `MESSAGE_ALREADY_EXISTS`.
+
+Chaque message possède :
+
+```text
+message_id
+conversation_id
+client_message_id
+sender_username
+sender_organization_name
+recipient_username
+content
+created_at
+status
+read_at
+```
+
+`sender_organization_name` est l'organisation de l'expéditeur au moment de
+l'envoi, écrite par le service et immuable : un changement d'appartenance
+n'existe pas, et l'historique n'est jamais réécrit. `message_id` et
+`conversation_id` sont des UUIDv4 textuels, acceptés sans sensibilité à la
+casse. `created_at` est généré par la transaction de stockage et utilise
+exactement le format UTC :
+
+```text
+YYYY-MM-DDTHH:mm:ss.sssZ
+```
+
+Un message nouvellement créé est `unread` pour le destinataire et possède
+`read_at=null`. Il est considéré comme livré à la validation de la
+transaction. Il n'existe pas d'état `delivered` dans l'API v2.
+
+`read_at` est la date de première lecture par le destinataire et est visible
+par le destinataire et l'expéditeur. Les messages sont immuables et ne sont
+modifiables ou supprimables par aucun rôle.
+
+### 6.2 Politique de communication externe
+
+Chaque organisation définit deux politiques booléennes :
+
+```text
+allow_incoming_external   : les agents d'organisations étrangères peuvent-ils
+                            envoyer des messages aux agents de cette
+                            organisation ?
+allow_outgoing_external   : les agents de cette organisation peuvent-ils
+                            envoyer des messages à des agents d'organisations
+                            étrangères ?
+```
+
+Par défaut, une organisation est créée avec `allow_incoming_external=false` et
+`allow_outgoing_external=false` : une organisation est fermée tant qu'elle
+n'ouvre pas explicitement ses frontières. La communication interne (deux
+agents de la même organisation) est toujours autorisée et n'est jamais
+soumise à ces politiques.
+
+Les quatre cas sont donc :
+
+```text
+interne à l'organisation          : toujours autorisé
+agent interne → agent externe     : soumis à allow_outgoing_external
+agent externe → agent interne     : soumis à allow_incoming_external
+entre deux organisations          : soumis aux deux (sortant de l'expéditeur
+                                    ET entrant du destinataire)
+```
+
+Un envoi inter-organisations est accepté si et seulement si les deux
+politiques le permettent : `allow_outgoing_external` de l'organisation de
+l'expéditeur et `allow_incoming_external` de l'organisation du destinataire.
+
+### 6.3 Ordre des vérifications
+
+Pour tout envoi, le service vérifie dans cet ordre :
+
+1. authentification de l'expéditeur (agent actif) ;
+2. destinataire différent de l'expéditeur (`INVALID_ARGUMENT`) ;
+3. politique sortante de l'organisation de l'expéditeur : si elle interdit
+   l'échange externe, `POLICY_DENIED` est retourné avant toute recherche du
+   destinataire (aucune information sur le destinataire n'est révélée) ;
+4. recherche du destinataire : inexistant ou désactivé → `RECIPIENT_NOT_FOUND`
+   (l'existence des comptes n'est pas dissimulée : les descriptions sont
+   publiques, voir section 13) ;
+5. si le destinataire appartient à une autre organisation : politique entrante
+   de l'organisation du destinataire ; si elle interdit l'échange externe,
+   `POLICY_DENIED` ;
+6. création ou récupération idempotente du message.
+
+Les politiques sont évaluées au moment de l'envoi, pour les nouveaux messages
+uniquement. Un changement de politique n'affecte jamais les messages existants
+ni la consultation des conversations et notifications : aucune donnée
+existante n'est masquée, supprimée ou rendue inaccessible rétroactivement.
+Une conversation peut donc relier des agents d'organisations différentes si
+les politiques le permettaient au moment de chaque envoi.
+
+La conversation éventuelle, le message, son état initial, la clé d'idempotence
+et les états de réponse sont créés ou mis à jour dans une seule transaction.
+
+## 7. Messages et lecture individuelle
+
+```text
+get_messages(my_name_auth, my_password_auth, status, sender_username, conversation_id, limit, cursor)
+```
+
+La commande retourne uniquement les messages reçus par l'agent authentifié et
+ne modifie aucun statut. `status=unread` signifie `read_at=null`; `status=read`
+signifie `read_at` non nul. Les autres filtres utilisent le nom normalisé et un
+UUID valide.
+
+Les résultats sont triés du plus récent au plus ancien par `created_at`, puis
+`message_id`.
+
+`get_messages` retourne dans `data` :
+
+```json
+{
+  "messages": [],
+  "next_cursor": null
+}
+```
+
+```text
+read_message(message_id, my_name_auth, my_password_auth)
+```
+
+Cette commande retourne le message, marque uniquement ce message comme `read`,
+écrit `read_at` seulement si sa valeur est `null`, puis recalcule l'état de
+réponse de la conversation. La mise à jour est conditionnelle à
+`read_at IS NULL`; des lectures concurrentes retournent toutes la même date
+de première lecture. Un message inexistant ou inaccessible provoque toujours
+`MESSAGE_NOT_FOUND`.
+
+## 8. Conversations
+
+Une conversation est bidirectionnelle et regroupe tous les messages d'une paire
+d'agents. Les noms normalisés sont classés lexicalement ; sa clé logique est :
+
+```text
+min(username_a, username_b) + ":" + max(username_a, username_b)
+```
+
+Une contrainte d'unicité sur cette clé garantit une seule conversation, même
+avec des envois simultanés. Elle est créée par le premier envoi réussi. Les
+conversations sont des paires d'agents : elles ne sont jamais associées à une
+organisation en tant que telle, et peuvent relier des agents d'organisations
+différentes.
+
+```text
+get_conversation(other_username, my_name_auth, my_password_auth, limit, cursor)
+```
+
+`other_username` doit être différent de l'agent authentifié. Si aucun échange
+n'existe, la commande retourne `CONVERSATION_NOT_FOUND` sans créer de
+conversation vide. Les messages sont retournés dans l'ordre chronologique
+croissant par `created_at`, puis `message_id`. La consultation ne marque rien
+comme lu.
+
+Pour chaque message, `status` et `read_at` concernent le destinataire. Pour un
+message envoyé par l'agent authentifié, `read_at` reste la date de lecture par
+le destinataire.
+
+## 9. Pagination stable
+
+`get_messages`, `get_conversation`, `get_notifications`, `get_org_agents` et
+`list_org_agents` sont paginées. Chaque première page retourne un
+`next_cursor`. Le curseur est opaque, signé par le service et lié à la
+commande, l'agent ou l'organisation, les filtres, le tri et une borne
+`snapshot_boundary`.
+
+Une page suivante doit réutiliser exactement le même curseur et les mêmes
+filtres. Un curseur invalide ou utilisé avec une autre commande, un autre
+agent, une autre organisation, un autre filtre ou un autre tri provoque
+`INVALID_ARGUMENT`.
+
+La première page fige également les statuts et états pertinents à
+`snapshot_boundary`. Les éléments ou changements d'état postérieurs
+n'apparaissent pas dans une pagination déjà commencée ; une nouvelle requête
+sans curseur les inclut.
+Après la dernière page, `next_cursor` vaut `null`.
+
+`get_messages` est triée par ordre décroissant, `get_conversation` par ordre
+croissant, `get_notifications` par ordre décroissant du dernier message reçu
+concerné, `get_org_agents` et `list_org_agents` par ordre croissant de
+`username`.
+
+## 10. États de lecture et de réponse
+
+Le statut d'un message est dérivé de `read_at` :
+
+```text
+read_at == null  → unread
+read_at != null  → read
+```
+
+Il est propre au destinataire.
+
+L'état de réponse est propre à chaque participant :
+
+```text
+needs_reply
+no_reply_needed
+```
+
+Pour un agent, le dernier message reçu est le message entrant le plus récent
+selon `created_at`, puis `message_id`. La conversation est `needs_reply` si et
+seulement si :
+
+1. un message reçu existe ;
+2. il a été envoyé par l'autre agent ;
+3. il est `read` ;
+4. aucun message envoyé par l'agent actuel ne lui est postérieur ;
+5. il n'est pas couvert par un marquage `no_reply_needed`.
+
+Si le dernier message reçu est `unread`, l'état n'est pas `needs_reply`. Cet
+état est calculé automatiquement et ne peut pas être forcé directement.
+
+Le système conserve, par participant :
+
+```text
+no_reply_for_message_id
+no_reply_marked_at
+```
+
+Lorsqu'un agent envoie un message, son état devient `no_reply_needed` dans la
+même transaction. Lorsqu'un nouveau message est enregistré pour un destinataire,
+son marquage précédent est annulé. Après lecture du nouveau message, l'état est
+recalculé.
+
+Une conversation sans message reçu peut être `no_reply_needed`, mais n'est
+jamais listée comme `needs_reply`.
+
+## 11. Notifications
+
+```text
+get_notifications(my_name_auth, my_password_auth, limit, cursor)
+```
+
+La commande retourne uniquement :
+
+* `unread_by_sender`, comptant les messages reçus non lus par expéditeur ;
+* les conversations `needs_reply` ;
+* pour chaque conversation, `conversation_id`, l'autre agent, le nombre de
+  messages reçus non lus et la date du dernier message reçu.
+
+Les conversations sont triées par date décroissante du dernier message reçu,
+puis par `conversation_id`. La commande ne modifie aucun statut. Elle ne
+révèle jamais les messages d'une autre organisation : seules les conversations
+de l'agent authentifié sont listées.
+
+Chaque élément de `needs_reply` contient exactement :
+
+```json
+{
+  "conversation_id": "uuid-v4",
+  "other_username": "agent_b",
+  "other_organization_name": "org_b",
+  "unread_count": 2,
+  "last_received_at": "YYYY-MM-DDTHH:mm:ss.sssZ"
+}
+```
+
+`other_organization_name` est l'organisation de l'autre agent (métadonnée
+d'annuaire, non secrète). `unread_by_sender` est un objet dont chaque clé est
+un nom d'utilisateur normalisé et chaque valeur est un entier supérieur ou
+égal à zéro.
+
+## 12. Marquage « aucune réponse nécessaire »
+
+```text
+mark_conversation_no_reply(conversation_id, my_name_auth, my_password_auth)
+```
+
+La conversation doit exister et contenir au moins un message reçu par l'agent
+authentifié ; sinon la commande retourne `INVALID_ARGUMENT`.
+
+La commande cible le dernier message reçu au moment de l'opération, enregistre
+son identifiant dans `no_reply_for_message_id`, met l'état à
+`no_reply_needed`, ne modifie aucun statut de lecture, contenu, identifiant ou
+date, et ne modifie pas l'état de l'autre agent.
+
+L'opération est idempotente pour le même dernier message reçu. Un nouveau
+message reçu annule le marquage. Les opérations concurrentes d'envoi et de
+marquage sont sérialisées par conversation ; la transaction validée en dernier
+détermine l'état final.
+
+## 13. Annuaire et découverte des agents
+
+### 13.1 Description publique
+
+```text
+get_agent_description(username, my_name_auth, my_password_auth)
+```
+
+Cette commande retourne la description publique d'un compte à partir de son
+nom d'utilisateur, ainsi que son organisation. Elle est accessible à tout
+compte actif : la description est une métadonnée publique d'annuaire,
+destinée à permettre à un agent de comprendre le rôle, les compétences, la
+spécialité ou la fonction d'un autre agent avant de communiquer avec lui.
+Elle ne révèle ni mot de passe, ni hash, ni état, ni contenu de message.
+
+Règles :
+
+* `username` est validé et normalisé comme tous les noms d'utilisateur ;
+* un compte inexistant provoque `USER_NOT_FOUND` ;
+* la description d'un compte désactivé reste consultable (métadonnée publique
+  de l'annuaire) ;
+* la commande ne modifie aucun état ni aucune donnée ; elle est idempotente
+  par nature ;
+* la description n'apparaît jamais dans les journaux (les règles de la
+  section 4 s'appliquent) ;
+* succès : `data` retourne exactement
+  `{ "username": "<nom normalisé>", "organization_name": "<organisation>", "description": "<description>" }`.
+
+### 13.2 Liste des agents d'une organisation (côté organisation)
+
+```text
+get_org_agents(organization_name_auth, organization_password_auth, limit, cursor)
+```
+
+Retourne la liste paginée des agents de l'organisation authentifiée, avec pour
+chacun `username`, `description`, `status` et `can_see_org_agents`. Une
+organisation a toujours le droit de lister ses propres agents.
+
+```json
+{
+  "agents": [
+    {
+      "username": "agent_a",
+      "description": "...",
+      "status": "active",
+      "can_see_org_agents": false
+    }
+  ],
+  "next_cursor": null
+}
+```
+
+### 13.3 Liste des agents d'une organisation (côté agent)
+
+```text
+list_org_agents(my_name_auth, my_password_auth, limit, cursor)
+```
+
+Retourne la liste paginée des usernames des agents actifs de la propre
+organisation de l'agent authentifié. La commande n'est accessible qu'aux
+agents dont `can_see_org_agents` vaut `true` ; sinon `ACCESS_DENIED`. Elle ne
+révèle jamais les usernames d'une autre organisation : la découverte
+inter-organisations n'existe pas dans l'API v2.
+
+```json
+{
+  "usernames": ["agent_a", "agent_b"],
+  "next_cursor": null
+}
+```
+
+### 13.4 Organisation de l'agent authentifié
+
+```text
+get_my_organization(my_name_auth, my_password_auth)
+```
+
+Retourne le nom de l'organisation de l'agent authentifié et ses politiques de
+communication :
+
+```json
+{
+  "organization_name": "org_a",
+  "allow_incoming_external": false,
+  "allow_outgoing_external": false
+}
+```
+
+## 14. Documentation intégrée — `help()`
+
+```text
+help(my_name_auth, my_password_auth, command_name)
+```
+
+`help()` est la porte d'entrée du service pour un agent qui ne connaît pas
+encore Synapse. Elle retourne une documentation textuelle, structurée et
+directement exploitable, qui explique comment utiliser l'API v2 pour
+communiquer avec d'autres agents, sans consultation d'aucun fichier externe.
+La documentation est rédigée pour un agent IA : claire, non ambiguë, cohérente
+avec la présente spécification et aussi concise que possible sans omettre les
+informations requises.
+
+Accès et authentification :
+
+* la commande est disponible à tout compte actif ; ce n'est pas une commande
+  d'organisation ;
+* les identifiants sont vérifiés comme pour toute commande : des identifiants
+  invalides ou un compte désactivé provoquent `AUTH_FAILED`, sans lecture de
+  donnée métier ; les échecs sont soumis à la limitation de la section 4 ;
+* la commande ne lit ni ne modifie aucune donnée métier ; elle est idempotente
+  par nature ; elle ne révèle aucune donnée de compte.
+
+Paramètres :
+
+* `command_name` : optionnel ; présent avec `null` lorsqu'il n'est pas utilisé.
+  Chaîne ASCII en minuscules, comparée exactement (caractère par caractère) au
+  nom d'une commande de l'API v2, sans normalisation.
+  * `command_name=null` : retourne la documentation complète de l'API v2
+    (toutes les commandes) ;
+  * `command_name` égal au nom d'une commande existante (par exemple
+    `"send_message"`) : retourne uniquement la documentation de cette commande
+    (rôle, paramètres, formats, réponse, erreurs, permissions et exemple
+    d'appel) ;
+  * un nom inconnu provoque `UNKNOWN_COMMAND`.
+
+Réponse :
+
+```text
+data = { "documentation": "<texte>" }
+```
+
+`documentation` est une chaîne UTF-8, sans caractère de contrôle. En mode
+complet, sa taille n'excède pas 64 KiB. Elle ne contient aucun secret, mot de
+passe, hash, clé ni donnée de compte ; les exemples d'appel utilisent des
+identifiants et noms d'utilisateur fictifs.
+
+Contenu minimal de la documentation complète, dans cet ordre :
+
+1. Présentation : ce qu'est Synapse et à quoi sert le service ;
+2. Accès et transport : socket Unix local, enveloppe JSON (`api_version`,
+   `command`, `parameters`), casse des champs, taille maximale des requêtes ;
+3. Organisations et comptes : organisations permanentes, agents rattachés à
+   une organisation, authentification des agents (`my_name_auth`,
+   `my_password_auth`) et des organisations (`organization_name_auth`,
+   `organization_password_auth`) ;
+4. Annuaire et découverte : usernames normalisés, description publique
+   (`get_agent_description`), liste des agents de son organisation
+   (`get_org_agents`, `list_org_agents` selon la permission), organisation de
+   l'agent (`get_my_organization`) ;
+5. Politiques de communication : communication interne toujours autorisée,
+   communications externes soumises aux politiques des deux organisations,
+   évaluation à l'envoi, `POLICY_DENIED` ;
+6. Commandes disponibles : la liste complète des commandes de l'API v2 avec
+   leur signature ;
+7. Détail de chaque commande : rôle, paramètres obligatoires et optionnels,
+   formats attendus, valeurs par défaut, réponse retournée, erreurs possibles,
+   permissions nécessaires ;
+8. Conversations : une conversation bidirectionnelle par paire d'agents,
+   consultation ; répondre à un message consiste à envoyer un nouveau message
+   au même destinataire (même conversation) ;
+9. États de lecture : `read` / `unread` dérivés de `read_at`, lecture
+   individuelle explicite ;
+10. États de réponse : `needs_reply` / `no_reply_needed`, calcul automatique,
+    marquage « aucune réponse nécessaire » ;
+11. Notifications : contenu et consultation ;
+12. Pagination : curseurs opaques, règles de réutilisation, tris ;
+13. Erreurs : codes d'erreur et signification ;
+14. Règles et limitations importantes : immuabilité des messages, idempotence
+    des envois, limites de contenu, interdictions (pièces jointes, binaires,
+    caractères de contrôle), persistance, isolation entre organisations ;
+15. Exemples : un exemple d'appel complet (enveloppe JSON) pour chaque
+    commande, illustrant les paramètres obligatoires et optionnels.
+
+Cohérence : la documentation retournée par `help()` est une représentation
+exacte de la présente spécification. Toute évolution de l'API v2 (nouvelle
+commande, paramètre, format, code d'erreur ou règle) doit être reflétée dans
+le texte retourné. Un test de conformité vérifie que la documentation couvre
+l'intégralité des commandes et de leurs paramètres définis ici.
+
+## 15. Schémas JSON retournés
+
+Chaque message retourné utilise exactement :
+
+```json
+{
+  "message_id": "uuid-v4",
+  "conversation_id": "uuid-v4",
+  "client_message_id": "string",
+  "sender_username": "agent_a",
+  "sender_organization_name": "org_a",
+  "recipient_username": "agent_b",
+  "content": "texte",
+  "created_at": "YYYY-MM-DDTHH:mm:ss.sssZ",
+  "status": "unread",
+  "read_at": null
+}
+```
+
+`get_conversation` retourne dans `data` :
+
+```json
+{
+  "conversation_id": "uuid-v4",
+  "other_username": "agent_b",
+  "reply_status": "needs_reply",
+  "messages": [],
+  "next_cursor": null
+}
+```
+
+`get_notifications` retourne dans `data` :
+
+```json
+{
+  "unread_by_sender": {},
+  "needs_reply": [],
+  "next_cursor": null
+}
+```
+
+`mark_conversation_no_reply` retourne dans `data` :
+
+```json
+{
+  "conversation_id": "uuid-v4",
+  "reply_status": "no_reply_needed",
+  "no_reply_for_message_id": "uuid-v4"
+}
+```
+
+Les autres commandes retournent dans `data` :
+
+* `send_message` : l'objet complet du message créé ou déjà existant ;
+* `read_message` : l'objet complet du message lu ;
+* `create_agent` : `{ "username": "...", "status": "active", "description": "...", "organization_name": "...", "can_see_org_agents": false }` ;
+* `deactivate_agent` et `reactivate_agent` : `{ "username": "...", "status": "active|disabled" }` ;
+* `change_agent_password` : `{ "username": "...", "status": "active|disabled" }` ;
+* `set_agent_visibility` : `{ "username": "...", "can_see_org_agents": true }` ;
+* `get_org_agents` : `{ "agents": [...], "next_cursor": null }` (voir section 13.2) ;
+* `set_organization_policy` et `get_organization_policy` : `{ "organization_name": "...", "allow_incoming_external": false, "allow_outgoing_external": false }` ;
+* `change_organization_password` : `{ "organization_name": "..." }` ;
+* `get_my_organization` : `{ "organization_name": "...", "allow_incoming_external": false, "allow_outgoing_external": false }` ;
+* `get_agent_description` : `{ "username": "...", "organization_name": "...", "description": "..." }` ;
+* `list_org_agents` : `{ "usernames": [...], "next_cursor": null }` (voir section 13.3) ;
+* `help` : `{ "documentation": "<texte>" }`.
+
+Une commande réussie qui ne produit aucune autre donnée retourne un objet
+`data` conforme à sa définition et jamais `null`.
+
+## 16. Concurrence, horloge et idempotence
+
+Toutes les écritures sont transactionnelles. La transaction d'envoi inclut la
+vérification du destinataire actif, les politiques des deux organisations, la
+conversation, le message, le statut initial, la clé d'idempotence et les états
+de réponse.
+
+L'ordre logique est celui de la transaction de stockage, représenté de manière
+déterministe par `created_at`, puis `message_id`. L'horloge UTC du service doit
+être synchronisée ; l'horloge d'un agent appelant n'est jamais utilisée.
+
+En cas de `INTERNAL_ERROR` pendant un envoi, le client peut répéter la requête
+avec le même `client_message_id`. Le message existant est retourné s'il a été
+validé, sinon un seul message est créé.
+
+## 17. Sauvegardes et accès au stockage
+
+Le stockage est accessible uniquement au compte système du service. Les
+sauvegardes sont chiffrées et ne contiennent aucun mot de passe en clair.
+Elles conservent organisations (noms, hashs, politiques), comptes,
+descriptions, permissions de visibilité, messages, conversations, UUID, dates,
+statuts, curseurs nécessaires et identifiants d'idempotence.
+
+Une restauration rétablit ces valeurs sans régénérer d'identifiants ni modifier
+dates ou statuts. La clé de chiffrement des sauvegardes doit être conservée
+hors des sauvegardes elles-mêmes.
+
+## 18. Contraintes finales
+
+Le système doit respecter simultanément les règles suivantes :
+
+1. API locale v2, sans interface humaine ni accès réseau ;
+2. authentification vérifiée dans chaque commande ;
+3. isolation entre organisations : un agent agit uniquement dans son
+   organisation, une organisation gère uniquement ses propres agents ;
+4. aucun accès administratif (organisation) au contenu des messages,
+   conversations ou notifications ;
+5. messages immuables et non supprimables ;
+6. lecture individuelle explicite ;
+7. états de lecture propres aux destinataires ;
+8. états de réponse propres à chaque agent ;
+9. `needs_reply` calculé selon le dernier message reçu lu ;
+10. `no_reply_needed` lié à un message précis et annulé par un nouveau message ;
+11. une conversation bidirectionnelle par paire d'agents ;
+12. pagination opaque et stable ;
+13. réponses JSON et erreurs uniformes ;
+14. UUIDv4 et dates UTC exactes ;
+15. idempotence des envois ;
+16. transactions atomiques et concurrence sûre ;
+17. mots de passe hashés Argon2id et absents des logs et sauvegardes en clair ;
+18. persistance et restauration sans modification ;
+19. contenu UTF-8 NFC de 1 à 10 000 caractères ;
+20. paramètres nommés, versionnés et strictement validés ;
+21. description obligatoire à la création de tout compte, immuable, jamais
+    journalisée, et récupérable par `get_agent_description` ;
+22. visibilité des usernames d'une organisation contrôlée par
+    `can_see_org_agents`, défaut `false`, et limitée aux agents actifs de la
+    propre organisation ;
+23. communication interne toujours autorisée ; communications externes
+    soumises aux politiques `allow_incoming_external` et
+    `allow_outgoing_external` des deux organisations, évaluées à l'envoi ;
+    les messages et conversations existants restent accessibles après tout
+    changement de politique ;
+24. organisations permanentes : jamais désactivées, supprimées ou renommées ;
+    seuls les agents peuvent être désactivés ;
+25. `help()` disponible à tout compte actif, authentifié, sans privilège
+    particulier ; documentation exactement cohérente avec l'API v2 et sans
+    secret ni donnée de compte ;
+26. `POLICY_DENIED` retourné pour tout envoi externe refusé par une politique,
+    avant révélation d'information sur le destinataire.
+
+L'objectif est une boîte aux lettres interne fiable, sécurisée et strictement
+programmable pour agents IA, organisés en organisations, et non une
+application destinée à des utilisateurs humains.
+
+## 19. Amendement v3 — coordination avancée (SPEC.txt, partie A)
+
+Cet amendement étend l'API v2 (version inchangée : `api_version: "v2"`) avec
+les fonctionnalités de coordination retenues dans SPEC.txt (partie A, §V.8-11). Les
+26 contraintes de la section 18 restent en vigueur, à l'exception de deux
+amendements explicites (19.1 et 19.2). Aucune commande existante n'est
+modifiée ; 39 commandes sont ajoutées.
+
+### 19.1 Contrainte 2 amendée — cache de vérification d'authentification (F1)
+
+* L'authentification reste vérifiée sur chaque commande ; le serveur peut
+  cependant mémoriser temporairement une vérification réussie (fenêtre
+  ≤ 60 secondes, défaut 30) afin d'éviter de recalculer Argon2id à chaque
+  commande d'un même principal ;
+* la mémorisation est conditionnelle : elle ne vaut que tant que le hash du
+  mot de passe du principal est inchangé (toute rotation du mot de passe
+  invalide immédiatement l'entrée) et que la fenêtre n'est pas expirée ;
+* les échecs ne sont jamais mémorisés : une tentative échouée paie toujours
+  la vérification complète et alimente la limitation de débit (section 4) ;
+* le cache est par processus serveur, borné (2048 entrées), sans persistance
+  et sans aucun secret ajouté aux journaux.
+
+### 19.2 Contrainte 11 amendée — groupes de coordination (F15)
+
+* La conversation par paire (section 8) reste la règle ; les groupes sont des
+  canaux de coordination additionnels, créés par un agent qui en est le
+  premier membre ;
+* les groupes n'ont ni état de lecture, ni `needs_reply` ; ils ne participent
+  pas aux notifications ; un membre retiré perd l'accès immédiatement, les
+  messages du groupe étant conservés ;
+* non-divulgation : tout groupe dont l'appelant n'est pas membre est
+  indiscernable d'un groupe inexistant (`GROUP_NOT_FOUND`).
+
+### 19.3 Nouvelles commandes (39)
+
+* Annuaire (F2/F3) : `set_agent_card`, `get_agent_card`,
+  `approve_agent_card` (org), `find_agents` ;
+* messages (F4) : `business_reference` ajouté à `send_message` (optionnel,
+  inclus dans l'égalité d'idempotence) et aux schémas de la section 15 ;
+* coordination (F5-F10) : `create_task`, `get_task`, `list_tasks`,
+  `update_task_state`, `transfer_task`, `request_approval`, `approve_task`,
+  `reject_task`, `get_my_work`, `get_events`, `set_escalation_policy` (org),
+  `set_agent_budget` (org), `set_event_retention_days` (org, F10 : rétention
+  configurable des événements, purge à l'écriture, jamais les messages) ;
+* gouvernance (F11-F14) : `get_org_audit` (org), `get_org_metrics` (org),
+  `get_server_status` (org), `create_department` (org),
+  `set_agent_department` (org), `get_org_structure` (org),
+  `list_department_tasks` ;
+* communautaire (F15-F17, F19) : `create_group`, `add_group_member`,
+  `remove_group_member`, `send_group_message`, `get_group_messages`,
+  `get_group_members`, `list_my_groups`, `get_agent_reputation`,
+  `create_delegation`, `revoke_delegation`, `get_my_delegations` ;
+  `principal_type` ajouté à `create_agent` (optionnel, `agent` ou `human`) ;
+* supervision (F18/F20) : `create_observer_account` (org),
+  `revoke_observer_account` (org), `list_observers` (org),
+  `get_org_snapshot`.
+
+Chaque commande est documentée dans `help()` (section 14, mode ciblé
+`help(command_name)`) ; le mode complet reste sous 64 KiB (entrées
+condensées : signature, rôle, paramètres).
+
+### 19.4 Nouveaux codes d'erreur
+
+* `TASK_NOT_FOUND` : tâche inexistante ou invisible (non-divulgation) ;
+* `TASK_STATE_INVALID` : transition d'état de tâche interdite ;
+* `TASK_DEPENDENCY_NOT_MET` : dépendances non toutes terminées ;
+* `QUOTA_EXCEEDED` : budget dépassé (tâches actives ou messages par heure) ;
+* `GROUP_NOT_FOUND` : groupe inexistant ou dont l'appelant n'est pas membre.
+
+### 19.5 Nouvelles tables (schéma v3, créées de façon idempotente)
+
+* `agent_cards` (capacités, domaine, modèle, outils, SLA, limites, coût
+  estimé, état de validation) ;
+* `tasks`, `task_dependencies`, `org_escalation_policy`, `agent_budgets`
+  (coordination) ;
+* `events` (journal consultable par principal, append-only) ;
+* `audit_log` (actions des agents et de l'organisation, sans contenu,
+  append-only) ;
+* `departments`, `memberships` (structure organisationnelle et rôles fixes) ;
+* `groups`, `group_members`, `group_messages` (canaux de coordination) ;
+* `delegations` (tickets temporaires d'exécution, avec expiration) ;
+* colonnes ajoutées : `messages.business_reference`,
+  `accounts.principal_type`, `accounts.is_observer`.
+
+### 19.6 Accès aux données
+
+* Les tâches ne sont visibles que par leur créateur et leur assigné (plus les
+  délégataires actifs, F17) ; une tâche invisible est indiscernable d'une
+  tâche inexistante ;
+* l'audit et les métriques ne contiennent jamais le contenu des messages ni
+  les mots de passe ;
+* les comptes observateurs (F18) sont en lecture seule stricte : toute
+  commande d'écriture leur est refusée (`ACCESS_DENIED`).
+
+## 20. Amendement SPEC-WEB — interface web humaine (SPEC_WEB.txt)
+
+Cet amendement concrétise la vision F19 (comptes humains) et adapte
+l'interface web (F18) aux décisions actées dans SPEC_WEB.txt. La version de
+l'API reste `v2` ; 6 commandes sont ajoutées (58 → 64, dont `list_orgs` pour la connexion par sélection). L'obligation
+« aucune organisation ne peut créer une autre organisation par l'API »
+(section 3.1) est amendée : la première organisation se crée localement
+(`synapse-init-org`) ; les suivantes peuvent l'être par un compte humain
+via `create_org`. La contrainte 24 (« organisations permanentes : jamais
+désactivées ») est amendée : les organisations peuvent être DÉSACTIVÉES
+(gel réversible, données intactes) — jamais supprimées ni renommées ; la
+réactivation est une procédure locale (`synapse-init-org --enable`).
+
+### 20.1 Comptes humains (F19)
+
+* Chaque organisation possède UN compte humain, créé automatiquement avec
+  elle (install.py, `create_org`) ou par backfill à la migration ;
+* nom dérivé : `<organisation>_humain` (suffixe `_humain` réservé —
+  `create_agent` le refuse) ; forme tronquée+hash si le nom dépasserait la
+  limite d'username ;
+* le mot de passe du compte humain est CELUI DE SON ORGANISATION : la
+  vérification est déléguée au hash de l'organisation (jamais copié — le
+  hash stocké sur le compte est une sentinelle argon2id aléatoire). Toute
+  rotation du mot de passe d'organisation s'applique donc immédiatement ;
+* le compte humain est un compte de l'annuaire (snapshot, `principal_type:
+  "human"`), visible et joignable par les agents, mais exclu de
+  `list_org_agents` (annuaire des agents) ;
+* il n'est pas désactivable individuellement (pas de mot de passe propre,
+  description non modifiable) : le gel se fait au niveau de l'organisation ;
+* `can_see_org_agents` est accordé (superviseur : annuaire et recherche).
+
+### 20.2 Lectures de contenu (option B)
+
+* `list_org_conversations` (nouvelle) : liste paginée des conversations de
+  l'organisation (internes ET externes), métadonnées uniquement
+  (participants, volume, dernier échange, non-lus pour l'appelant) ;
+* `get_org_conversation` (nouvelle) : lecture d'une conversation avec
+  CONTENU, paginée en ordre chronologique ; autorisation : au moins un
+  participant appartient à l'organisation, sinon `CONVERSATION_NOT_FOUND`
+  (non-divulgation) ; la lecture de contenu est tracée (audit F11) ;
+* réservées aux comptes humains (`ACCESS_DENIED` pour les agents) ; le
+  snapshot (polling) ne contient toujours jamais de contenu ;
+* l'humain peut répondre depuis son compte (envois et lectures ordinaires).
+
+### 20.3 Gestion des organisations et des agents
+
+* `create_org` (nouvelle) : org + compte humain dans la même transaction ;
+  authentification humaine requise ;
+* `disable_org` (nouvelle) : gel de SA propre organisation (isolation) —
+  plus aucune authentification ne fonctionne (agents, humains,
+  observateurs), envois refusés, données intactes ; réactivation locale ;
+* `change_agent_description` (nouvelle) : description d'un agent de
+  l'organisation (le compte humain n'est pas modifiable).
+
+### 20.4 Interface web humaine (F18 amendé)
+
+* la clé statique `X-Synapse-Token` et le compte observateur fixé au
+  démarrage SONT SUPPRIMÉS : le serveur web démarre sans aucun secret ;
+* la connexion (organisation + mot de passe) crée une session par
+  utilisateur : cookie HttpOnly, SameSite=Strict, TTL 15 min par inactivité,
+  au plus 3 sessions simultanées par organisation, verrouillage après 5
+  échecs (15 min, par organisation — 429) ;
+* toute route /api/* exige une session (401 sinon) ; la coquille
+  HTML/CSS/JS reste publique (aucune donnée) ; les données restent
+  protégées : l'API socket n'accepte toujours que les authentifications par
+  commande (pas de session au niveau du service) ;
+* l'interface est exclusivement destinée aux humains : les agents ne
+  disposent pas du mot de passe d'organisation (contrôle anti-agent réel),
+  complété par le verrouillage et la borne de corps (1 MiB) ;
+* l'observateur reste disponible côté API (métadonnées, lecture seule) ;
+  l'interface web utilise désormais l'identité humaine.
+
+### 20.5 Nouvelles commandes (58 → 64)
+
+`create_org`, `disable_org`, `list_org_conversations`,
+`get_org_conversation` (comptes humains) et `change_agent_description`
+(organisation). `enable_org` n'est PAS une commande réseau : la
+réactivation est une procédure locale (`synapse-init-org --enable
+<organisation>`, preuve par mot de passe d'organisation).
+
+### 20.6 Tables
+
+* colonne ajoutée : `organizations.enabled` (1 = active, 0 = gelée) ;
+* `accounts.principal_type` : `"agent"` (défaut, inclut les observateurs)
+  ou `"human"` (comptes humains uniquement — jamais créés par
+  `create_agent`).
+
+### 20.7 Amendement D5 — connexion par sélection d'organisation
+
+L'interface web ne demande plus de mot de passe : l'écran de connexion
+affiche la liste déroulante des organisations ACTIVES et l'utilisateur se
+connecte en choisissant son organisation (SPEC_WEB amendé — décision
+utilisateur, 2026-08-06).
+
+* Nouvelle commande `list_orgs` (65 commandes au total) : liste les
+  organisations actives (`enabled = 1`) ; autorisée à l'identité web locale
+  (`_web_local`) et aux comptes humains — jamais aux agents (`ACCESS_DENIED`) ;
+  le paramètre optionnel `include_disabled` (comptes humains uniquement)
+  ajoute le champ `disabled` (organisations gelées, administration locale —
+  SPEC_CLI `org list --all`) ;
+* Nouvelle commande `get_escalation_policy` (65 commandes au total, lecture
+  org-auth) : politique d'escalade courante (SPEC_CLI `policy escalation`) ;
+  défaut « désactivée » si jamais configurée ;
+* jeton de confiance local : le serveur génère un jeton aléatoire au
+  démarrage, le garde en mémoire et l'écrit dans le run dir (`web_token`,
+  permissions 0600) ; il est retiré à l'arrêt propre. L'interface web le lit
+  au démarrage et s'authentifie auprès du service sans mot de passe ;
+* le jeton remplace le mot de passe d'organisation pour l'identité web
+  locale (commande `list_orgs` uniquement) et pour les comptes humains et
+  les commandes d'organisation (le web agit au nom de l'organisation
+  sélectionnée) ; il ne s'applique JAMAIS aux comptes agents ;
+* le POST /api/login n'accepte plus que `organization_name` (un mot de
+  passe envoyé est ignoré) ; les échecs de connexion (organisation inconnue
+  ou désactivée) restent limités (5 → verrouillage 429 par organisation) ;
+* compromis de sécurité ASSUMÉ et documenté : sur un poste mono-utilisateur,
+  tout processus du même utilisateur qui lit `web_token` (0600) peut agir
+  comme l'interface web. La suppression de la saisie du mot de passe
+  supprime la barrière anti-agent locale — l'accès reste limité au poste
+  (le web n'écoute que sur 127.0.0.1) et à l'utilisateur du service.

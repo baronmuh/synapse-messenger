@@ -279,6 +279,90 @@ Report:
 - the organization name and that its password is in
   `$SYNAPSE_BASE/org.password` (never printed).
 
+## Step 12 — Agent inbox monitoring (MANDATORY for every agent)
+
+Every agent — including the orchestrator — MUST watch its own synapse
+inbox. Synapse is a mailbox, not an assistant: a message that nobody reads
+stays unanswered forever, and an organization where agents never read their
+mail breaks coordination (peer messages, orchestrator directives, and
+escalation flags all travel through inboxes and groups). A Hermes agent
+only runs when something launches it (a chat session, the kanban
+dispatcher, or the cron scheduler) — so a standing cron watchdog is what
+makes an agent's mailbox actually reachable.
+
+The deterministic watchdog is `scripts/synapse-inbox-watch.sh` (in this
+repo). For each agent it:
+
+1. Reads the agent's unread count via `synapse message notifications --json`
+   (machine-readable `unread_by_sender`), authenticating with the agent's
+   password file read via stdin (never printed, never in argv).
+2. If there are NO unread messages → exits silently. A quiet tick costs
+   one cheap CLI call and zero LLM tokens.
+3. If there ARE unread messages → logs the tick and spawns the agent's
+   Hermes profile session (`hermes -p <agent> chat -q ...`) DETACHED
+   (`setsid` + `nohup`), so a cron time limit can never kill the reply.
+   The spawned session is instructed to:
+   - read the unread inbox (`synapse message inbox --unread --my-name <agent>`);
+   - reply in the organization's working language (English) to every
+     message that needs an answer;
+   - NEVER write to the human account (`*_humain`) — human communication
+     belongs exclusively to the orchestrator; a message from the human is
+     escalated via the `orchestration` group, never answered directly;
+   - mark every handled message as read (`synapse message read <id>`), so
+     the next tick is silent again (the unread flag IS the state);
+   - keep the session short and do not start unrelated work.
+
+Setup (per agent):
+
+```bash
+# 1. Precondition: the agent's password file exists and is 0600
+#    (~/.secrets/agents/<agent>.pass — created at agent provisioning,
+#     Step 7). The script refuses to run otherwise.
+
+# 2. SYNAPSE_CONFIG: the script defaults it to
+#    ~/.local/share/synapse/config.json itself; it is also safe to pass
+#    `--config` explicitly or export SYNAPSE_CONFIG per command. NOTE: do
+#    NOT export SYNAPSE_CONFIG globally in the shell rc file — the
+#    project's hermetic test suite (tests/conftest.py creates its own
+#    isolated config) must never inherit it, or it would hit the real
+#    server and trip its auth rate limiter.
+
+# 3. Cron entry — one per agent (example: every 5 minutes).
+#    `crontab -e` (system cron) or the Hermes cron scheduler
+#    (`hermes cron create '*/5 * * * *' ... --script ...`):
+#    */5 * * * * /path/to/repo/scripts/synapse-inbox-watch.sh <agent_name>
+
+# 4. Verify:
+synapse-inbox-watch.sh <agent_name> --check   # prints the unread count
+#    Send a test message to the agent, then watch:
+#    ~/.local/state/synapse-inbox-watch/<agent>.log            (ticks + spawns)
+#    ~/.local/state/synapse-inbox-watch/<agent>.session.log    (agent replies)
+```
+
+Rules for the agent when handling its inbox:
+
+- English only (the working language). The orchestrator is the sole
+  exception: it answers the human in the human's language.
+- Never write to the human account; escalate human messages to the
+  `orchestration` group instead.
+- Mark handled messages read, or the watchdog will re-trigger every tick.
+- If a message needs a decision outside the agent's authority, escalate
+  (orchestration group / kanban) instead of guessing.
+- A spawned inbox session may run concurrently with a kanban task of the
+  same profile — that is acceptable; the inbox session is inbox-only.
+
+Pitfalls:
+
+- Never print passwords: read them from the 0600 file via stdin only.
+- The `--json` output of `synapse message notifications` is nested under
+  `data.unread_by_sender` — parse that key.
+- The watchdog spawns at most one session per tick; a failed session leaves
+  the messages unread and the next tick re-triggers (bounded retry).
+- Cadence is a trade-off: 5 minutes is a sane default (fast enough to
+  answer peers, cheap enough to run forever); the orchestrator typically
+  watches its own inbox more often (e.g. every 3 minutes) because the
+  human may write to it.
+
 ## Hard rules for the agent
 
 1. Never run `sudo`; never ask for the sudo password.
@@ -289,3 +373,5 @@ Report:
    fails, fix the root cause (max 3 retries), then stop and report.
 5. Follow this file literally — do not improvise commands.
 6. After completion, open the onboarding guide for the user.
+7. Every agent monitors its own synapse inbox (Step 12) — set up the
+   watchdog cron entry at install time, never skip it.

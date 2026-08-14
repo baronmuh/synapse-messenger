@@ -1,0 +1,1746 @@
+{
+ "schema_version": 1,
+ "baseline_id": "baseline-pre-opt-t_af15796f",
+ "references": {
+  "source_task": "t_af15796f",
+  "source_artifacts": [
+   "benchmarks/results/baseline-pre-opt.json",
+   "benchmarks/results/baseline-pre-opt-report.md"
+  ],
+  "source_commit": "c9d520e",
+  "prepared_by": "auditor",
+  "prepared_for_task": "t_9f296ada",
+  "prepared_at": "2026-08-11T20:25:33+00:00",
+  "consumer_task": "t_8106f197 (compare benchmarks to baseline and emit gate verdict)"
+ },
+ "harness": {
+  "script": "benchmarks/bench.py",
+  "command": ".venv/bin/python benchmarks/bench.py --config /home/baron/.local/share/synapse/config.json --org-password <bench-org-password> --duration 10 --passes 2 --out benchmarks/results/baseline-pre-opt.json",
+  "mode": "complet",
+  "scenarios": 32,
+  "hot_path_concurrency": 8,
+  "auth": "production Argon2id",
+  "memory_guard_gi": 2.5,
+  "machine": {
+   "cpu": "model name\t: Intel(R) Core(TM) i5-6300U CPU @ 2.40GHz",
+   "nproc": 4
+  }
+ },
+ "measurement_validity": {
+  "rule": "STATUS.md 5.1: heavy tasks (full test suite + benchmarks) only when load1 < 2.5 / MemAvail >= 2.5G and alone",
+  "baseline_conditions": {
+   "load1": 1.16,
+   "mem_available_gi": 3.3,
+   "temps_c": "34-44"
+  },
+  "valid": true
+ },
+ "units": {
+  "rps": "requests/sec (ops/sec)",
+  "lat_moy_ms": "milliseconds (ms) \u2014 mean",
+  "p50_ms": "milliseconds (ms) \u2014 p50",
+  "p95_ms": "milliseconds (ms) \u2014 p95",
+  "p99_ms": "milliseconds (ms) \u2014 p99",
+  "taux_erreur_pct": "percent (%) \u2014 error rate"
+ },
+ "regression_policy": {
+  "threshold_pct": 10.0,
+  "rule": "Any hot-path regression >10% is a BLOCKER: RPS down >10% OR latency (p50/p95/p99) up >10% vs the baseline.",
+  "direction": {
+   "rps": "lower is worse (regression = decrease)",
+   "lat_moy_ms/p50_ms/p95_ms/p99_ms": "higher is worse (regression = increase)",
+   "taux_erreur_pct": "any increase above baseline is suspicious"
+  },
+  "sources": [
+   "task t_ef01fc51 body (user contract): 'flag any regression >10% as blocker'",
+   "task t_8106f197 body: 'if any regression is >10%, mark the gate as BLOCKER'",
+   "benchmarks/results/gate_compare.py docstring: hot-path regression >10% on RPS (down) or p50/p95/p99 (up) => FAIL"
+  ],
+  "validation_finding": {
+   "severity": "WARN",
+   "detail": "gate_compare.py docstring promises p50/p95/p99 in the >10% rule, but the implementation only flags rps < -10% OR p50 > 10% OR p95 > 10% \u2014 p99 is NOT enforced. A p99-only regression (>10%) would pass the automated comparator. Recommending fix: add p99 to the flag condition, or amend the docstring to match code."
+  }
+ },
+ "hot_path_metrics": [
+  {
+   "category": "message_send_read",
+   "op": "send",
+   "scenario": "commande:send_message",
+   "metric": "rps",
+   "baseline_value": 141.85,
+   "units": "requests/sec (ops/sec)",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "decrease",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "send",
+   "scenario": "commande:send_message",
+   "metric": "lat_moy_ms",
+   "baseline_value": 44.89,
+   "units": "milliseconds (ms) \u2014 mean",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "send",
+   "scenario": "commande:send_message",
+   "metric": "p50_ms",
+   "baseline_value": 11.99,
+   "units": "milliseconds (ms) \u2014 p50",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "send",
+   "scenario": "commande:send_message",
+   "metric": "p95_ms",
+   "baseline_value": 170.53,
+   "units": "milliseconds (ms) \u2014 p95",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "send",
+   "scenario": "commande:send_message",
+   "metric": "p99_ms",
+   "baseline_value": 578.38,
+   "units": "milliseconds (ms) \u2014 p99",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "send",
+   "scenario": "commande:send_message",
+   "metric": "taux_erreur_pct",
+   "baseline_value": 0.0,
+   "units": "percent (%) \u2014 error rate",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:read_message",
+   "metric": "rps",
+   "baseline_value": 259.75,
+   "units": "requests/sec (ops/sec)",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "decrease",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:read_message",
+   "metric": "lat_moy_ms",
+   "baseline_value": 24.37,
+   "units": "milliseconds (ms) \u2014 mean",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:read_message",
+   "metric": "p50_ms",
+   "baseline_value": 7.62,
+   "units": "milliseconds (ms) \u2014 p50",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:read_message",
+   "metric": "p95_ms",
+   "baseline_value": 91.33,
+   "units": "milliseconds (ms) \u2014 p95",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:read_message",
+   "metric": "p99_ms",
+   "baseline_value": 250.96,
+   "units": "milliseconds (ms) \u2014 p99",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:read_message",
+   "metric": "taux_erreur_pct",
+   "baseline_value": 0.0,
+   "units": "percent (%) \u2014 error rate",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_messages",
+   "metric": "rps",
+   "baseline_value": 83.06,
+   "units": "requests/sec (ops/sec)",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "decrease",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_messages",
+   "metric": "lat_moy_ms",
+   "baseline_value": 76.43,
+   "units": "milliseconds (ms) \u2014 mean",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_messages",
+   "metric": "p50_ms",
+   "baseline_value": 78.42,
+   "units": "milliseconds (ms) \u2014 p50",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_messages",
+   "metric": "p95_ms",
+   "baseline_value": 92.37,
+   "units": "milliseconds (ms) \u2014 p95",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_messages",
+   "metric": "p99_ms",
+   "baseline_value": 102.36,
+   "units": "milliseconds (ms) \u2014 p99",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_messages",
+   "metric": "taux_erreur_pct",
+   "baseline_value": 0.0,
+   "units": "percent (%) \u2014 error rate",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_conversation",
+   "metric": "rps",
+   "baseline_value": 78.54,
+   "units": "requests/sec (ops/sec)",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "decrease",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_conversation",
+   "metric": "lat_moy_ms",
+   "baseline_value": 80.8,
+   "units": "milliseconds (ms) \u2014 mean",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_conversation",
+   "metric": "p50_ms",
+   "baseline_value": 83.13,
+   "units": "milliseconds (ms) \u2014 p50",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_conversation",
+   "metric": "p95_ms",
+   "baseline_value": 94.94,
+   "units": "milliseconds (ms) \u2014 p95",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_conversation",
+   "metric": "p99_ms",
+   "baseline_value": 101.86,
+   "units": "milliseconds (ms) \u2014 p99",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_conversation",
+   "metric": "taux_erreur_pct",
+   "baseline_value": 0.0,
+   "units": "percent (%) \u2014 error rate",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_notifications",
+   "metric": "rps",
+   "baseline_value": 328.1,
+   "units": "requests/sec (ops/sec)",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "decrease",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_notifications",
+   "metric": "lat_moy_ms",
+   "baseline_value": 20.22,
+   "units": "milliseconds (ms) \u2014 mean",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_notifications",
+   "metric": "p50_ms",
+   "baseline_value": 18.55,
+   "units": "milliseconds (ms) \u2014 p50",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_notifications",
+   "metric": "p95_ms",
+   "baseline_value": 27.07,
+   "units": "milliseconds (ms) \u2014 p95",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_notifications",
+   "metric": "p99_ms",
+   "baseline_value": 33.54,
+   "units": "milliseconds (ms) \u2014 p99",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "read",
+   "scenario": "commande:get_notifications",
+   "metric": "taux_erreur_pct",
+   "baseline_value": 0.0,
+   "units": "percent (%) \u2014 error rate",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "mark-read",
+   "scenario": "commande:mark_conversation_no_reply",
+   "metric": "rps",
+   "baseline_value": 168.41,
+   "units": "requests/sec (ops/sec)",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "decrease",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "mark-read",
+   "scenario": "commande:mark_conversation_no_reply",
+   "metric": "lat_moy_ms",
+   "baseline_value": 37.77,
+   "units": "milliseconds (ms) \u2014 mean",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "mark-read",
+   "scenario": "commande:mark_conversation_no_reply",
+   "metric": "p50_ms",
+   "baseline_value": 18.0,
+   "units": "milliseconds (ms) \u2014 p50",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "mark-read",
+   "scenario": "commande:mark_conversation_no_reply",
+   "metric": "p95_ms",
+   "baseline_value": 140.69,
+   "units": "milliseconds (ms) \u2014 p95",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "mark-read",
+   "scenario": "commande:mark_conversation_no_reply",
+   "metric": "p99_ms",
+   "baseline_value": 347.33,
+   "units": "milliseconds (ms) \u2014 p99",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "message_send_read",
+   "op": "mark-read",
+   "scenario": "commande:mark_conversation_no_reply",
+   "metric": "taux_erreur_pct",
+   "baseline_value": 0.0,
+   "units": "percent (%) \u2014 error rate",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "registry",
+   "op": "agent-directory-lookup",
+   "scenario": "commande:get_agent_description",
+   "metric": "rps",
+   "baseline_value": 375.29,
+   "units": "requests/sec (ops/sec)",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "decrease",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "registry",
+   "op": "agent-directory-lookup",
+   "scenario": "commande:get_agent_description",
+   "metric": "lat_moy_ms",
+   "baseline_value": 17.7,
+   "units": "milliseconds (ms) \u2014 mean",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "registry",
+   "op": "agent-directory-lookup",
+   "scenario": "commande:get_agent_description",
+   "metric": "p50_ms",
+   "baseline_value": 16.59,
+   "units": "milliseconds (ms) \u2014 p50",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "registry",
+   "op": "agent-directory-lookup",
+   "scenario": "commande:get_agent_description",
+   "metric": "p95_ms",
+   "baseline_value": 22.92,
+   "units": "milliseconds (ms) \u2014 p95",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "registry",
+   "op": "agent-directory-lookup",
+   "scenario": "commande:get_agent_description",
+   "metric": "p99_ms",
+   "baseline_value": 28.0,
+   "units": "milliseconds (ms) \u2014 p99",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "registry",
+   "op": "agent-directory-lookup",
+   "scenario": "commande:get_agent_description",
+   "metric": "taux_erreur_pct",
+   "baseline_value": 0.0,
+   "units": "percent (%) \u2014 error rate",
+   "baseline_status": "measured_pre_optimization",
+   "baseline_source": "t_af15796f (benchmarks/results/baseline-pre-opt.json, commit c9d520e)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "regression >10% vs baseline = BLOCKER (gate contract)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "create",
+   "scenario": "task:create",
+   "metric": "rps",
+   "baseline_value": null,
+   "units": "requests/sec (ops/sec)",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 6386.39,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "decrease",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "create",
+   "scenario": "task:create",
+   "metric": "lat_moy_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 mean",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 1.25,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "create",
+   "scenario": "task:create",
+   "metric": "p50_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 p50",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 1.08,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "create",
+   "scenario": "task:create",
+   "metric": "p95_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 p95",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 2.51,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "create",
+   "scenario": "task:create",
+   "metric": "p99_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 p99",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 3.66,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "create",
+   "scenario": "task:create",
+   "metric": "taux_erreur_pct",
+   "baseline_value": null,
+   "units": "percent (%) \u2014 error rate",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 0.0,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "list",
+   "scenario": "task:list",
+   "metric": "rps",
+   "baseline_value": null,
+   "units": "requests/sec (ops/sec)",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 6874.0,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "decrease",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "list",
+   "scenario": "task:list",
+   "metric": "lat_moy_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 mean",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 1.16,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "list",
+   "scenario": "task:list",
+   "metric": "p50_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 p50",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 0.97,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "list",
+   "scenario": "task:list",
+   "metric": "p95_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 p95",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 2.56,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "list",
+   "scenario": "task:list",
+   "metric": "p99_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 p99",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 3.85,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "list",
+   "scenario": "task:list",
+   "metric": "taux_erreur_pct",
+   "baseline_value": null,
+   "units": "percent (%) \u2014 error rate",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 0.0,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "update",
+   "scenario": "task:update(404-path)",
+   "metric": "rps",
+   "baseline_value": null,
+   "units": "requests/sec (ops/sec)",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 6254.15,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "decrease",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "update",
+   "scenario": "task:update(404-path)",
+   "metric": "lat_moy_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 mean",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 1.28,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "update",
+   "scenario": "task:update(404-path)",
+   "metric": "p50_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 p50",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 1.05,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "update",
+   "scenario": "task:update(404-path)",
+   "metric": "p95_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 p95",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 2.97,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "update",
+   "scenario": "task:update(404-path)",
+   "metric": "p99_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 p99",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 4.29,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "update",
+   "scenario": "task:update(404-path)",
+   "metric": "taux_erreur_pct",
+   "baseline_value": null,
+   "units": "percent (%) \u2014 error rate",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 0.0,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "status",
+   "scenario": "task:status(404-path)",
+   "metric": "rps",
+   "baseline_value": null,
+   "units": "requests/sec (ops/sec)",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 6873.97,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "decrease",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "status",
+   "scenario": "task:status(404-path)",
+   "metric": "lat_moy_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 mean",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 1.02,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "status",
+   "scenario": "task:status(404-path)",
+   "metric": "p50_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 p50",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 0.8,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "status",
+   "scenario": "task:status(404-path)",
+   "metric": "p95_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 p95",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 2.44,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "status",
+   "scenario": "task:status(404-path)",
+   "metric": "p99_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 p99",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 3.76,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "status",
+   "scenario": "task:status(404-path)",
+   "metric": "taux_erreur_pct",
+   "baseline_value": null,
+   "units": "percent (%) \u2014 error rate",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 0.0,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "registry",
+   "op": "lookup",
+   "scenario": "registry:get_agent_description",
+   "metric": "rps",
+   "baseline_value": null,
+   "units": "requests/sec (ops/sec)",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 682.94,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "decrease",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "registry",
+   "op": "lookup",
+   "scenario": "registry:get_agent_description",
+   "metric": "lat_moy_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 mean",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 11.71,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "registry",
+   "op": "lookup",
+   "scenario": "registry:get_agent_description",
+   "metric": "p50_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 p50",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 12.01,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "registry",
+   "op": "lookup",
+   "scenario": "registry:get_agent_description",
+   "metric": "p95_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 p95",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 18.06,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "registry",
+   "op": "lookup",
+   "scenario": "registry:get_agent_description",
+   "metric": "p99_ms",
+   "baseline_value": null,
+   "units": "milliseconds (ms) \u2014 p99",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 21.31,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "registry",
+   "op": "lookup",
+   "scenario": "registry:get_agent_description",
+   "metric": "taux_erreur_pct",
+   "baseline_value": null,
+   "units": "percent (%) \u2014 error rate",
+   "baseline_status": "no_pre_optimization_baseline",
+   "baseline_source": "NONE \u2014 t_af15796f measured the 8 messaging commands only",
+   "first_measurement_value": 0.0,
+   "first_measurement_source": "benchmarks/results/gate-task-crud.json (commit edc2577, W=8, 10s, bench_task_crud.py)",
+   "threshold": {
+    "type": "relative_pct",
+    "max_regression_pct": 10.0,
+    "direction": "increase",
+    "note": "no pre-opt baseline; guard applies relative to first measurement (commit edc2577)"
+   }
+  },
+  {
+   "category": "task_crud",
+   "op": "delete",
+   "scenario": "task:delete",
+   "metric": "rps",
+   "baseline_value": null,
+   "units": "requests/sec (ops/sec)",
+   "baseline_status": "not_measured",
+   "baseline_source": "NONE \u2014 no harness covers task delete",
+   "first_measurement_value": null,
+   "first_measurement_source": null,
+   "threshold": null,
+   "note": "COVERAGE GAP: task CRUD = create/update/delete per gate contract, but bench_task_crud.py measures create/list/update/status only. Delete has no baseline and no first measurement."
+  }
+ ],
+ "coverage_gaps": [
+  "task:delete \u2014 not measured by bench.py (8 messaging commands) nor bench_task_crud.py (create/list/update/status + registry lookup). No baseline, no first measurement.",
+  "registry operations beyond get_agent_description (e.g. A2A registry MVE register/capability-search, commit 7394e8b) have no benchmark coverage at all."
+ ],
+ "full_scenarios": [
+  {
+   "scenario": "commande:help",
+   "concurrency": 8,
+   "mode": "P",
+   "rps": 464.0,
+   "lat_moy_ms": 13.84,
+   "p50_ms": 13.6,
+   "p95_ms": 20.33,
+   "p99_ms": 23.91,
+   "taux_erreur_pct": 0.0,
+   "requetes": 5583,
+   "rss_serveur_pic_mib": 61,
+   "cpu_serveur_coeurs": 1.88
+  },
+  {
+   "scenario": "commande:get_agent_description",
+   "concurrency": 8,
+   "mode": "P",
+   "rps": 375.29,
+   "lat_moy_ms": 17.7,
+   "p50_ms": 16.59,
+   "p95_ms": 22.92,
+   "p99_ms": 28.0,
+   "taux_erreur_pct": 0.0,
+   "requetes": 4516,
+   "rss_serveur_pic_mib": 68,
+   "cpu_serveur_coeurs": 2.07
+  },
+  {
+   "scenario": "commande:get_messages",
+   "concurrency": 8,
+   "mode": "P",
+   "rps": 83.06,
+   "lat_moy_ms": 76.43,
+   "p50_ms": 78.42,
+   "p95_ms": 92.37,
+   "p99_ms": 102.36,
+   "taux_erreur_pct": 0.0,
+   "requetes": 1043,
+   "rss_serveur_pic_mib": 464,
+   "cpu_serveur_coeurs": 2.27
+  },
+  {
+   "scenario": "commande:get_conversation",
+   "concurrency": 8,
+   "mode": "P",
+   "rps": 78.54,
+   "lat_moy_ms": 80.8,
+   "p50_ms": 83.13,
+   "p95_ms": 94.94,
+   "p99_ms": 101.86,
+   "taux_erreur_pct": 0.0,
+   "requetes": 987,
+   "rss_serveur_pic_mib": 72,
+   "cpu_serveur_coeurs": 2.21
+  },
+  {
+   "scenario": "commande:get_notifications",
+   "concurrency": 8,
+   "mode": "P",
+   "rps": 328.1,
+   "lat_moy_ms": 20.22,
+   "p50_ms": 18.55,
+   "p95_ms": 27.07,
+   "p99_ms": 33.54,
+   "taux_erreur_pct": 0.0,
+   "requetes": 3952,
+   "rss_serveur_pic_mib": 457,
+   "cpu_serveur_coeurs": 2.57
+  },
+  {
+   "scenario": "commande:read_message",
+   "concurrency": 8,
+   "mode": "P",
+   "rps": 259.75,
+   "lat_moy_ms": 24.37,
+   "p50_ms": 7.62,
+   "p95_ms": 91.33,
+   "p99_ms": 250.96,
+   "taux_erreur_pct": 0.0,
+   "requetes": 3284,
+   "rss_serveur_pic_mib": 505,
+   "cpu_serveur_coeurs": 0.99
+  },
+  {
+   "scenario": "commande:send_message",
+   "concurrency": 8,
+   "mode": "P",
+   "rps": 141.85,
+   "lat_moy_ms": 44.89,
+   "p50_ms": 11.99,
+   "p95_ms": 170.53,
+   "p99_ms": 578.38,
+   "taux_erreur_pct": 0.0,
+   "requetes": 1792,
+   "rss_serveur_pic_mib": 73,
+   "cpu_serveur_coeurs": 0.59
+  },
+  {
+   "scenario": "commande:mark_conversation_no_reply",
+   "concurrency": 8,
+   "mode": "P",
+   "rps": 168.41,
+   "lat_moy_ms": 37.77,
+   "p50_ms": 18.0,
+   "p95_ms": 140.69,
+   "p99_ms": 347.33,
+   "taux_erreur_pct": 0.0,
+   "requetes": 2120,
+   "rss_serveur_pic_mib": 74,
+   "cpu_serveur_coeurs": 0.96
+  },
+  {
+   "scenario": "mixte:W8",
+   "concurrency": 8,
+   "mode": "P",
+   "rps": 201.65,
+   "lat_moy_ms": 31.75,
+   "p50_ms": 21.37,
+   "p95_ms": 79.4,
+   "p99_ms": 127.64,
+   "taux_erreur_pct": 0.0,
+   "requetes": 2500,
+   "rss_serveur_pic_mib": 520,
+   "cpu_serveur_coeurs": 1.72
+  },
+  {
+   "scenario": "regime_etabli:W8",
+   "concurrency": 8,
+   "mode": "P-stable",
+   "rps": 260.39,
+   "lat_moy_ms": 30.34,
+   "p50_ms": 22.5,
+   "p95_ms": 82.05,
+   "p99_ms": 122.04,
+   "taux_erreur_pct": 0.0,
+   "requetes": 2611,
+   "rss_serveur_pic_mib": 115,
+   "cpu_serveur_coeurs": 1.53
+  },
+  {
+   "scenario": "regime_etabli:W16",
+   "concurrency": 16,
+   "mode": "P-stable",
+   "rps": 217.44,
+   "lat_moy_ms": 62.66,
+   "p50_ms": 30.94,
+   "p95_ms": 142.04,
+   "p99_ms": 1118.12,
+   "taux_erreur_pct": 0.0,
+   "requetes": 2181,
+   "rss_serveur_pic_mib": 568,
+   "cpu_serveur_coeurs": 2.39
+  },
+  {
+   "scenario": "regime_etabli:W32",
+   "concurrency": 32,
+   "mode": "P-stable",
+   "rps": 187.62,
+   "lat_moy_ms": 111.02,
+   "p50_ms": 85.84,
+   "p95_ms": 276.83,
+   "p99_ms": 491.58,
+   "taux_erreur_pct": 0.0,
+   "requetes": 1880,
+   "rss_serveur_pic_mib": 78,
+   "cpu_serveur_coeurs": 1.96
+  },
+  {
+   "scenario": "sweep:W1:pass1",
+   "concurrency": 1,
+   "mode": "P",
+   "rps": 346.56,
+   "lat_moy_ms": 2.24,
+   "p50_ms": 1.49,
+   "p95_ms": 3.81,
+   "p99_ms": 5.77,
+   "taux_erreur_pct": 0.0,
+   "requetes": 4167,
+   "rss_serveur_pic_mib": 145,
+   "cpu_serveur_coeurs": 0.65
+  },
+  {
+   "scenario": "sweep:W2:pass1",
+   "concurrency": 2,
+   "mode": "P",
+   "rps": 334.48,
+   "lat_moy_ms": 4.74,
+   "p50_ms": 3.66,
+   "p95_ms": 11.39,
+   "p99_ms": 22.76,
+   "taux_erreur_pct": 0.0,
+   "requetes": 4023,
+   "rss_serveur_pic_mib": 82,
+   "cpu_serveur_coeurs": 1.05
+  },
+  {
+   "scenario": "sweep:W4:pass1",
+   "concurrency": 4,
+   "mode": "P",
+   "rps": 243.65,
+   "lat_moy_ms": 12.93,
+   "p50_ms": 8.38,
+   "p95_ms": 28.32,
+   "p99_ms": 59.72,
+   "taux_erreur_pct": 0.0,
+   "requetes": 3054,
+   "rss_serveur_pic_mib": 212,
+   "cpu_serveur_coeurs": 1.79
+  },
+  {
+   "scenario": "sweep:W8:pass1",
+   "concurrency": 8,
+   "mode": "P",
+   "rps": 185.31,
+   "lat_moy_ms": 33.49,
+   "p50_ms": 26.18,
+   "p95_ms": 81.66,
+   "p99_ms": 116.75,
+   "taux_erreur_pct": 0.0,
+   "requetes": 2374,
+   "rss_serveur_pic_mib": 86,
+   "cpu_serveur_coeurs": 1.67
+  },
+  {
+   "scenario": "sweep:W16:pass1",
+   "concurrency": 16,
+   "mode": "P",
+   "rps": 144.18,
+   "lat_moy_ms": 88.3,
+   "p50_ms": 69.27,
+   "p95_ms": 205.03,
+   "p99_ms": 392.43,
+   "taux_erreur_pct": 0.0,
+   "requetes": 1817,
+   "rss_serveur_pic_mib": 85,
+   "cpu_serveur_coeurs": 2.08
+  },
+  {
+   "scenario": "sweep:W24:pass1",
+   "concurrency": 24,
+   "mode": "P",
+   "rps": 122.46,
+   "lat_moy_ms": 131.01,
+   "p50_ms": 56.9,
+   "p95_ms": 276.97,
+   "p99_ms": 2289.96,
+   "taux_erreur_pct": 0.0,
+   "requetes": 1839,
+   "rss_serveur_pic_mib": 518,
+   "cpu_serveur_coeurs": 2.53
+  },
+  {
+   "scenario": "sweep:W32:pass1",
+   "concurrency": 32,
+   "mode": "P",
+   "rps": 150.95,
+   "lat_moy_ms": 168.19,
+   "p50_ms": 114.46,
+   "p95_ms": 537.19,
+   "p99_ms": 1053.73,
+   "taux_erreur_pct": 0.0,
+   "requetes": 1916,
+   "rss_serveur_pic_mib": 77,
+   "cpu_serveur_coeurs": 1.8
+  },
+  {
+   "scenario": "sweep:W48:pass1",
+   "concurrency": 48,
+   "mode": "P",
+   "rps": 65.59,
+   "lat_moy_ms": 493.54,
+   "p50_ms": 44.76,
+   "p95_ms": 5237.69,
+   "p99_ms": 6352.89,
+   "taux_erreur_pct": 0.17,
+   "requetes": 1174,
+   "rss_serveur_pic_mib": 592,
+   "cpu_serveur_coeurs": 2.97
+  },
+  {
+   "scenario": "sweep:W64:pass1",
+   "concurrency": 64,
+   "mode": "P",
+   "rps": 138.41,
+   "lat_moy_ms": 366.31,
+   "p50_ms": 266.06,
+   "p95_ms": 1125.31,
+   "p99_ms": 1804.77,
+   "taux_erreur_pct": 0.0,
+   "requetes": 1762,
+   "rss_serveur_pic_mib": 78,
+   "cpu_serveur_coeurs": 2.15
+  },
+  {
+   "scenario": "sweep:W1:pass2",
+   "concurrency": 1,
+   "mode": "P",
+   "rps": 322.72,
+   "lat_moy_ms": 2.41,
+   "p50_ms": 1.62,
+   "p95_ms": 4.31,
+   "p99_ms": 7.93,
+   "taux_erreur_pct": 0.0,
+   "requetes": 3880,
+   "rss_serveur_pic_mib": 154,
+   "cpu_serveur_coeurs": 0.73
+  },
+  {
+   "scenario": "sweep:W2:pass2",
+   "concurrency": 2,
+   "mode": "P",
+   "rps": 351.18,
+   "lat_moy_ms": 4.53,
+   "p50_ms": 3.42,
+   "p95_ms": 10.9,
+   "p99_ms": 23.59,
+   "taux_erreur_pct": 0.0,
+   "requetes": 4222,
+   "rss_serveur_pic_mib": 93,
+   "cpu_serveur_coeurs": 0.94
+  },
+  {
+   "scenario": "sweep:W4:pass2",
+   "concurrency": 4,
+   "mode": "P",
+   "rps": 259.85,
+   "lat_moy_ms": 12.56,
+   "p50_ms": 8.19,
+   "p95_ms": 30.69,
+   "p99_ms": 64.79,
+   "taux_erreur_pct": 0.0,
+   "requetes": 3129,
+   "rss_serveur_pic_mib": 350,
+   "cpu_serveur_coeurs": 1.59
+  },
+  {
+   "scenario": "sweep:W8:pass2",
+   "concurrency": 8,
+   "mode": "P",
+   "rps": 179.6,
+   "lat_moy_ms": 35.56,
+   "p50_ms": 23.8,
+   "p95_ms": 87.93,
+   "p99_ms": 161.87,
+   "taux_erreur_pct": 0.0,
+   "requetes": 2235,
+   "rss_serveur_pic_mib": 511,
+   "cpu_serveur_coeurs": 2.03
+  },
+  {
+   "scenario": "sweep:W16:pass2",
+   "concurrency": 16,
+   "mode": "P",
+   "rps": 147.79,
+   "lat_moy_ms": 85.79,
+   "p50_ms": 64.5,
+   "p95_ms": 207.19,
+   "p99_ms": 385.58,
+   "taux_erreur_pct": 0.0,
+   "requetes": 1866,
+   "rss_serveur_pic_mib": 88,
+   "cpu_serveur_coeurs": 2.0
+  },
+  {
+   "scenario": "sweep:W24:pass2",
+   "concurrency": 24,
+   "mode": "P",
+   "rps": 130.62,
+   "lat_moy_ms": 139.03,
+   "p50_ms": 38.93,
+   "p95_ms": 358.07,
+   "p99_ms": 2642.21,
+   "taux_erreur_pct": 0.0,
+   "requetes": 1830,
+   "rss_serveur_pic_mib": 566,
+   "cpu_serveur_coeurs": 3.03
+  },
+  {
+   "scenario": "sweep:W32:pass2",
+   "concurrency": 32,
+   "mode": "P",
+   "rps": 148.09,
+   "lat_moy_ms": 169.38,
+   "p50_ms": 126.6,
+   "p95_ms": 479.34,
+   "p99_ms": 924.43,
+   "taux_erreur_pct": 0.0,
+   "requetes": 1894,
+   "rss_serveur_pic_mib": 85,
+   "cpu_serveur_coeurs": 1.74
+  },
+  {
+   "scenario": "sweep:W48:pass2",
+   "concurrency": 48,
+   "mode": "P",
+   "rps": 79.11,
+   "lat_moy_ms": 433.6,
+   "p50_ms": 70.37,
+   "p95_ms": 1712.78,
+   "p99_ms": 7468.75,
+   "taux_erreur_pct": 0.0,
+   "requetes": 1535,
+   "rss_serveur_pic_mib": 600,
+   "cpu_serveur_coeurs": 2.62
+  },
+  {
+   "scenario": "sweep:W64:pass2",
+   "concurrency": 64,
+   "mode": "P",
+   "rps": 109.25,
+   "lat_moy_ms": 372.0,
+   "p50_ms": 271.13,
+   "p95_ms": 1064.28,
+   "p99_ms": 1863.87,
+   "taux_erreur_pct": 0.058,
+   "requetes": 1721,
+   "rss_serveur_pic_mib": 83,
+   "cpu_serveur_coeurs": 1.92
+  },
+  {
+   "scenario": "mode:connexion-par-requete",
+   "concurrency": 8,
+   "mode": "R",
+   "rps": 172.62,
+   "lat_moy_ms": 38.25,
+   "p50_ms": 26.05,
+   "p95_ms": 86.89,
+   "p99_ms": 167.97,
+   "taux_erreur_pct": 0.048,
+   "requetes": 2079,
+   "rss_serveur_pic_mib": 505,
+   "cpu_serveur_coeurs": 1.99
+  },
+  {
+   "scenario": "mode:persistant",
+   "concurrency": 8,
+   "mode": "P",
+   "rps": 172.81,
+   "lat_moy_ms": 36.64,
+   "p50_ms": 23.62,
+   "p95_ms": 87.88,
+   "p99_ms": 142.07,
+   "taux_erreur_pct": 0.0,
+   "requetes": 2171,
+   "rss_serveur_pic_mib": 555,
+   "cpu_serveur_coeurs": 1.9
+  }
+ ]
+}

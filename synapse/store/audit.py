@@ -22,10 +22,11 @@ def append(
     target_type: str | None,
     target_username: str | None,
     outcome: str,
+    hlc: str,
 ) -> None:
     conn.execute(
         "INSERT INTO audit_log (organization_name, at, actor_username, command, "
-        "target_type, target_username, outcome) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "target_type, target_username, outcome, hlc) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         (
             organization_name,
             at,
@@ -34,6 +35,7 @@ def append(
             target_type,
             target_username,
             outcome,
+            hlc,
         ),
     )
 
