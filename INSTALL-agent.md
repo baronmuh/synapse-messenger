@@ -91,6 +91,21 @@ export SYNAPSE_CONFIG="$SYNAPSE_BASE/config.json"
 Verification point 3.1: the file exists, is valid JSON, and its
 directories exist.
 
+### Recommended — CLI usable from any terminal
+
+The exported variable above only lives in the current shell. To make
+`synapse` work from every terminal (old windows, non-login shells)
+without touching shell rc files, install the wrapper as the CLI entry
+point (`~/.local/bin` must be first in `PATH`):
+
+```bash
+install -m 755 scripts/synapse-wrapper.sh "$HOME/.local/bin/synapse"
+```
+
+The wrapper fills in `$SYNAPSE_BASE/config.json` only when no config
+variable is set; an explicit `--config` or an existing
+`SYNAPSE_CONFIG` / `Synapse_CONFIG` is always honored.
+
 ## Step 4 — Create the organization
 
 ```bash
